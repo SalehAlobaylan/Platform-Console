@@ -4,7 +4,6 @@ interface SearchBarProps {
   onSearch: (e: React.FormEvent) => void;
   loading: boolean;
 }
-
 export default function SearchBar({ searchTerm, setSearchTerm, onSearch, loading }: SearchBarProps) {
   return (
     <div className="bg-white form-container rounded-lg shadow-md mb-8">
