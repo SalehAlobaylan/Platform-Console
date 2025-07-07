@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import SearchBar from './components/SearchBar';
+import SearchBar from '../components/SearchBar';
 
 interface Podcast {
   id: number;
