@@ -1,7 +1,7 @@
 # Simple Dockerfile for iTunesBrowser (Next.js + Fastify)
 
 # 1. Use official lightweight Node.js LTS image
-FROM node:20-alpine
+FROM node:22-alpine
 
 # 2. Create app directory inside container
 WORKDIR /app
