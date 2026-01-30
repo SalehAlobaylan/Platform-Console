@@ -4,7 +4,7 @@ import axios, {
     AxiosRequestConfig,
     AxiosResponse,
 } from 'axios';
-import { getToken } from '@/lib/stores/auth';
+import { getToken, clearAuthState } from '@/lib/stores/auth';
 
 // API Error type
 export interface ApiError {
@@ -27,14 +27,15 @@ type ErrorHandler = (error: ApiError) => void;
 
 // Default error handlers
 let on401Handler: ErrorHandler = () => {
-    // TODO: In Phase 2, implement redirect to /login
+    // Clear auth state and redirect to login
+    clearAuthState();
     if (typeof window !== 'undefined') {
         window.location.href = '/login';
     }
 };
 
 let on403Handler: ErrorHandler = (error) => {
-    // TODO: In Phase 2, surface via toast
+    // Permission denied - will be overridden by AuthProvider to show toast
     console.error('Permission denied:', error.message);
 };
 

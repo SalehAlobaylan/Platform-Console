@@ -12,7 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuthStore } from '@/lib/stores/auth';
+import { useAuth } from '@/hooks/use-auth';
 import { Breadcrumb } from './Breadcrumb';
 
 interface HeaderProps {
@@ -20,7 +20,7 @@ interface HeaderProps {
 }
 
 export function Header({ className }: HeaderProps) {
-    const { user, logout } = useAuthStore();
+    const { user, logout } = useAuth();
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
     const [mounted, setMounted] = useState(false);
 
@@ -28,7 +28,9 @@ export function Header({ className }: HeaderProps) {
     useEffect(() => {
         setMounted(true);
         const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
         const initialTheme = savedTheme || systemTheme;
         setTheme(initialTheme);
         document.documentElement.classList.toggle('dark', initialTheme === 'dark');
@@ -43,11 +45,12 @@ export function Header({ className }: HeaderProps) {
 
     const handleLogout = () => {
         logout();
-        window.location.href = '/login';
     };
 
     return (
-        <header className={`flex h-16 items-center justify-between border-b bg-card px-6 ${className || ''}`}>
+        <header
+            className={`flex h-16 items-center justify-between border-b bg-card px-6 ${className || ''}`}
+        >
             {/* Breadcrumb */}
             <Breadcrumb />
 
@@ -84,10 +87,12 @@ export function Header({ className }: HeaderProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuLabel>
-                            {user?.name || 'Admin User'}
-                            <p className="text-xs font-normal text-muted-foreground">
-                                {user?.email || 'admin@example.com'}
-                            </p>
+                            <div className="flex flex-col">
+                                <span>{user?.email || 'Unknown'}</span>
+                                <span className="text-xs font-normal text-muted-foreground capitalize">
+                                    {user?.role || 'User'}
+                                </span>
+                            </div>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleLogout}>
