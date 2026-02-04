@@ -7,6 +7,7 @@ import {
     CheckSquare,
     Tag,
     BarChart,
+    Shield,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -40,6 +41,12 @@ export const navigation: NavigationSection[] = [
             { name: 'Reports', href: '/crm/reports/overview', icon: BarChart },
         ],
     },
+    {
+        title: 'Admin',
+        items: [
+            { name: 'Users', href: '/admin/users', icon: Shield },
+        ],
+    },
 ];
 
 // Route constants for type-safe navigation
@@ -57,5 +64,8 @@ export const ROUTES = {
         MY_TASKS: '/crm/my-tasks',
         TAGS: '/crm/tags',
         REPORTS: '/crm/reports/overview',
+    },
+    ADMIN: {
+        USERS: '/admin/users',
     },
 } as const;
