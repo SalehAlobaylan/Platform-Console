@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
     title: 'Platform Console',
-    description: 'Turfa Platform Admin Console',
+    description: 'Wahb Platform Admin Console',
 };
 
 export default function RootLayout({

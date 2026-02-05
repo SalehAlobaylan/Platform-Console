@@ -3,7 +3,7 @@
 **Version:** 1.0  
 **Created:** January 24, 2026  
 **Project:** iTunesBrowser → Platform Console  
-**Target:** Admin Dashboard for Turfa Platform + CRM Frontend
+**Target:** Admin Dashboard for Wahb Platform + CRM Frontend
 
 ---
 
@@ -11,7 +11,7 @@
 
 This document outlines a complete plan to refactor the current **iTunesBrowser** Next.js application into the **Platform Console** — an internal admin dashboard that:
 
-1. **Operates the Turfa Platform** (content sources, ingestion monitoring, content status)
+1. **Operates the Wahb Platform** (content sources, ingestion monitoring, content status)
 2. **Serves as CRM Frontend** (customers, contacts, deals, activities, notes, tags, reports)
 
 The Platform Console will integrate with two backend services:
@@ -866,8 +866,8 @@ GET    /admin/reports/overview     Get overview metrics
 **Environment Variables:**
 ```env
 # API URLs
-NEXT_PUBLIC_CMS_BASE_URL=https://cms.turfa.com
-NEXT_PUBLIC_CRM_BASE_URL=https://crm.turfa.com
+NEXT_PUBLIC_CMS_BASE_URL=https://cms.wahb.com
+NEXT_PUBLIC_CRM_BASE_URL=https://crm.wahb.com
 
 # App
 NEXT_PUBLIC_APP_ENV=production
@@ -971,8 +971,8 @@ NEXT_PUBLIC_ENABLE_MOCK=false
 - [Platform Console Requirements](./context/Platform_Console_Context_Requirements.md)
 - [CRM Service Requirements](./context/CRM_Context_Requirements.md)
 - [CMS Context Requirements](./context/CMS_Context_Requirements.md)
-- [Turfa Platform Context](./context/Turfa_Platform_Context_Requirements%20.md)
-- [Turfa Overall Context](./context/Turfa_Overall_Project_Context_Requirements.md)
+- [Wahb Platform Context](./context/Wahb_Platform_Context_Requirements%20.md)
+- [Wahb Overall Context](./context/Wahb_Overall_Project_Context_Requirements.md)
 - [PRD](./context/PRD.md)
 
 ---
