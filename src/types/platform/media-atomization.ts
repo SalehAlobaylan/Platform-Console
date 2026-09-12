@@ -298,6 +298,10 @@ export interface MediaAtomizationParentContext {
 
 export interface MediaAtomizationPipelineItem {
     id: string;
+    lane?: string;
+    current_phase?: string;
+    disposition?: 'active' | 'parked_transcript' | 'parked_review' | 'parked_failed' | 'reconciling' | 'published' | 'cancelled' | string;
+    parked_reason?: string;
     title?: string | null;
     status: string;
     chaptering_status?: AtomizationStatus | null;
@@ -317,6 +321,12 @@ export interface MediaAtomizationPipelineItem {
     media_stage_state?: string | null;
     media_stage_phase?: string | null;
     transcript_stage_state?: string | null;
+    atomization_stage_state?: string | null;
+    active_attempt_id?: string | null;
+    generation_id?: string | null;
+    historical_failure_count?: number;
+    expected_chapter_count?: number;
+    verified_chapter_count?: number;
     failed_or_stuck?: boolean;
     atomization_override?: 'inherit' | 'disabled' | 'enabled' | string | null;
     atomization_override_reason?: string | null;
@@ -324,6 +334,10 @@ export interface MediaAtomizationPipelineItem {
     updated_at: string;
     age_seconds: number;
     primary_action: string;
+    allowed_actions?: Array<'inspect' | 'download' | 'approve_transcript' | 'review' | 'retry_atomization'>;
+    blocked_reason?: string;
+    blocking_reason?: string;
+    retryable?: boolean;
     action_href: string;
 }
 
@@ -332,6 +346,8 @@ export interface MediaAtomizationPipelineColumn {
     label: string;
     count: number;
     items: MediaAtomizationPipelineItem[];
+    displayed_count?: number;
+    next_cursor?: string;
 }
 
 export interface MediaAtomizationPipeline {

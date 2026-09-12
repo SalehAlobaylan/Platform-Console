@@ -55,7 +55,9 @@ import {
     useUpdateMediaAtomizationSourcePolicy,
 } from '@/hooks/use-media-atomization';
 import { useTriggerStt } from '@/hooks/use-transcription';
+import { useRequestMediaAcquisition } from '@/hooks/use-media-acquisition';
 import { cn } from '@/lib/utils';
+import { getMediaAtomizationPipeline } from '@/lib/api/cms/media-atomization';
 import type {
     AtomizationFilters,
     MediaAtomizationChapter,
@@ -192,12 +194,6 @@ function formatSeconds(seconds?: number | null): string {
 function formatCoverage(percent?: number | null): string {
     if (percent === null || percent === undefined || Number.isNaN(percent)) return 'n/a';
     return `${Math.round(percent)}%`;
-}
-
-function statusCount(data: MediaAtomizationOverview | undefined, names: string[]): number {
-    return data?.parent_status_counts
-        ?.filter((row) => names.includes(row.name))
-        .reduce((sum, row) => sum + row.count, 0) ?? 0;
 }
 
 function childVisibilityCount(data: MediaAtomizationOverview | undefined, visibility: string): number {
@@ -694,7 +690,10 @@ function PublicationCard({
     );
 }
 
-function AtomizationRail({ pipeline, onOpenStudio }: { pipeline?: MediaAtomizationPipeline; onOpenStudio: (id: string) => void }) {
+function AtomizationRail({ pipeline, filters, revision, onOpenStudio }: { pipeline?: MediaAtomizationPipeline; filters: AtomizationFilters; revision: number; onOpenStudio: (id: string) => void }) {
+    // A fetched snapshot owns all pagination beneath it. Remounting lanes
+    // also isolates in-flight responses from a previous filter/snapshot.
+    const snapshotKey = JSON.stringify([filters, revision]);
     const columns = useMemo(() => Array.isArray(pipeline?.columns) ? pipeline.columns : [], [pipeline?.columns]);
     const firstActive = columns.find((column) => column.count > 0)?.key ?? columns[0]?.key ?? 'ready';
     const [selectedStage, setSelectedStage] = useState(firstActive);
@@ -731,18 +730,35 @@ function AtomizationRail({ pipeline, onOpenStudio }: { pipeline?: MediaAtomizati
 
             <div className="hidden overflow-x-auto p-3 md:block">
                 <div className="grid min-w-[1500px] grid-cols-10 gap-2">
-                    {columns.map((column) => <RailLane key={column.key} column={column} onOpenStudio={onOpenStudio} />)}
+                    {columns.map((column) => <RailLane key={`${snapshotKey}:${column.key}`} column={column} filters={filters} onOpenStudio={onOpenStudio} />)}
                 </div>
             </div>
             <div className="p-3 md:hidden">
-                {selected ? <RailLane column={selected} mobile onOpenStudio={onOpenStudio} /> : <EmptyBox text="No pipeline data yet." />}
+                {selected ? <RailLane key={`${snapshotKey}:${selected.key}`} column={selected} filters={filters} mobile onOpenStudio={onOpenStudio} /> : <EmptyBox text="No pipeline data yet." />}
             </div>
         </section>
     );
 }
 
-function RailLane({ column, mobile = false, onOpenStudio }: { column: MediaAtomizationPipelineColumn; mobile?: boolean; onOpenStudio: (id: string) => void }) {
-    const items = Array.isArray(column.items) ? column.items : [];
+function RailLane({ column, filters, mobile = false, onOpenStudio }: { column: MediaAtomizationPipelineColumn; filters: AtomizationFilters; mobile?: boolean; onOpenStudio: (id: string) => void }) {
+    const [extra, setExtra] = useState<MediaAtomizationPipelineItem[]>([]);
+    const [cursor, setCursor] = useState<string | undefined>(column.next_cursor);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string>();
+    const filterKey = JSON.stringify(filters);
+    useEffect(() => { setExtra([]); setCursor(column.next_cursor); setError(undefined); }, [filterKey, column.key, column.next_cursor]);
+    const items = [...new Map([...extra, ...(column.items ?? [])].map(item => [item.id, item])).values()];
+    const loadMore = async () => {
+        if (!cursor || loading) return;
+        setLoading(true); setError(undefined);
+        try {
+            const page = await getMediaAtomizationPipeline({ ...filters, lane: column.key, cursor, limit: 100 });
+            const lane = page.columns.find(value => value.key === column.key);
+            setExtra(previous => [...previous, ...(lane?.items ?? [])]);
+            setCursor(lane?.next_cursor);
+        } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load this lane'); }
+        finally { setLoading(false); }
+    };
     return (
         <div className={cn('min-h-64 rounded-md border bg-card', !mobile && 'min-w-0')}>
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card px-3 py-2">
@@ -752,15 +768,35 @@ function RailLane({ column, mobile = false, onOpenStudio }: { column: MediaAtomi
             <div className="space-y-2 p-2">
                 {items.length === 0 ? (
                     <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">No parents in lane.</p>
-                ) : items.map((item) => <RailCard key={item.id} item={item} onOpenStudio={onOpenStudio} />)}
+                ) : items.map((item) => <div key={item.id}><RailCard item={item} onOpenStudio={onOpenStudio} /><RailActions item={item} /></div>)}
                 {column.count > items.length && (
                     <p className="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">
                         +{column.count - items.length} more match this lane
                     </p>
                 )}
+                {cursor && <Button size="sm" variant="outline" disabled={loading} onClick={loadMore}>{loading ? 'Loading…' : 'Load more'}</Button>}
+                {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
             </div>
         </div>
     );
+}
+
+function RailActions({ item }: { item: MediaAtomizationPipelineItem }) {
+    const retry = useAtomizeMediaParent();
+    const transcript = useTriggerStt();
+    const acquisition = useRequestMediaAcquisition();
+    const actions = item.allowed_actions ?? [];
+    const pending = retry.isPending || transcript.isPending || acquisition.isPending;
+    return <div className="mt-1 flex flex-wrap gap-1">
+        {actions.includes('download') && <Button size="sm" variant="outline" disabled={pending} onClick={() => {
+            if (window.confirm(`Download and process 1 episode? Duration: ${item.duration_sec == null ? 'unknown' : `${Math.round(item.duration_sec / 60)} minutes`}. Storage size: unknown until media probe.`)) acquisition.mutate(item.id);
+        }}>Download &amp; process</Button>}
+        {actions.includes('approve_transcript') && <Button size="sm" variant="outline" disabled={pending} onClick={() => {
+            if (window.confirm('Approve transcription for this episode? Generated STT may incur provider charges; available captions are imported first.')) transcript.mutate(item.id);
+        }}>Approve transcript</Button>}
+        {actions.includes('retry_atomization') && <Button size="sm" variant="outline" disabled={pending} onClick={() => retry.mutate(item.id)}>Resume processing</Button>}
+        {item.blocked_reason && <p className="text-xs text-muted-foreground">{item.blocked_reason}</p>}
+    </div>;
 }
 
 function RailCard({ item, onOpenStudio }: { item: MediaAtomizationPipelineItem; onOpenStudio: (id: string) => void }) {
@@ -783,9 +819,12 @@ function RailCard({ item, onOpenStudio }: { item: MediaAtomizationPipelineItem; 
                 {item.failed_or_stuck && item.status !== 'FAILED' && <Badge variant="destructive">stuck</Badge>}
                 <Badge variant={item.transcript_state === 'ready' ? 'success' : 'warning'}>{item.transcript_state === 'ready' ? 'transcript' : 'no transcript'}</Badge>
                 {item.media_stage_state && <Badge variant="info">media {item.media_stage_state.replaceAll('_', ' ')}</Badge>}
-                {item.media_stage_phase && <Badge variant="outline">media phase {item.media_stage_phase.replaceAll('_', ' ')}</Badge>}
-                {item.transcript_stage_state && <Badge variant="info">STT {item.transcript_stage_state.replaceAll('_', ' ')}</Badge>}
+                {item.media_stage_phase && ['running', 'verifying'].includes(item.media_stage_state ?? '') && <Badge variant="outline">media phase {item.media_stage_phase.replaceAll('_', ' ')}</Badge>}
+                {item.transcript_stage_state && <Badge variant="info">{item.transcript_stage_state === 'blocked' ? 'Transcript waits for media' : `Transcript ${item.transcript_stage_state.replaceAll('_', ' ')}`}</Badge>}
                 {item.run_phase && <Badge variant="outline">phase {item.run_phase.replaceAll('_', ' ')}</Badge>}
+                {item.current_phase && <Badge variant="outline">current {item.current_phase.replaceAll('_', ' ')}</Badge>}
+                {item.disposition && item.disposition !== 'active' && <Badge variant={item.disposition === 'reconciling' || item.disposition === 'parked_failed' ? 'destructive' : 'secondary'}>{item.disposition.replaceAll('_', ' ')}</Badge>}
+                {!!item.expected_chapter_count && <Badge variant="outline">{item.verified_chapter_count ?? 0}/{item.expected_chapter_count} cuts verified</Badge>}
                 {item.atomization_override && item.atomization_override !== 'inherit' && (
                     <Badge variant={item.atomization_override === 'disabled' ? 'secondary' : 'info'}>{item.atomization_override}</Badge>
                 )}
@@ -797,7 +836,7 @@ function RailCard({ item, onOpenStudio }: { item: MediaAtomizationPipelineItem; 
                 <MiniStat label="review" value={item.review_count} />
                 <MiniStat label="embed" value={item.embedding_pending_count} />
             </div>
-            {error && <p className="mt-2 line-clamp-2 rounded bg-destructive/10 px-2 py-1 text-destructive">{error}</p>}
+            {(error || item.blocking_reason || item.parked_reason) && <p className="mt-2 line-clamp-2 rounded bg-destructive/10 px-2 py-1 text-destructive">{error ?? item.blocking_reason ?? item.parked_reason}</p>}
             <span className="mt-2 inline-flex items-center gap-1 font-medium text-[#2CBAC6]">
                 {item.primary_action}
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -1175,7 +1214,7 @@ export function MediaAtomizationDashboard() {
     const overview = useMediaAtomizationOverview();
     const policy = useMediaAtomizationPolicy({ enabled: policyActive });
     const sources = useMediaAtomizationSources({ enabled: policyActive });
-    const pipeline = useMediaAtomizationPipeline(filters, { enabled: workflowActive });
+    const pipeline = useMediaAtomizationPipeline(filters, { enabled: workflowActive || studioActive || diagnosticsActive });
     const parentFilters = useMemo(() => ({ ...filters, review: filters.review === 'needed' ? undefined : filters.review }), [filters]);
     const chapterFilters = useMemo(() => ({ ...filters, review: filters.review ?? 'needed' }), [filters]);
     const feedUnitMapFilters = useMemo(() => ({ source: filters.source, q: filters.q }), [filters.source, filters.q]);
@@ -1370,13 +1409,14 @@ export function MediaAtomizationDashboard() {
                     <>
                         {workflowLoading && !pipeline.data && <TabLoading label="Loading atomization workflow" />}
                         <SummaryStrip>
-                            <KpiCard label="Preparing media" value={statusCount(overviewData, ['waiting_media'])} sub="before transcript" />
-                            <KpiCard label="Waiting transcript" value={statusCount(overviewData, ['waiting_transcript'])} sub="parents" />
-                            <KpiCard label="Planning + cutting" value={statusCount(overviewData, ['planning', 'cutting', 'renditions', 'children'])} sub="active" />
-                            <KpiCard label="Embedding pending" value={childVisibilityCount(overviewData, 'embedding_pending')} sub="hidden from feed" />
-                            <KpiCard label="Failed or stuck" value={overviewData?.failed_stuck_count ?? 0} tone="bad" />
+                            <KpiCard label="Awaiting download" value={pipeline.data?.columns.find(c => c.key === 'awaiting_download')?.count ?? 0} sub="approval needed" />
+                            <KpiCard label="Preparing media" value={pipeline.data?.columns.find(c => c.key === 'media')?.count ?? 0} sub="queued or active" />
+                            <KpiCard label="Awaiting transcript" value={pipeline.data?.columns.find(c => c.key === 'transcript')?.count ?? 0} sub="parents" />
+                            <KpiCard label="Planning + cutting" value={pipeline.data?.columns.find(c => c.key === 'planning')?.count ?? 0} />
+                            <KpiCard label="Embedding pending" value={pipeline.data?.columns.find(c => c.key === 'embedding')?.count ?? 0} sub="parents" />
+                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 0} tone="bad" />
                         </SummaryStrip>
-                        <AtomizationRail pipeline={pipeline.data} onOpenStudio={openStudio} />
+                        <AtomizationRail pipeline={pipeline.data} revision={pipeline.dataUpdatedAt} filters={filters} onOpenStudio={openStudio} />
                     </>
                     )}
                 </TabsContent>
@@ -1409,13 +1449,13 @@ export function MediaAtomizationDashboard() {
                     <>
                         <SummaryStrip>
                             <KpiCard label="Review pressure" value={overviewData?.review_needed_count ?? 0} sub="chapters" tone="warn" />
-                            <KpiCard label="Waiting transcript" value={statusCount(overviewData, ['waiting_transcript'])} sub="parents" />
+                            <KpiCard label="Awaiting transcript" value={pipeline.data?.columns.find(c => c.key === 'transcript')?.count ?? 0} sub="parents" />
                             <KpiCard label="Published in Pods" value={
                                 publicationPathCount(overviewData, 'atomized')
                                 + publicationPathCount(overviewData, 'direct_transcript')
                                 + publicationPathCount(overviewData, 'direct_no_transcript')
                             } tone="ok" />
-                            <KpiCard label="Failed or stuck" value={overviewData?.failed_stuck_count ?? 0} tone="bad" />
+                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 0} tone="bad" />
                         </SummaryStrip>
                         <div className="grid gap-5 xl:grid-cols-[minmax(260px,0.45fr)_minmax(0,1fr)]">
                             <section className="rounded-md border bg-card">
@@ -1520,7 +1560,7 @@ export function MediaAtomizationDashboard() {
                             <KpiCard label="Avg chapters" value={(overviewData?.average_chapters_per_parent ?? 0).toFixed(1)} sub="per parent" />
                             <KpiCard label="Avg run time" value={formatSeconds(overviewData?.average_processing_seconds)} sub="completed runs" />
                             <KpiCard label="Duration violations" value={durationViolations} sub="visible units" tone={durationViolations > 0 ? 'bad' : 'ok'} />
-                            <KpiCard label="Failed or stuck" value={overviewData?.failed_stuck_count ?? 0} tone="bad" />
+                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 0} tone="bad" />
                         </SummaryStrip>
                         <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                             <RunPanel runs={runs.data ?? []} onOpenStudio={openStudio} />

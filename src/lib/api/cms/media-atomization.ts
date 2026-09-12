@@ -56,7 +56,7 @@ export const updateMediaAtomizationSourcePolicy = (sourceId: string, patch: Medi
     unwrap(cmsClient.patch<CmsEnvelope<{ policy: MediaAtomizationPolicy }>>(`/admin/media-atomization/sources/${sourceId}/policy`, patch))
         .then((d) => d.policy);
 
-export const getMediaAtomizationPipeline = (filters?: AtomizationFilters & { limit?: number }) =>
+export const getMediaAtomizationPipeline = (filters?: AtomizationFilters & { limit?: number; lane?: string; cursor?: string }) =>
     unwrap(
         cmsClient.get<CmsEnvelope<MediaAtomizationPipeline>>(
             '/admin/media-atomization/pipeline',
