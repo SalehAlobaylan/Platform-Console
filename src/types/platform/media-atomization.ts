@@ -333,6 +333,8 @@ export interface MediaAtomizationPipelineItem {
     manual_atomization_requested_at?: string | null;
     updated_at: string;
     age_seconds: number;
+    processing_generation?: number;
+    last_progress_at?: string;
     primary_action: string;
     allowed_actions?: Array<'inspect' | 'download' | 'approve_transcript' | 'review' | 'retry_atomization'>;
     blocked_reason?: string;
@@ -357,6 +359,7 @@ export interface MediaAtomizationPipeline {
 }
 
 export interface AtomizationFilters {
+	parent_id?: string;
     status?: string;
     source?: string;
     bucket?: string;

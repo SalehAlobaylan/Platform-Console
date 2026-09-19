@@ -75,10 +75,12 @@ export function useMediaAtomizationSources(options: QueryEnabledOption = {}) {
     });
 }
 
-export function useMediaAtomizationOverview() {
+export function useMediaAtomizationOverview(options: QueryEnabledOption = {}) {
     return useQuery({
         queryKey: mediaAtomizationKeys.overview(),
         queryFn: getMediaAtomizationOverview,
+        enabled: options.enabled ?? true,
+        refetchIntervalInBackground: false,
         refetchInterval: (query) => overviewPollMs(query.state.data),
         staleTime: 5_000,
     });
@@ -88,7 +90,8 @@ export function useMediaAtomizationParents(filters: AtomizationFilters, options:
     return useQuery({
         queryKey: mediaAtomizationKeys.parents(filters),
         queryFn: () => listMediaAtomizationParents({ ...filters, limit: 80 }),
-        refetchInterval: 10_000,
+        refetchInterval: 30_000,
+        refetchIntervalInBackground: false,
         staleTime: 5_000,
         enabled: options.enabled ?? true,
     });
@@ -108,6 +111,7 @@ export function useMediaAtomizationFeedUnits(filters: Pick<AtomizationFilters, '
         queryKey: mediaAtomizationKeys.feedUnits(filters),
         queryFn: () => listMediaAtomizationFeedUnits({ ...filters, limit: 200 }),
         refetchInterval: filters.path === 'blocked_transcript' || filters.path === 'invalid' ? 5_000 : 60_000,
+        refetchIntervalInBackground: false,
         staleTime: 5_000,
         enabled: options.enabled ?? true,
     });
@@ -118,6 +122,7 @@ export function useMediaAtomizationPipeline(filters: AtomizationFilters, options
         queryKey: mediaAtomizationKeys.pipeline(filters),
         queryFn: () => getMediaAtomizationPipeline({ ...filters, limit: 320 }),
         refetchInterval: 5_000,
+        refetchIntervalInBackground: false,
         staleTime: 5_000,
         enabled: options.enabled ?? true,
     });
@@ -128,6 +133,7 @@ export function useMediaAtomizationChapters(filters: AtomizationFilters, options
         queryKey: mediaAtomizationKeys.chapters(filters),
         queryFn: () => listMediaAtomizationChapters({ ...filters, limit: 80 }),
         refetchInterval: filters.review === 'needed' || filters.review === 'embedding_pending' ? 5_000 : 60_000,
+        refetchIntervalInBackground: false,
         staleTime: 5_000,
         enabled: options.enabled ?? true,
     });
@@ -149,10 +155,12 @@ export function useApproveAtomizedChapter() {
         mutationFn: approveAtomizedChapter,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: mediaAtomizationKeys.all });
-            toast({ title: 'Chapter approved', variant: 'success' });
+            queryClient.invalidateQueries({ queryKey: ['media-journey'] });
+            toast({ title: 'Chapter approved for publication', description: 'Publication waits for all remaining chapter and generation requirements.', variant: 'success' });
         },
         onError: (error: Error) => {
             toast({ title: 'Approval failed', description: error.message, variant: 'destructive' });
+            queryClient.invalidateQueries({ queryKey: ['media-journey'] });
         },
     });
 }
@@ -214,6 +222,7 @@ export function useUpdateMediaAtomizationPolicy() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: mediaAtomizationKeys.all });
             toast({ title: 'Atomization policy updated', variant: 'success' });
+            queryClient.invalidateQueries({ queryKey: ['media-journey'] });
         },
         onError: (error: Error) => toast({ title: 'Policy update failed', description: error.message, variant: 'destructive' }),
     });
@@ -227,6 +236,7 @@ export function useUpdateMediaAtomizationSourcePolicy() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: mediaAtomizationKeys.all });
             toast({ title: 'Source atomization policy updated', variant: 'success' });
+            queryClient.invalidateQueries({ queryKey: ['media-journey'] });
         },
         onError: (error: Error) => toast({ title: 'Source policy update failed', description: error.message, variant: 'destructive' }),
     });
@@ -240,6 +250,7 @@ export function useUpdateMediaAtomizationParentOverride() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: mediaAtomizationKeys.all });
             toast({ title: 'Episode atomization override updated', variant: 'success' });
+            queryClient.invalidateQueries({ queryKey: ['media-journey'] });
         },
         onError: (error: Error) => toast({ title: 'Override update failed', description: error.message, variant: 'destructive' }),
     });

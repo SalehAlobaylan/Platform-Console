@@ -46,8 +46,9 @@ export function Sidebar({ className }: SidebarProps) {
     setMobileSidebarOpen,
   } = useUIStore();
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/');
+  const matches = (href: string) => href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/');
+  const activeHref = navigation.flatMap(section => section.items).map(item => item.href).filter(matches).sort((a,b) => b.length-a.length)[0];
+  const isActive = (href: string) => href === activeHref;
 
   const NavContent = ({ mobile = false }: { mobile?: boolean }) => (
     <>

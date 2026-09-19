@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -26,6 +27,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MediaStudioWorkbench } from '@/components/platform/media/studio/media-studio-workbench';
 import { StudioAutopilotPanel } from '@/components/platform/media/studio/studio-autopilot-panel';
+import { MediaJourneyGuide, MediaJourneyList, EpisodeJourney, useJourneyLocale } from '@/components/platform/media/studio/media-journey';
+import { PublishedJourney } from '@/components/platform/media/studio/published-journey';
+import { JourneyActions } from '@/components/platform/media/studio/journey-actions';
+import { EpisodeContextTab } from '@/components/platform/media/studio/episode-context-tabs';
 import {
     Select,
     SelectContent,
@@ -86,12 +91,12 @@ type MissionTab = typeof missionTabs[number];
 
 function readMissionTab(params: URLSearchParams): MissionTab {
     const raw = params.get('tab');
-    return missionTabs.includes(raw as MissionTab) ? raw as MissionTab : 'publish';
+    return missionTabs.includes(raw as MissionTab) ? raw as MissionTab : 'workflow';
 }
 
 function missionTabLabel(tab: MissionTab): string {
     switch (tab) {
-        case 'publish': return 'Publish';
+        case 'publish': return 'Published';
         case 'workflow': return 'Workflow';
         case 'review': return 'Review';
         case 'studio': return 'Studio';
@@ -367,6 +372,7 @@ function PolicyEditor({
     saving: boolean;
     onPatch: (patch: Partial<MediaAtomizationPolicy>) => void;
 }) {
+    if (!policy) return <EmptyBox text="Tenant policy is unavailable. Controls will appear after a successful read." />;
     return (
         <section className="rounded-md border bg-card">
             <SectionHeader icon={<SlidersHorizontal className="h-4 w-4 text-[#2CBAC6]" />} title="Policy Controls" sub="Tenant defaults. Source and episode overrides can narrow these rules, but cannot atomize <=40m parents." />
@@ -533,7 +539,7 @@ function PublicationMap({
                                 </span>
                             </button>
                             <div className="mt-3 h-1.5 rounded bg-white/10">
-                                <div className="h-1.5 rounded" style={{ width: `${Math.min(100, Math.max(8, publicationPathCount(overview, path) * 8))}%`, backgroundColor: color }} />
+                                <div className="h-1.5 rounded" style={{ width: `${Math.min(100, publicationPathCount(overview, path) * 8)}%`, backgroundColor: color }} />
                             </div>
                             <div className="mt-3 space-y-2">
                                 {items.length === 0 ? (
@@ -729,12 +735,12 @@ function AtomizationRail({ pipeline, filters, revision, onOpenStudio }: { pipeli
             </div>
 
             <div className="hidden overflow-x-auto p-3 md:block">
-                <div className="grid min-w-[1500px] grid-cols-10 gap-2">
-                    {columns.map((column) => <RailLane key={`${snapshotKey}:${column.key}`} column={column} filters={filters} onOpenStudio={onOpenStudio} />)}
+                <div className="grid min-w-[2900px] grid-cols-10 gap-3">
+                    {columns.map((column) => <RailLane key={`${JSON.stringify(filters)}:${column.key}`} column={column} filters={filters} onOpenStudio={onOpenStudio} />)}
                 </div>
             </div>
             <div className="p-3 md:hidden">
-                {selected ? <RailLane key={`${snapshotKey}:${selected.key}`} column={selected} filters={filters} mobile onOpenStudio={onOpenStudio} /> : <EmptyBox text="No pipeline data yet." />}
+                {selected ? <RailLane key={`${JSON.stringify(filters)}:${selected.key}`} column={selected} filters={filters} mobile onOpenStudio={onOpenStudio} /> : <EmptyBox text="No pipeline data yet." />}
             </div>
         </section>
     );
@@ -746,7 +752,8 @@ function RailLane({ column, filters, mobile = false, onOpenStudio }: { column: M
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string>();
     const filterKey = JSON.stringify(filters);
-    useEffect(() => { setExtra([]); setCursor(column.next_cursor); setError(undefined); }, [filterKey, column.key, column.next_cursor]);
+    useEffect(() => { setExtra([]); setCursor(column.next_cursor); setError(undefined); }, [filterKey, column.key]);
+    useEffect(() => { if (extra.length === 0) setCursor(column.next_cursor); }, [column.next_cursor, extra.length]);
     const items = [...new Map([...extra, ...(column.items ?? [])].map(item => [item.id, item])).values()];
     const loadMore = async () => {
         if (!cursor || loading) return;
@@ -793,8 +800,9 @@ function RailActions({ item }: { item: MediaAtomizationPipelineItem }) {
         }}>Download &amp; process</Button>}
         {actions.includes('approve_transcript') && <Button size="sm" variant="outline" disabled={pending} onClick={() => {
             if (window.confirm('Approve transcription for this episode? Generated STT may incur provider charges; available captions are imported first.')) transcript.mutate(item.id);
-        }}>Approve transcript</Button>}
-        {actions.includes('retry_atomization') && <Button size="sm" variant="outline" disabled={pending} onClick={() => retry.mutate(item.id)}>Resume processing</Button>}
+        }}>Generate transcript</Button>}
+        {actions.includes('retry_atomization') && <Button size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm('Retry the failed atomization step? Verified work is reused when safe. Planning, cutting, or embedding may incur processing costs. This does not bypass publication checks.')) retry.mutate(item.id); }}>Retry atomization</Button>}
+        {actions.includes('review') && <Button size="sm" variant="outline" onClick={() => window.location.assign(`/platform/media/atomization?tab=review&item=${item.id}`)}>Review chapter</Button>}
         {item.blocked_reason && <p className="text-xs text-muted-foreground">{item.blocked_reason}</p>}
     </div>;
 }
@@ -914,8 +922,8 @@ function ReviewQueue({
                                 <Button size="sm" variant="outline" onClick={() => onOpenStudio(chapter.parent_id, chapter.id)}>
                                     <ExternalLink className="mr-2 h-4 w-4" /> Studio
                                 </Button>
-                                <Button size="sm" onClick={() => onApprove(chapter.id)} disabled={actionsDisabled || approving || rejecting || invalidDuration}>
-                                    <Check className="mr-2 h-4 w-4" /> Approve
+                                <Button size="sm" onClick={() => { if (window.confirm('Approve this chapter for publication? This records editorial approval. Required embeddings, verified artifacts, and sibling requirements must still pass before the complete generation publishes.')) onApprove(chapter.id); }} disabled={actionsDisabled || approving || rejecting || invalidDuration}>
+                                    <Check className="mr-2 h-4 w-4" /> Approve chapter for publication
                                 </Button>
                                 <Button size="sm" variant="destructive" onClick={() => onReject(chapter.id)} disabled={actionsDisabled || approving || rejecting}>
                                     <X className="mr-2 h-4 w-4" /> Reject
@@ -1103,8 +1111,102 @@ function MetricPill({ label, value }: { label: string; value: ReactNode }) {
     );
 }
 
+function DiagnosticsOrientation({
+    liveUnavailable,
+    failedApis,
+    lastUpdated,
+    schemaDegraded,
+    missingSchema,
+}: {
+    liveUnavailable: boolean;
+    failedApis: string[];
+    lastUpdated?: string;
+    schemaDegraded: boolean;
+    missingSchema: string[];
+}) {
+    const locale = useJourneyLocale();
+    const ar = locale === 'ar';
+    const text = (en: string, arabic: string) => ar ? arabic : en;
+    return (
+        <section className="rounded-md border bg-muted/20 p-4" aria-labelledby="diagnostics-how-to-use">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 id="diagnostics-how-to-use" className="flex items-center gap-2 text-base font-semibold">
+                        <ShieldCheck className="h-4 w-4 text-[#2CBAC6]" />
+                        {text('How to use diagnostics', 'كيف تستخدم التشخيص')}
+                    </h2>
+                    <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                        {text('This page explains durable evidence and the safe operator response. It is not a second queue and historical failures do not automatically describe the selected episode.', 'تشرح هذه الصفحة الأدلة الموثقة والإجراء الآمن للمشغل. ليست قائمة انتظار ثانية، ولا تعني الإخفاقات التاريخية تلقائياً أن الحلقة المحددة متوقفة.')}
+                    </p>
+                </div>
+                <Badge variant={liveUnavailable || schemaDegraded ? 'warning' : 'outline'}>
+                    {liveUnavailable || schemaDegraded ? text('Action needed', 'يتطلب إجراء') : text('Evidence guide', 'دليل الأدلة')}
+                </Badge>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {[
+                    [text('1. Confirm the snapshot', '١. تحقق من اللقطة'), text('If live data is unavailable, refresh before acting on counts or errors.', 'إذا تعذر الوصول إلى البيانات الحية، حدّث الصفحة قبل التصرف بناءً على الأعداد أو الأخطاء.')],
+                    [text('2. Open the episode', '٢. افتح الحلقة'), text('Select a failed or reconciling parent to see the current stage, dependency, and allowed action.', 'اختر الحلقة الفاشلة أو قيد التسوية لرؤية المرحلة الحالية والتبعية والإجراء المسموح.')],
+                    [text('3. Follow the next action', '٣. اتبع الإجراء التالي'), text('Waiting for a predecessor or capacity means wait or resolve that dependency; it is not an approval request.', 'انتظار المتطلب السابق أو السعة يعني الانتظار أو حل التبعية؛ وليس طلب موافقة.')],
+                    [text('4. Recover deliberately', '٤. نفّذ الاسترداد بقصد'), text('Retry only when CMS offers a safe action. Preserve verified work and reconcile uncertain effects first.', 'أعد المحاولة فقط عندما يعرض CMS إجراءً آمناً. حافظ على العمل المتحقق وسوِّ الآثار غير المؤكدة أولاً.'),],
+                ].map(([title, description]) => (
+                    <div key={title} className="rounded-md border border-border/70 bg-background/60 p-3">
+                        <p className="text-sm font-medium">{title}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+                    </div>
+                ))}
+            </div>
+            {liveUnavailable && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/35 bg-destructive/10 p-3 text-sm">
+                <div>
+                    <p className="font-medium">{text(`Live data unavailable from: ${failedApis.join(', ')}`, `البيانات الحية غير متاحة من: ${failedApis.join('، ')}`)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{text(`Cached data may be shown${lastUpdated ? `; last successful update: ${new Date(lastUpdated).toLocaleString()}` : ''}. Refresh before retrying or changing policy.`, `قد تظهر بيانات مخزنة${lastUpdated ? `؛ آخر تحديث ناجح: ${new Date(lastUpdated).toLocaleString()}` : ''}. حدّث الصفحة قبل إعادة المحاولة أو تغيير السياسة.`)}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => window.location.reload()}>{text('Refresh live data', 'تحديث البيانات الحية')}</Button>
+                    <Link className="inline-flex items-center rounded-md border px-3 py-2 text-xs font-medium hover:bg-muted" href="/platform/system-health">{text('Open System Health', 'فتح صحة النظام')}</Link>
+                </div>
+            </div>}
+            {schemaDegraded && <div className="mt-4 rounded-md border border-[#D7A83E]/40 bg-[#D7A83E]/10 p-3 text-sm">
+                <p className="font-medium">{text('CMS schema is incomplete; queue actions are intentionally disabled.', 'مخطط CMS غير مكتمل؛ تم تعطيل إجراءات الإدراج عمداً.')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{schemaDegraded && missingSchema.length ? `${text('Missing', 'المفقود')}: ${missingSchema.slice(0, 6).join(', ')}${missingSchema.length > 6 ? ` +${missingSchema.length - 6}` : ''}. ` : ''}{text('Apply the canonical CMS migration, then refresh this page before operating the pipeline.', 'طبّق ترحيل CMS المعتمد ثم حدّث الصفحة قبل تشغيل خط المعالجة.')}</p>
+                <Link className="mt-2 inline-block text-xs font-medium underline" href="/platform/system-health">{text('Check migration status', 'تحقق من حالة الترحيلات')}</Link>
+            </div>}
+        </section>
+    );
+}
+
+function runDiagnosticGuidance(status: string, locale: 'en' | 'ar') {
+    const ar = locale === 'ar';
+    const normalized = String(status ?? '').toLowerCase();
+    if (normalized === 'failed' || normalized.includes('fail')) {
+        return ar
+            ? 'افتح الحلقة واقرأ المرحلة الفاشلة في التشخيص. أعد المحاولة فقط إذا ظهر إجراء استرداد آمن.'
+            : 'Open the episode and read the failed phase in Diagnostics. Retry only if a safe recovery action is offered.';
+    }
+    if (normalized === 'reconciling' || normalized.includes('uncertain')) {
+        return ar
+            ? 'انتظر تسوية الأثر غير المؤكد أو افتح الأدلة؛ لا تعِد التنزيل أو القص أثناء التسوية.'
+            : 'Wait for the uncertain effect to reconcile or open its evidence; do not redownload or recut during reconciliation.';
+    }
+    if (normalized === 'running' || normalized === 'processing') {
+        return ar
+            ? 'اترك التشغيل مستمراً وراجع آخر تقدم مؤكد؛ لا تنشئ طلباً مكرراً.'
+            : 'Leave the run active and review its last confirmed progress; do not submit a duplicate request.';
+    }
+    if (normalized === 'queued' || normalized === 'pending') {
+        return ar
+            ? 'الطلب مقبول وينتظر التنفيذ؛ حدّث الرحلة بدلاً من إنشاء طلب ثانٍ.'
+            : 'The request is admitted and waiting to execute; refresh the journey instead of creating a second request.';
+    }
+    return ar
+        ? 'افتح الحلقة لمقارنة هذه النتيجة بالحالة الحالية قبل بدء استبدال أو إعادة معالجة.'
+        : 'Open the episode to compare this result with its current state before starting replacement or reprocessing.';
+}
+
 function RunPanel({ runs, onOpenStudio }: { runs: MediaAtomizationRun[]; onOpenStudio: (id: string) => void }) {
     const safeRuns = Array.isArray(runs) ? runs : [];
+    const locale = useJourneyLocale();
+    const ar = locale === 'ar';
     return (
         <section className="rounded-md border bg-card">
             <SectionHeader icon={<RefreshCw className="h-4 w-4 text-[#2CBAC6]" />} title="Run Diagnostics" sub="Latest atomization attempts and failure phases." />
@@ -1119,7 +1221,8 @@ function RunPanel({ runs, onOpenStudio }: { runs: MediaAtomizationRun[]; onOpenS
                                 <Badge variant="outline">{run.phase}</Badge>
                                 <span className="text-xs text-muted-foreground">{run.child_count} children · {run.review_count} review</span>
                             </div>
-                            {run.error_message && <p className="mt-1 line-clamp-1 text-xs text-destructive">{run.error_message}</p>}
+                            {run.error_message && <p className="mt-1 line-clamp-2 text-xs text-destructive">{run.error_message}</p>}
+                            <p className="mt-1 text-xs text-muted-foreground"><span className="font-medium text-foreground">{ar ? 'الإجراء التالي' : 'Next action'}:</span> {runDiagnosticGuidance(run.status, locale)}</p>
                         </div>
                         <p className="font-mono text-sm tabular-nums text-muted-foreground">{run.started_at ? new Date(run.started_at).toLocaleTimeString() : 'not started'}</p>
                         <Button size="sm" variant="outline" onClick={() => onOpenStudio(run.parent_content_item_id)}>
@@ -1204,27 +1307,32 @@ export function MediaAtomizationDashboard() {
     const activeTab = useMemo(() => readMissionTab(searchParams), [searchParams]);
     const publishActive = activeTab === 'publish';
     const workflowActive = activeTab === 'workflow';
+    const boardActive = workflowActive && searchParams.get('view') === 'board';
     const reviewActive = activeTab === 'review';
     const studioActive = activeTab === 'studio';
     const policyActive = activeTab === 'policy';
     const diagnosticsActive = activeTab === 'diagnostics';
     const selectedStudioItem = searchParams.get('item');
     const selectedStudioChapter = searchParams.get('chapter');
+    const [policyControlsOpen, setPolicyControlsOpen] = useState(!selectedStudioItem);
+    const [diagnosticsHistoryOpen, setDiagnosticsHistoryOpen] = useState(!selectedStudioItem);
+    const loadPolicyControls = policyActive && policyControlsOpen;
+    const loadDiagnosticsHistory = diagnosticsActive && diagnosticsHistoryOpen;
 
-    const overview = useMediaAtomizationOverview();
-    const policy = useMediaAtomizationPolicy({ enabled: policyActive });
-    const sources = useMediaAtomizationSources({ enabled: policyActive });
-    const pipeline = useMediaAtomizationPipeline(filters, { enabled: workflowActive || studioActive || diagnosticsActive });
+    const overview = useMediaAtomizationOverview({ enabled: boardActive || reviewActive || loadPolicyControls || loadDiagnosticsHistory });
+    const policy = useMediaAtomizationPolicy({ enabled: loadPolicyControls });
+    const sources = useMediaAtomizationSources({ enabled: loadPolicyControls });
+    const pipeline = useMediaAtomizationPipeline(filters, { enabled: boardActive || loadDiagnosticsHistory });
     const parentFilters = useMemo(() => ({ ...filters, review: filters.review === 'needed' ? undefined : filters.review }), [filters]);
-    const chapterFilters = useMemo(() => ({ ...filters, review: filters.review ?? 'needed' }), [filters]);
+    const chapterFilters = useMemo(() => ({ ...filters, parent_id: selectedStudioItem ?? undefined, review: filters.review ?? 'needed' }), [filters, selectedStudioItem]);
     const feedUnitMapFilters = useMemo(() => ({ source: filters.source, q: filters.q }), [filters.source, filters.q]);
     const feedUnitLedgerFilters = useMemo(() => ({ path: filters.path, source: filters.source, q: filters.q }), [filters.path, filters.source, filters.q]);
-    const feedUnitMap = useMediaAtomizationFeedUnits(feedUnitMapFilters, { enabled: publishActive });
-    const feedUnitLedger = useMediaAtomizationFeedUnits(feedUnitLedgerFilters, { enabled: publishActive });
-    const parents = useMediaAtomizationParents(parentFilters, { enabled: policyActive || diagnosticsActive || studioActive });
+    const feedUnitMap = useMediaAtomizationFeedUnits(feedUnitMapFilters, { enabled: false });
+    const feedUnitLedger = useMediaAtomizationFeedUnits(feedUnitLedgerFilters, { enabled: false });
+    const parents = useMediaAtomizationParents(parentFilters, { enabled: loadPolicyControls || loadDiagnosticsHistory || studioActive });
     const studioContext = useMediaAtomizationParentContext(selectedStudioItem, { enabled: studioActive && Boolean(selectedStudioItem) });
     const chapters = useMediaAtomizationChapters(chapterFilters, { enabled: reviewActive });
-    const runs = useMediaAtomizationRuns({ enabled: diagnosticsActive });
+    const runs = useMediaAtomizationRuns({ enabled: loadDiagnosticsHistory });
     const approve = useApproveAtomizedChapter();
     const reject = useRejectAtomizedChapter();
     const repairLeaks = useRepairMediaAtomizationLeaks();
@@ -1244,36 +1352,38 @@ export function MediaAtomizationDashboard() {
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     };
     const setTab = (tab: MissionTab) => {
+        if (!window.dispatchEvent(new Event('media-studio:navigate', { cancelable: true }))) return;
         const params = new URLSearchParams(Array.from(searchParams.entries()));
         params.set('tab', tab);
         const qs = params.toString();
-        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+        router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     };
     const openStudio = (id: string, chapterId?: string) => {
+        if (!window.dispatchEvent(new Event('media-studio:navigate', { cancelable: true }))) return;
         const params = new URLSearchParams(Array.from(searchParams.entries()));
         params.set('tab', 'studio');
         params.set('item', id);
         if (chapterId) params.set('chapter', chapterId);
         else params.delete('chapter');
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
     };
-    const resetFilters = () => router.replace(`${pathname}?tab=${activeTab}`, { scroll: false });
+    const resetFilters = () => { const params = new URLSearchParams(searchParams.toString()); Object.keys(filters).forEach(key => params.delete(key)); router.replace(`${pathname}?${params}`, { scroll: false }); };
 
     const failedApis = [
-        overview.isError && 'overview',
-        policyActive && policy.isError && 'policy',
-        policyActive && sources.isError && 'sources',
+        (boardActive || reviewActive || loadPolicyControls || loadDiagnosticsHistory) && overview.isError && 'overview',
+        loadPolicyControls && policy.isError && 'policy',
+        loadPolicyControls && sources.isError && 'sources',
         publishActive && feedUnitMap.isError && 'publication map',
         publishActive && feedUnitLedger.isError && 'publication ledger',
-        workflowActive && pipeline.isError && 'pipeline',
-        (policyActive || diagnosticsActive || studioActive) && parents.isError && 'parents',
+        boardActive && pipeline.isError && 'pipeline',
+        (loadPolicyControls || loadDiagnosticsHistory || studioActive) && parents.isError && 'parents',
         reviewActive && chapters.isError && 'chapters',
         studioActive && studioContext.isError && 'studio context',
-        diagnosticsActive && runs.isError && 'runs',
+        loadDiagnosticsHistory && runs.isError && 'runs',
     ].filter(Boolean) as string[];
     const failed = failedApis.length > 0;
     const publishLoading = publishActive && (feedUnitMap.isLoading || feedUnitLedger.isLoading);
-    const workflowLoading = workflowActive && pipeline.isLoading;
+    const workflowLoading = boardActive && pipeline.isLoading;
     const reviewLoading = reviewActive && chapters.isLoading;
     const policyLoading = policyActive && (policy.isLoading || sources.isLoading || parents.isLoading);
     const studioLoading = studioActive && (parents.isLoading || studioContext.isLoading);
@@ -1287,7 +1397,7 @@ export function MediaAtomizationDashboard() {
     const missingSchema = schemaStatus?.missing ?? [];
     const durationViolations = overviewData?.duration_violation_count ?? 0;
     const lastUpdated = pipeline.data?.updated_at ?? overviewData?.updated_at;
-    const actionsDisabled = failed || Boolean(schemaDegraded);
+    const actionsDisabled = Boolean(schemaDegraded);
     const resolvedStudioItem = studioContext.data?.parent?.id ?? selectedStudioItem;
     const resolvedStudioChapter = selectedStudioChapter
         ?? studioContext.data?.selected_chapter?.id
@@ -1296,6 +1406,7 @@ export function MediaAtomizationDashboard() {
 
     return (
         <div className="space-y-5 text-foreground">
+            {((!workflowActive && !policyActive && !diagnosticsActive) || boardActive) && <>
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                     <span className="brand-overline text-[#D7A83E]">Pods Media</span>
@@ -1305,6 +1416,7 @@ export function MediaAtomizationDashboard() {
                     </p>
                 </div>
                 <div className="flex flex-col items-start gap-2 md:items-end">
+                    <MediaJourneyGuide />
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                         <span>{lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString()}` : 'Waiting for data'}</span>
@@ -1323,8 +1435,9 @@ export function MediaAtomizationDashboard() {
             </div>
 
             <FilterBar filters={filters} setFilter={setFilter} resetFilters={resetFilters} />
+            </>}
 
-            {(failed || schemaDegraded) && (
+            {(failed || schemaDegraded) && !diagnosticsActive && (
                 <div className={cn(
                     'rounded-md border p-3 text-sm',
                     failed ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-[#D7A83E]/40 bg-[#D7A83E]/10 text-foreground'
@@ -1359,64 +1472,15 @@ export function MediaAtomizationDashboard() {
 
                 <TabsContent value="publish" className="space-y-5">
                     {activeTab === 'publish' && (
-                    <>
-                        {publishLoading && !feedUnitMap.data && <TabLoading label="Loading publication paths" />}
-                        <SummaryStrip>
-                            <KpiCard label="Published in Pods" value={
-                                publicationPathCount(overviewData, 'atomized')
-                                + publicationPathCount(overviewData, 'direct_transcript')
-                                + publicationPathCount(overviewData, 'direct_no_transcript')
-                            } tone="ok" />
-                            <KpiCard label="Blocked for transcript" value={publicationPathCount(overviewData, 'blocked_transcript')} tone="warn" />
-                            <KpiCard label="Invalid visible" value={publicationPathCount(overviewData, 'invalid')} tone={publicationPathCount(overviewData, 'invalid') > 0 ? 'bad' : 'ok'} />
-                            <KpiCard label="Review pressure" value={overviewData?.review_needed_count ?? 0} sub="chapters" tone="warn" />
-                        </SummaryStrip>
-                        <PublicationMap
-                            overview={overviewData}
-                            feedUnits={feedUnitMap.data ?? []}
-                            selectedPath={filters.path}
-                            actionsDisabled={actionsDisabled}
-                            sttPending={triggerStt.isPending}
-                            overridePending={updateParentOverride.isPending}
-                            onSelectPath={(path) => setFilter('path', path)}
-                            onOpenStudio={openStudio}
-                            onRequestTranscript={(id) => triggerStt.mutate(id)}
-                            onDisableAtomization={(id) => updateParentOverride.mutate({ parentId: id, override: 'disabled', reason: 'Blocked long media excluded from Atomization dashboard.' })}
-                        />
-                        <PolicyStrip
-                            overview={overviewData}
-                            onRepair={() => repairLeaks.mutate()}
-                            repairing={repairLeaks.isPending}
-                            disabled={actionsDisabled}
-                        />
-                        <PublicationLedger
-                            items={feedUnitLedger.data ?? []}
-                            selectedPath={filters.path}
-                            actionsDisabled={actionsDisabled}
-                            sttPending={triggerStt.isPending}
-                            overridePending={updateParentOverride.isPending}
-                            onSelectPath={(path) => setFilter('path', path)}
-                            onOpenStudio={openStudio}
-                            onRequestTranscript={(id) => triggerStt.mutate(id)}
-                            onDisableAtomization={(id) => updateParentOverride.mutate({ parentId: id, override: 'disabled', reason: 'Blocked long media excluded from Atomization dashboard.' })}
-                        />
-                    </>
+                    <PublishedJourney filters={filters} />
                     )}
                 </TabsContent>
 
                 <TabsContent value="workflow" className="space-y-5">
                     {activeTab === 'workflow' && (
                     <>
-                        {workflowLoading && !pipeline.data && <TabLoading label="Loading atomization workflow" />}
-                        <SummaryStrip>
-                            <KpiCard label="Awaiting download" value={pipeline.data?.columns.find(c => c.key === 'awaiting_download')?.count ?? 0} sub="approval needed" />
-                            <KpiCard label="Preparing media" value={pipeline.data?.columns.find(c => c.key === 'media')?.count ?? 0} sub="queued or active" />
-                            <KpiCard label="Awaiting transcript" value={pipeline.data?.columns.find(c => c.key === 'transcript')?.count ?? 0} sub="parents" />
-                            <KpiCard label="Planning + cutting" value={pipeline.data?.columns.find(c => c.key === 'planning')?.count ?? 0} />
-                            <KpiCard label="Embedding pending" value={pipeline.data?.columns.find(c => c.key === 'embedding')?.count ?? 0} sub="parents" />
-                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 0} tone="bad" />
-                        </SummaryStrip>
-                        <AtomizationRail pipeline={pipeline.data} revision={pipeline.dataUpdatedAt} filters={filters} onOpenStudio={openStudio} />
+                        {boardActive && <div className="flex gap-2">{['list', 'board'].map(view => <Button key={view} size="sm" variant={view === 'board' ? 'default' : 'outline'} onClick={() => { const next = new URLSearchParams(searchParams.toString()); next.set('view', view); router.push(`${pathname}?${next}`, { scroll: false }); }}>{view === 'list' ? 'List' : 'Board'}</Button>)}</div>}
+                        {boardActive ? <AtomizationRail pipeline={pipeline.data} revision={pipeline.dataUpdatedAt} filters={filters} onOpenStudio={openStudio} /> : <MediaJourneyList filters={filters} actions={item => <JourneyActions item={item} compact />} />}
                     </>
                     )}
                 </TabsContent>
@@ -1424,6 +1488,7 @@ export function MediaAtomizationDashboard() {
                 <TabsContent value="review" className="space-y-5">
                     {activeTab === 'review' && (
                     <>
+                        {selectedStudioItem && <EpisodeJourney id={selectedStudioItem} actions={item => <JourneyActions item={item} />} />}
                         {reviewLoading && !chapters.data && <TabLoading label="Loading review queue" />}
                         <SummaryStrip>
                             <KpiCard label="Needs review" value={overviewData?.review_needed_count ?? 0} tone="warn" />
@@ -1489,11 +1554,12 @@ export function MediaAtomizationDashboard() {
                                     <div className="space-y-4">
                                         <StudioContextStrip context={studioContext.data} loading={studioContext.isLoading} />
                                         {resolvedStudioItem ? (
-                                            <MediaStudioWorkbench
+                                            <><EpisodeJourney key={resolvedStudioItem} id={resolvedStudioItem} actions={item => <JourneyActions item={item} />} /><MediaStudioWorkbench
+                                                key={resolvedStudioItem}
                                                 id={resolvedStudioItem}
                                                 selectedChapterId={resolvedStudioChapter}
                                                 compact
-                                            />
+                                            /></>
                                         ) : (
                                             <TabLoading label="Resolving selected media" />
                                         )}
@@ -1516,6 +1582,12 @@ export function MediaAtomizationDashboard() {
                 <TabsContent value="policy" className="space-y-5">
                     {activeTab === 'policy' && (
                     <>
+                        <EpisodeContextTab id={selectedStudioItem} mode="policy" />
+                        <details open={policyControlsOpen} onToggle={event => setPolicyControlsOpen(event.currentTarget.open)} className="rounded-md border bg-card p-4">
+                        <summary className="cursor-pointer font-semibold">Tenant defaults, source overrides, and episode exceptions</summary>
+                        {policyControlsOpen && <div className="mt-4 space-y-5">
+                        <p className="text-sm text-muted-foreground">These controls cover the tenant and the listed sources or episodes, not only the selected episode. Existing verified media is preserved; policy changes do not apply chapter drafts.</p>
+                        <FilterBar filters={filters} setFilter={setFilter} resetFilters={resetFilters} />
                         {policyLoading && !policy.data && !sources.data && !parents.data && <TabLoading label="Loading policy controls" />}
                         <SummaryStrip>
                             <KpiCard label="Excluded episodes" value={overviewData?.disabled_episode_count ?? 0} sub="manual opt-outs" />
@@ -1527,7 +1599,7 @@ export function MediaAtomizationDashboard() {
                             <PolicyEditor
                                 policy={policy.data}
                                 saving={updatePolicy.isPending}
-                                onPatch={(patch) => updatePolicy.mutate(patch)}
+                                onPatch={(patch) => { if (window.confirm(`Change tenant defaults: ${Object.entries(patch).map(([key, value]) => `${key} = ${value}`).join(', ')}? This affects all inheriting episodes. It does not recut existing media or apply a chapter draft.`)) updatePolicy.mutate(patch); }}
                             />
                             <SourceOverrides
                                 sources={sources.data ?? []}
@@ -1548,6 +1620,8 @@ export function MediaAtomizationDashboard() {
                             onAtomize={(id) => atomizeParent.mutate(id)}
                             onReatomize={(id) => reatomizeParent.mutate(id)}
                         />
+                        </div>}
+                        </details>
                     </>
                     )}
                 </TabsContent>
@@ -1555,6 +1629,19 @@ export function MediaAtomizationDashboard() {
                 <TabsContent value="diagnostics" className="space-y-5">
                     {activeTab === 'diagnostics' && (
                     <>
+                        <DiagnosticsOrientation
+                            liveUnavailable={failed}
+                            failedApis={failedApis}
+                            lastUpdated={lastUpdated}
+                            schemaDegraded={schemaDegraded}
+                            missingSchema={missingSchema}
+                        />
+                        <EpisodeContextTab id={selectedStudioItem} mode="diagnostics" />
+                        <details open={diagnosticsHistoryOpen} onToggle={event => setDiagnosticsHistoryOpen(event.currentTarget.open)} className="rounded-md border bg-card p-4">
+                        <summary className="cursor-pointer font-semibold">Tenant diagnostics and historical runs</summary>
+                        {diagnosticsHistoryOpen && <div className="mt-4 space-y-5">
+                        <p className="text-sm text-muted-foreground">Broader operational reports. Historical failed runs do not mean the selected episode is currently failing. Use its journey above for current state.</p>
+                        <FilterBar filters={filters} setFilter={setFilter} resetFilters={resetFilters} />
                         {diagnosticsLoading && !runs.data && !parents.data && <TabLoading label="Loading diagnostics" />}
                         <SummaryStrip>
                             <KpiCard label="Avg chapters" value={(overviewData?.average_chapters_per_parent ?? 0).toFixed(1)} sub="per parent" />
@@ -1570,6 +1657,8 @@ export function MediaAtomizationDashboard() {
                             <DurationDistribution overview={overviewData} />
                             <ParentLifecycle parents={parentRows} onOpenStudio={openStudio} />
                         </div>
+                        </div>}
+                        </details>
                     </>
                     )}
                 </TabsContent>

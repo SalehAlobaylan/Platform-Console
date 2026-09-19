@@ -1,5 +1,7 @@
 'use client';
 
+import { guardEditorHistory } from '@/lib/studio/history-guard';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Clock3, GitCompare, HardDrive, Loader2, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
@@ -17,6 +19,7 @@ import { ChapterList } from '@/components/platform/media/studio/chapter-list';
 import { TranscriptPanel } from '@/components/platform/media/studio/transcript-panel';
 import { GenerateDialog } from '@/components/platform/media/studio/generate-dialog';
 import { SourceLegend } from '@/components/platform/media/studio/source-legend';
+import { ChapterDraftControls } from './chapter-draft-controls';
 import {
     studioKeys,
     useStudio,
@@ -200,6 +203,19 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
     }, [chaptersDirty, transcriptDirty]);
 
     useEffect(() => {
+        const guard = (event: Event) => {
+            if ((chaptersDirty || transcriptDirty) && !window.confirm('Leave Media Studio and discard unsaved changes?')) event.preventDefault();
+        };
+        window.addEventListener('media-studio:navigate', guard);
+        return () => window.removeEventListener('media-studio:navigate', guard);
+    }, [chaptersDirty, transcriptDirty]);
+
+    useEffect(() => {
+        if (!chaptersDirty && !transcriptDirty) return;
+        return guardEditorHistory(() => window.confirm('Leave Media Studio and discard unsaved changes?'));
+    }, [chaptersDirty, transcriptDirty]);
+
+    useEffect(() => {
         const onDocumentClick = (event: globalThis.MouseEvent) => {
             if (!chaptersDirty && !transcriptDirty) return;
             if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -210,6 +226,8 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
             if (!href || href.startsWith('#')) return;
             const next = new URL(anchor.href, window.location.href);
             if (next.origin !== window.location.origin || next.href === window.location.href) return;
+            const current = new URL(window.location.href);
+            if (next.pathname === current.pathname && next.searchParams.get('item') === current.searchParams.get('item') && next.searchParams.get('tab') === current.searchParams.get('tab')) return;
             if (!window.confirm('Leave Media Studio and discard unsaved changes?')) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -413,23 +431,25 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
                     ) : (
                         <Button variant="outline" onClick={() => setApproveOpen(true)} disabled={!transcript || approveTranscript.isPending}>
                             <ShieldCheck className="mr-1.5 h-4 w-4" />
-                            Approve
+                            Approve transcript for use
                         </Button>
                     )}
                     <Button variant="outline" onClick={() => setGenerateOpen(true)} disabled={!transcript}>
                         <Sparkles className="mr-1.5 h-4 w-4" />
                         {chapters.length > 0 ? 'Regenerate chapters' : 'Generate chapters'}
                     </Button>
-                    <Button onClick={handleSaveChapters} disabled={!chaptersDirty || saveChaptersMut.isPending}>
+                    {(content.duration_sec ?? 0) <= 2400 && <Button onClick={handleSaveChapters} disabled={!chaptersDirty || saveChaptersMut.isPending}>
                         {saveChaptersMut.isPending ? (
                             <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                         ) : (
                             <Save className="mr-1.5 h-4 w-4" />
                         )}
                         Save chapters
-                    </Button>
+                    </Button>}
                 </div>
             </div>
+
+            {(content.duration_sec ?? 0) > 2400 && <ChapterDraftControls key={id} id={id} chapters={chapters} dirty={chaptersDirty} onSaved={() => setChaptersDirty(false)} onLoad={editChapters} />}
 
             {/* Player */}
             <div className={compact ? 'rounded-md border bg-card p-3' : undefined}>
