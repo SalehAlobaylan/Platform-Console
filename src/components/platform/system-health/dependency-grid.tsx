@@ -3,95 +3,87 @@
 import { Database, HardDrive, type LucideIcon, Server } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from './status-badge';
-import type { ServiceHealth, ServiceStatus } from '@/types/platform/system-health';
+import { postgresStatus } from '@/lib/system-health';
+import type {
+  ServiceHealth,
+  ServiceStatus,
+} from '@/types/platform/system-health';
 
 interface InfraTile {
-    key: string;
-    label: string;
-    icon: LucideIcon;
-    status: ServiceStatus;
-    source: string;
-    detail?: string;
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  status: ServiceStatus;
+  source: string;
+  detail?: string;
 }
 
 function pickDep(
-    services: ServiceHealth[],
-    serviceName: ServiceHealth['name'],
-    depName: string
+  services: ServiceHealth[],
+  serviceName: ServiceHealth['name'],
+  depName: string
 ): { status: ServiceStatus; detail?: string } | null {
-    const svc = services.find((s) => s.name === serviceName);
-    if (!svc) return null;
-    const dep = svc.deps.find(
-        (d) => d.name.toLowerCase() === depName.toLowerCase()
-    );
-    return dep ? { status: dep.status, detail: dep.detail } : null;
-}
-
-function aggregatePostgres(services: ServiceHealth[]): ServiceStatus {
-    const cms = services.find((s) => s.name === 'cms');
-    const iam = services.find((s) => s.name === 'iam');
-    const statuses = [cms, iam]
-        .map((s) => s?.deps.find((d) => d.name === 'postgres')?.status)
-        .filter((x): x is ServiceStatus => !!x);
-    if (statuses.length === 0) return 'unknown';
-    if (statuses.includes('unhealthy')) return 'unhealthy';
-    if (statuses.every((s) => s === 'healthy')) return 'healthy';
-    return 'degraded';
+  const svc = services.find((s) => s.name === serviceName);
+  if (!svc) return null;
+  const dep = svc.deps.find(
+    (d) => d.name.toLowerCase() === depName.toLowerCase()
+  );
+  return dep ? { status: dep.status, detail: dep.detail } : null;
 }
 
 export function DependencyGrid({ services }: { services: ServiceHealth[] }) {
-    const redis = pickDep(services, 'aggregation', 'redis');
-    const storage = pickDep(services, 'aggregation', 'storage');
+  const redis = pickDep(services, 'aggregation', 'redis');
+  const storage = pickDep(services, 'aggregation', 'storage');
 
-    const tiles: InfraTile[] = [
-        {
-            key: 'redis',
-            label: 'Redis',
-            icon: Server,
-            status: redis?.status ?? 'unknown',
-            source: 'Aggregation /ready',
-            detail: redis?.detail,
-        },
-        {
-            key: 'postgres',
-            label: 'PostgreSQL',
-            icon: Database,
-            status: aggregatePostgres(services),
-            source: 'CMS + IAM /health',
-        },
-        {
-            key: 'storage',
-            label: 'MinIO / Storage',
-            icon: HardDrive,
-            status: storage?.status ?? 'unknown',
-            source: 'Aggregation /ready',
-            detail: storage?.detail,
-        },
-    ];
+  const tiles: InfraTile[] = [
+    {
+      key: 'redis',
+      label: 'Redis',
+      icon: Server,
+      status: redis?.status ?? 'unknown',
+      source: 'Aggregation /ready',
+      detail: redis?.detail,
+    },
+    {
+      key: 'postgres',
+      label: 'PostgreSQL',
+      icon: Database,
+      status: postgresStatus(services),
+      source: 'CMS + IAM /health',
+    },
+    {
+      key: 'storage',
+      label: 'Object storage',
+      icon: HardDrive,
+      status: storage?.status ?? 'unknown',
+      source: 'Aggregation /ready',
+      detail: storage?.detail,
+    },
+  ];
 
-    return (
-        <div className="grid gap-4 md:grid-cols-3">
-            {tiles.map((tile) => {
-                const Icon = tile.icon;
-                return (
-                    <Card key={tile.key}>
-                        <CardContent className="flex items-center justify-between p-4">
-                            <div className="flex items-center gap-3">
-                                <div className="rounded-md border bg-muted/40 p-2">
-                                    <Icon className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-semibold">{tile.label}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {tile.detail ?? tile.source}
-                                    </p>
-                                </div>
-                            </div>
-                            <StatusBadge status={tile.status} />
-                        </CardContent>
-                    </Card>
-                );
-            })}
-        </div>
-    );
+  return (
+    <div className="grid gap-3 xl:grid-cols-3">
+      {tiles.map((tile) => {
+        const Icon = tile.icon;
+        return (
+          <Card key={tile.key}>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-md border bg-muted/40 p-2">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{tile.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {tile.detail ?? tile.source}
+                  </p>
+                </div>
+              </div>
+              <StatusBadge status={tile.status} />
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
 }

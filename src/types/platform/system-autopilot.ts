@@ -48,18 +48,19 @@ export interface SystemContainmentLedgerEntry {
   written_until?: string;
   outcome: 'paused' | 'resumed' | 'skipped' | string;
   reason?: string;
+  human_owned?: boolean;
 }
 
 export interface SystemContainmentLedger {
-	version: 2;
-	siblings: Record<string, Record<string, SystemContainmentLedgerEntry>>;
+  version: 2;
+  siblings: Record<string, Record<string, SystemContainmentLedgerEntry>>;
 }
 
 export interface SystemRecommendedAction {
-	label: string;
-	kind: string;
-	target: string;
-	href: string;
+  label: string;
+  kind: string;
+  target: string;
+  href: string;
 }
 
 export interface SystemIncidentTimelineEntry {
@@ -112,7 +113,55 @@ export interface RegisteredSystemAutopilot {
   key: string;
   label: string;
   dependencies: string[];
+  capabilities?: string[];
   containment_enabled: boolean;
+}
+
+export type SystemMonitorState =
+  | 'disabled'
+  | 'never_observed'
+  | 'running'
+  | 'fresh'
+  | 'overdue'
+  | 'unavailable'
+  | string;
+
+export interface SystemMonitorProjection {
+  state: SystemMonitorState;
+  fresh: boolean;
+  last_observed_at?: string | null;
+  last_completed_at?: string | null;
+  next_due_at?: string | null;
+  evidence_age_seconds?: number | null;
+  reason?: string;
+}
+
+export interface SystemContainmentTargetProjection {
+  episode_id: string;
+  sibling: string;
+  tenant_id: string;
+  outcome: string;
+  until?: string;
+  human_owned?: boolean;
+  reason?: string;
+}
+
+export interface SystemContainmentProjection {
+  active: number;
+  pending: number;
+  human_owned: number;
+  expired: number;
+  targets: SystemContainmentTargetProjection[];
+}
+
+export interface SystemAttentionProjection {
+  episode_id?: string;
+  tenant_id?: string;
+  target: string;
+  guardrail?: string;
+  status: string;
+  reason?: string;
+  at: string;
 }
 
 export interface SystemAutopilotStatus {
@@ -122,6 +171,10 @@ export interface SystemAutopilotStatus {
   open_episodes: SystemIncidentEpisode[];
   recent_episodes?: SystemIncidentEpisode[];
   registered_autopilots: RegisteredSystemAutopilot[];
+  monitor?: SystemMonitorProjection;
+  containment?: SystemContainmentProjection;
+  attention?: SystemAttentionProjection[];
+  status_version?: string;
 }
 
 export interface SystemAutopilotRunDetail {
@@ -130,7 +183,15 @@ export interface SystemAutopilotRunDetail {
 }
 
 export interface SystemIncidentEpisodeDetail {
-	episode: SystemIncidentEpisode;
-	actions: SystemAutopilotAction[];
-	recommended_action: SystemRecommendedAction;
+  episode: SystemIncidentEpisode;
+  actions: SystemAutopilotAction[];
+  recommended_action: SystemRecommendedAction;
+  containment?: SystemContainmentProjection;
+  recovery?: {
+    healthy_samples: number;
+    required_samples: number;
+    evidence_fresh: boolean;
+    next_check_at?: string | null;
+    reason: string;
+  };
 }

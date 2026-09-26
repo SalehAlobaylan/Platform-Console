@@ -1,3 +1,4 @@
+import { dependencyStatus } from '@/lib/system-health';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type {
@@ -202,8 +203,7 @@ async function checkAggregation(baseUrl: string | undefined): Promise<ServiceHea
     if (depsObj) {
         for (const [name, value] of Object.entries(depsObj)) {
             const v = typeof value === 'string' ? value : String(value);
-            const ok = /connected|reachable|configured|ready|ok|true/i.test(v);
-            deps.push({ name, status: ok ? 'healthy' : 'unhealthy', detail: v });
+            deps.push({ name, status: dependencyStatus(value), detail: v });
         }
     }
 
@@ -217,7 +217,7 @@ async function checkAggregation(baseUrl: string | undefined): Promise<ServiceHea
     const reachable = health.ok || ready.ok;
     let status: ServiceStatus;
     if (!reachable) status = 'unhealthy';
-    else if (deps.some((d) => d.status === 'unhealthy')) status = 'degraded';
+    else if (!ready.ok || deps.some((d) => d.status !== 'healthy')) status = 'degraded';
     else if (queueList && queueList.some((q) => q.waiting > QUEUE_WAITING_WARN || q.failed > 0))
         status = 'degraded';
     else status = 'healthy';

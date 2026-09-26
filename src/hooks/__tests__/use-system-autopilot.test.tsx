@@ -18,6 +18,8 @@ jest.mock('@/components/ui/toast', () => ({ toast: jest.fn() }));
 import {
   getSystemAutopilotStatus,
   getSystemIncidentEpisode,
+  listSystemAutopilotRuns,
+  listSystemIncidentEpisodes,
   updateSystemAutopilotPolicy,
 } from '@/lib/api/cms/system-autopilot';
 import { systemHealthKeys } from '@/hooks/use-system-health';
@@ -25,6 +27,8 @@ import {
   systemAutopilotKeys,
   useSystemAutopilotStatus,
   useSystemIncidentEpisode,
+  useSystemAutopilotRuns,
+  useSystemIncidentEpisodes,
   useUpdateSystemAutopilotPolicy,
 } from '../use-system-autopilot';
 
@@ -121,4 +125,21 @@ describe('System Health Autopilot hooks', () => {
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: systemHealthKeys.all });
   });
+});
+
+
+test('closed history sheets do not fetch, then load when opened', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  jest.mocked(listSystemAutopilotRuns).mockResolvedValue({ items: [] });
+  jest.mocked(listSystemIncidentEpisodes).mockResolvedValue({ items: [] });
+  const result = renderHook(({ open }) => ({
+    runs: useSystemAutopilotRuns(20, open),
+    episodes: useSystemIncidentEpisodes(50, open),
+  }), { initialProps: { open: false }, wrapper: wrapper(client) });
+  expect(listSystemAutopilotRuns).not.toHaveBeenCalled();
+  expect(listSystemIncidentEpisodes).not.toHaveBeenCalled();
+  result.rerender({ open: true });
+  await waitFor(() => expect(result.result.current.runs.isSuccess).toBe(true));
+  expect(listSystemAutopilotRuns).toHaveBeenCalledTimes(1);
+  expect(listSystemIncidentEpisodes).toHaveBeenCalledTimes(1);
 });

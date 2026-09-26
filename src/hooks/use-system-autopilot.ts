@@ -31,12 +31,14 @@ export function useSystemAutopilotStatus() {
     staleTime: 15_000,
     gcTime: 60_000,
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
-export function useSystemAutopilotRuns(limit = 20) {
+export function useSystemAutopilotRuns(limit = 20, enabled = true) {
   return useQuery({
     queryKey: systemAutopilotKeys.runs(limit),
+    enabled,
     queryFn: () => listSystemAutopilotRuns(limit),
     staleTime: 10_000,
   });
@@ -51,9 +53,10 @@ export function useSystemAutopilotRun(id: string | null) {
   });
 }
 
-export function useSystemIncidentEpisodes(limit = 50) {
+export function useSystemIncidentEpisodes(limit = 50, enabled = true) {
   return useQuery({
     queryKey: systemAutopilotKeys.episodes(limit),
+    enabled,
     queryFn: () => listSystemIncidentEpisodes(limit),
     staleTime: 10_000,
   });
@@ -95,7 +98,7 @@ export function useRunSystemAutopilotNow() {
       qc.invalidateQueries({ queryKey: systemAutopilotKeys.all });
       qc.invalidateQueries({ queryKey: systemHealthKeys.all });
       toast({
-        title: 'System Health Autopilot run complete',
+        title: 'System Health diagnostic probe complete',
         description: detail.run.summary || detail.run.status,
         variant: detail.run.status === 'failed' ? 'destructive' : 'success',
       });

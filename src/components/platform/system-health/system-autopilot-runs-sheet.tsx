@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -33,7 +34,7 @@ export function SystemAutopilotRunsSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const runsQuery = useSystemAutopilotRuns(20);
+  const runsQuery = useSystemAutopilotRuns(20, open);
   const detailQuery = useSystemAutopilotRun(open ? selected : null);
   const runs = runsQuery.data?.items ?? [];
 
@@ -53,9 +54,20 @@ export function SystemAutopilotRunsSheet({
           </div>
         ) : null}
         {runsQuery.isError ? (
-          <p className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">
-            Run history could not be loaded. Retry from the System Health panel.
-          </p>
+          <div
+            role="alert"
+            className="space-y-2 rounded-md border border-destructive/40 p-3 text-sm text-destructive"
+          >
+            <p>Run history could not be loaded.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={runsQuery.isFetching}
+              onClick={() => void runsQuery.refetch()}
+            >
+              Retry run history
+            </Button>
+          </div>
         ) : null}
         {!runsQuery.isLoading && !runsQuery.isError && runs.length === 0 ? (
           <p className="rounded-md border border-dashed p-5 text-center text-sm text-muted-foreground">
