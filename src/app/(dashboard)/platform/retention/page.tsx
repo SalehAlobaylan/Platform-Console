@@ -311,14 +311,14 @@ export default function RetentionPage() {
                 <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2 text-base"><ShieldCheck className="h-4 w-4 text-gold" />Destructive rollout controls</CardTitle></CardHeader>
                     <CardContent className="space-y-3">
-                        <p className="text-sm text-muted-foreground">High-risk execution is fail-closed until an administrator enables each persisted rollout gate after the disposable validation matrix passes. Observation and preparation remain available.</p>
+                        <p className="text-sm text-muted-foreground">High-risk execution is fail-closed until an administrator enables each persisted rollout gate after the disposable validation matrix passes. The legacy combined Purge &amp; Reseed path is retired; Pods Reset has its own qualification gate.</p>
                         <div className="grid gap-2 sm:grid-cols-2">
                             {[
                                 ['canonical_compaction_enabled', 'Current-month compaction'],
                                 ['historical_enabled', 'Historical retirement'],
                                 ['owner_runs_enabled', 'Storage/Media owner runs'],
                                 ['feed_recovery_rotate_enabled', 'Feed Recovery Rotate'],
-                                ['feed_recovery_purge_enabled', 'Purge & Reseed'],
+                                ['pods_reset_enabled', 'Pods Reset (qualification gated)'],
                             ].map(([key, label]) => {
                                 const controls = status.data?.execution_controls as Record<string, boolean> | undefined;
                                 const enabled = Boolean(controls?.[key]);
