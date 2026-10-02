@@ -28,6 +28,7 @@ export const operatorRouteManifest: OperatorRouteDescriptor[] = [
   { domain: 'system_health', view: 'cockpit', pattern: /^\/platform\/system-health$/, canonical_path: '/platform/system-health', available_intents: mutableIntents },
   { domain: 'system_health', view: 'database_migrations', pattern: /^\/platform\/database-migrations$/, canonical_path: '/platform/database-migrations', available_intents: readIntents },
   { domain: 'feed_integrity', view: 'cockpit', pattern: /^\/platform\/feed-integrity$/, canonical_path: '/platform/feed-integrity', available_intents: mutableIntents },
+  { domain: 'feed_recovery', view: 'cockpit', pattern: /^\/platform\/recovery$/, canonical_path: '/platform/recovery', available_intents: mutableIntents },
   { domain: 'feed_recovery', view: 'cockpit', pattern: /^\/platform\/feed-recovery$/, canonical_path: '/platform/feed-recovery', available_intents: mutableIntents },
   { domain: 'retention', view: 'cockpit', pattern: /^\/platform\/retention$/, canonical_path: '/platform/retention', available_intents: mutableIntents },
   { domain: 'real_experience', view: 'cockpit', pattern: /^\/platform\/real-experience$/, canonical_path: '/platform/real-experience', available_intents: mutableIntents },

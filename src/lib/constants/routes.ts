@@ -48,7 +48,11 @@ export const navigation: NavigationSection[] = [
         href: '/platform/system-health',
         icon: HeartPulse,
       },
-      { name: 'Database Migrations', href: '/platform/database-migrations', icon: Database },
+      {
+        name: 'Database Migrations',
+        href: '/platform/database-migrations',
+        icon: Database,
+      },
       {
         name: 'Feed Integrity',
         href: '/platform/feed-integrity',
@@ -60,8 +64,8 @@ export const navigation: NavigationSection[] = [
         icon: ArchiveRestore,
       },
       {
-        name: 'Feed Recovery',
-        href: '/platform/feed-recovery',
+        name: 'Recovery',
+        href: '/platform/recovery',
         icon: Recycle,
       },
       {
@@ -140,6 +144,7 @@ export const ROUTES = {
     FEED_INTEGRITY: '/platform/feed-integrity',
     RETENTION: '/platform/retention',
     FEED_RECOVERY: '/platform/feed-recovery',
+    RECOVERY: '/platform/recovery',
     REAL_EXPERIENCE: '/platform/real-experience',
     ECONOMICS: '/platform/economics',
     DATABASE_MIGRATIONS: '/platform/database-migrations',
