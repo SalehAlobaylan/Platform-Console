@@ -12,6 +12,7 @@ interface MigrateBody {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+    if (process.env.WAHB_MANAGED_ENV === '1') return NextResponse.json({ message: 'Stop the stack, then use scripts/env.sh prepare for the selected environment.', cockpit: '/platform/database-migrations' }, { status: 409 });
     let body: MigrateBody;
     try {
         body = (await request.json()) as MigrateBody;

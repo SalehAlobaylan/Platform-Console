@@ -1,3 +1,4 @@
+import { bindRuntimeSession, hasCurrentRuntimeSession } from '@/lib/server/runtime-session';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
 
     const tokens = await res.json();
     const cookieStore = await cookies();
+
     const secure = process.env.NODE_ENV === 'production';
     const accessMaxAge = tokens.expires_in || 3600;
 
@@ -39,5 +41,6 @@ export async function POST(request: Request) {
         httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: accessMaxAge,
     });
 
+    bindRuntimeSession(cookieStore);
     return NextResponse.json({ success: true });
 }

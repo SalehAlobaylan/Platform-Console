@@ -49,7 +49,7 @@ export const navigation: NavigationSection[] = [
         icon: HeartPulse,
       },
       {
-        name: 'Database Migrations',
+        name: 'Environments & Database Health',
         href: '/platform/database-migrations',
         icon: Database,
       },

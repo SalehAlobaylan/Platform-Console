@@ -21,6 +21,7 @@ export async function POST() {
     cookieStore.delete('console_access_token');
     cookieStore.delete('console_refresh_token');
     cookieStore.delete('console_token_expires');
+    cookieStore.delete('console_runtime_id');
 
     return NextResponse.json({ success: true });
 }

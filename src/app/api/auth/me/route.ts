@@ -1,3 +1,4 @@
+import { hasCurrentRuntimeSession } from '@/lib/server/runtime-session';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -9,6 +10,7 @@ export async function GET() {
     }
 
     const cookieStore = await cookies();
+    if (!hasCurrentRuntimeSession(cookieStore)) return NextResponse.json({ message: 'Sign in again for this runtime' }, { status: 401 });
     const accessToken = cookieStore.get('console_access_token')?.value;
 
     if (!accessToken) {

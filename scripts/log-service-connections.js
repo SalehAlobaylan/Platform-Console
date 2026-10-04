@@ -17,8 +17,10 @@ function loadEnvFile(filePath) {
     }
 }
 
-loadEnvFile(path.join(__dirname, '..', '.env.local'));
-loadEnvFile(path.join(__dirname, '..', '.env'));
+if (process.env.WAHB_MANAGED_ENV !== '1') {
+    loadEnvFile(path.join(__dirname, '..', '.env.local'));
+    loadEnvFile(path.join(__dirname, '..', '.env'));
+}
 
 const cmsBaseUrl = process.env.CMS_BASE_URL || '(unset)';
 const iamBaseUrl = process.env.IAM_BASE_URL || '(unset)';

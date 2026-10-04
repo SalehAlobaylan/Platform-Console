@@ -1,5 +1,7 @@
 'use client';
 
+import '@/lib/runtime-fetch';
+
 import { useEffect } from 'react';
 import { useAuthStore, clearAuthState } from '@/lib/stores/auth';
 import { setErrorHandlers } from '@/lib/api/client';

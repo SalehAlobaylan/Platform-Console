@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Toaster } from '@/components/ui/toast';
 import { AuthProvider } from '@/components/auth';
+import { retryQuery } from '@/lib/api/query-retry';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -39,7 +40,7 @@ export function Providers({ children }: ProvidersProps) {
             staleTime: CACHE_CONFIG.lists.staleTime,
             gcTime: CACHE_CONFIG.lists.gcTime,
             refetchOnWindowFocus: false,
-            retry: 1,
+            retry: retryQuery,
             retryDelay: (attemptIndex) =>
               Math.min(1000 * 2 ** attemptIndex, 30000),
           },

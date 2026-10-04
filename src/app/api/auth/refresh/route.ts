@@ -1,3 +1,4 @@
+import { bindRuntimeSession, hasCurrentRuntimeSession } from '@/lib/server/runtime-session';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -9,6 +10,7 @@ export async function POST() {
     }
 
     const cookieStore = await cookies();
+    if (!hasCurrentRuntimeSession(cookieStore)) return NextResponse.json({ message: 'Sign in again for this runtime' }, { status: 401 });
     const refreshToken = cookieStore.get('console_refresh_token')?.value;
 
     if (!refreshToken) {
@@ -43,5 +45,6 @@ export async function POST() {
         httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: accessMaxAge,
     });
 
+    bindRuntimeSession(cookieStore);
     return NextResponse.json({ success: true });
 }

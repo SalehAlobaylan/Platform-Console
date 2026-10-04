@@ -1,4 +1,5 @@
 import {
+  databaseMigrationAPI,
   migrationProgramSchema,
   migrationStatusSchema,
 } from '@/lib/api/database-migrations';
@@ -33,10 +34,77 @@ describe('database migration API schemas', () => {
     };
 
     expect(migrationProgramSchema.parse(payload).units).toHaveLength(1);
-    expect(() => migrationProgramSchema.parse({ ...payload, dsn: 'postgres://secret' })).toThrow();
+    expect(() =>
+      migrationProgramSchema.parse({ ...payload, dsn: 'postgres://secret' })
+    ).toThrow();
   });
 
   it('rejects malformed status payloads', () => {
     expect(() => migrationStatusSchema.parse({ status: 'ready' })).toThrow();
+  });
+
+  it('distinguishes missing optional setup and rejects contradictory status', () => {
+    const status = {
+      status: 'not_configured',
+      control_store_ready: false,
+      execution_enabled: false,
+      observed_at: '2026-10-04T10:58:50Z',
+    };
+    expect(migrationStatusSchema.parse(status).status).toBe('not_configured');
+    expect(() =>
+      migrationStatusSchema.parse({ ...status, control_store_ready: true })
+    ).toThrow();
+    expect(() =>
+      migrationStatusSchema.parse({ ...status, status: 'ready' })
+    ).toThrow();
+  });
+});
+
+describe('relocation read API', () => {
+  const previousFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = previousFetch;
+  });
+
+  it('keeps unreadable history unknown and replaces raw schema errors with guidance', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ items: null }) });
+    await expect(databaseMigrationAPI.programs()).rejects.toThrow(
+      'Relocation coordinator returned invalid programs data.'
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/database-migrations/programs',
+      { cache: 'no-store' }
+    );
+  });
+
+  it('does not turn an unavailable control store into a successful response', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          status: 'unavailable',
+          control_store_ready: false,
+          execution_enabled: false,
+          observed_at: '2026-10-04T10:58:50Z',
+        }),
+      });
+    await expect(databaseMigrationAPI.status()).rejects.toThrow(
+      'Relocation coordinator unavailable'
+    );
+  });
+
+  it('reports non-JSON responses without exposing a parser exception', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+    });
+    await expect(databaseMigrationAPI.status()).rejects.toThrow(
+      'Relocation coordinator returned an unreadable response.'
+    );
   });
 });
