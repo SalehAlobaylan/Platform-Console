@@ -18,6 +18,12 @@ export interface PodsResetBlocker {
   message: string;
 }
 
+export interface PodsResetProtectionOverride {
+  code: string;
+  label: string;
+  consequence: string;
+}
+
 export interface PodsResetCandidateQuery {
   type?: 'VIDEO' | 'PODCAST' | 'ALL';
   status?: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED' | 'ALL';
@@ -32,6 +38,7 @@ export interface PodsResetCandidateQuery {
 
 export interface PodsResetCandidate {
   content_item_id: string;
+  title?: string | null;
   type: 'VIDEO' | 'PODCAST';
   source: string;
   status: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED';
@@ -53,6 +60,7 @@ export interface PodsResetCandidate {
 
 export interface PodsResetCandidatePage {
   items: PodsResetCandidate[];
+  total_count?: number;
   has_more: boolean;
   next_cursor: string;
   page_size: number;
@@ -75,6 +83,7 @@ export interface PodsResetTargetPreview {
   metadata_counts: Record<string, number>;
   data_decisions: PodsResetDecision[];
   blockers: PodsResetBlocker[];
+  overridden_blockers?: PodsResetBlocker[];
   objects: PodsResetObject[];
 }
 
@@ -150,6 +159,7 @@ export interface PodsResetPlanDetail {
   actions: PodsResetAction[];
   can_cancel: boolean;
   rollback: string;
+  protection_override_options?: PodsResetProtectionOverride[];
 }
 
 export interface PodsResetPreviewResponse {
@@ -158,11 +168,14 @@ export interface PodsResetPreviewResponse {
   approval_phrase: string;
   counts: { selected_ids: number; object_count: number; object_bytes: number };
   can_approve: boolean;
+  protection_override_options?: PodsResetProtectionOverride[];
 }
 
 export interface PodsResetExecutionResponse {
   id: string;
   state: PodsResetState;
+  phase?: string;
+  warning?: string;
   outcome?: string;
   rollback?: string;
   resume_allowed?: boolean;
