@@ -35,8 +35,14 @@ npm run dev                 # http://localhost:3005
 | Pipeline | `/platform/pipeline` | Ingestion / processing state |
 | Quality | `/platform/quality` | Content quality profiles |
 | Storage | `/platform/storage` | Object-storage circulation / tiering |
+| Retention | `/platform/retention` | Database capacity, configurable thresholds and reviewed News cleanup |
 | System Health | `/platform/system-health` | Live backend health, migrations, AI metrics |
 | Users | `/admin`, `/admin/users` | Admin account / role / permission management (IAM) |
+
+Retention shows the selected cleanup's stage: Observe → Prepare → Review/approve →
+Enable/execute → Verify. Use **Execution settings** to enable reviewed cleanup and
+**Policy in force** to edit thresholds and limits. Saving settings never executes
+a cleanup. See the [Retention guide](../plans/implemented-systems/retention-and-fresh-start-systems.md/retention-autopilot.md).
 
 ## Architecture (BFF)
 

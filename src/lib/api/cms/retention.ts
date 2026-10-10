@@ -1,6 +1,9 @@
 import { cmsClient } from '@/lib/api/client';
 import type {
     RetentionAction,
+    RetentionActionReview,
+    PreparedRetentionManifest,
+    RetentionPolicyPatch,
     RetentionCompactionManifest,
     RetentionHistoricalManifest,
     RetentionMaintenanceReport,
@@ -24,22 +27,20 @@ export const getRetentionPolicy = () =>
     unwrap(cmsClient.get<Envelope<RetentionPolicy>>(`${BASE}/policy`));
 export const getRetentionExecutionControl = () =>
     unwrap(cmsClient.get<Envelope<RetentionExecutionControl>>(`${BASE}/execution-controls`));
-export const updateRetentionExecutionControl = (payload: Partial<RetentionExecutionControl> & { reason: string }) =>
+export const updateRetentionExecutionControl = (payload: Partial<Omit<RetentionExecutionControl, 'owner_runs_enabled'>> & { reason: string }) =>
     unwrap(cmsClient.put<Envelope<RetentionExecutionControl>>(`${BASE}/execution-controls`, payload));
-export const updateRetentionPolicy = (patch: Partial<RetentionPolicy>) =>
+export const updateRetentionPolicy = (patch: RetentionPolicyPatch) =>
     unwrap(cmsClient.put<Envelope<RetentionPolicy>>(`${BASE}/policy`, patch));
 export const runRetention = () =>
     unwrap(cmsClient.post<Envelope<RetentionRun>>(`${BASE}/run`, {}));
 export const prepareRetentionCompaction = (cursor?: string) =>
-    unwrap(cmsClient.post<Envelope<RetentionCompactionManifest>>(`${BASE}/compaction/prepare`, cursor ? { cursor } : {}));
+    unwrap(cmsClient.post<Envelope<PreparedRetentionManifest<RetentionCompactionManifest>>>(`${BASE}/compaction/prepare`, cursor ? { cursor } : {}));
 export const approveRetentionAction = (id: string) =>
     unwrap(cmsClient.post<Envelope<RetentionAction>>(`${BASE}/actions/${id}/approve`, {}));
 export const executeRetentionAction = (id: string) =>
     unwrap(cmsClient.post<Envelope<RetentionAction>>(`${BASE}/actions/${id}/execute`, {}));
-export const resetRetentionBreaker = (actionClass: string) =>
-    unwrap(cmsClient.post<Envelope<Record<string, unknown>>>(`${BASE}/autopilot/breakers/${encodeURIComponent(actionClass)}/reset`, {}));
 export const prepareHistoricalRetention = (cursor?: string) =>
-    unwrap(cmsClient.post<Envelope<RetentionHistoricalManifest>>(`${BASE}/historical/prepare`, cursor ? { cursor } : {}));
+    unwrap(cmsClient.post<Envelope<PreparedRetentionManifest<RetentionHistoricalManifest>>>(`${BASE}/historical/prepare`, cursor ? { cursor } : {}));
 export const executeHistoricalRetention = (id: string) =>
     unwrap(cmsClient.post<Envelope<RetentionAction>>(`${BASE}/historical/actions/${id}/execute`, {}));
 export const createRetentionMaintenanceReport = (payload?: {
@@ -48,10 +49,6 @@ export const createRetentionMaintenanceReport = (payload?: {
     provider_measured_at?: string;
     physical_reclaim_confirmed?: boolean;
 }) => unwrap(cmsClient.post<Envelope<RetentionMaintenanceReport>>(`${BASE}/maintenance/report`, payload ?? {}));
-export const prepareRetentionOwnerRequest = (owner: 'storage' | 'media_circulation') =>
-    unwrap(cmsClient.post<Envelope<{ request: RetentionOwnerRequest }>>(`${BASE}/owners/${owner}/prepare`, {}));
-export const executeRetentionOwnerRequest = (id: string) =>
-    unwrap(cmsClient.post<Envelope<{ request_id: string; result: Record<string, unknown> }>>(`${BASE}/owner-requests/${id}/execute`, {}));
 export const listRetentionOwnerRequests = () =>
     unwrap(cmsClient.get<Envelope<{ items: RetentionOwnerRequest[] }>>(`${BASE}/owner-requests`));
 export const pauseRetention = (minutes: number) =>
@@ -72,3 +69,8 @@ export const buildMonthlyReview = (month: string) =>
     unwrap(cmsClient.post<Envelope<MonthlyReviewArchive>>(`${BASE}/monthly-review/archives/${month}/build`, {}));
 export const verifyMonthlyReview = (month: string) =>
     unwrap(cmsClient.post<Envelope<MonthlyReviewArchive>>(`${BASE}/monthly-review/archives/${month}/verify`, {}));
+
+export const getRetentionRun = (id: string) =>
+    unwrap(cmsClient.get<Envelope<RetentionRun>>(`${BASE}/runs/${id}`));
+export const getRetentionActionReview = (id: string) =>
+    unwrap(cmsClient.get<Envelope<RetentionActionReview>>(`${BASE}/actions/${id}/review`));

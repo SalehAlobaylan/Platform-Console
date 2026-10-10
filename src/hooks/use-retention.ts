@@ -3,14 +3,13 @@ import { toast } from '@/components/ui/toast';
 import {
     approveRetentionAction,
     executeRetentionAction,
-    resetRetentionBreaker,
     executeHistoricalRetention,
     prepareHistoricalRetention,
     createRetentionMaintenanceReport,
-    prepareRetentionOwnerRequest,
-    executeRetentionOwnerRequest,
     listRetentionOwnerRequests,
     getRetentionStatus,
+    getRetentionRun,
+    getRetentionActionReview,
     listRetentionHolds,
     listRetentionRunActions,
     listRetentionRuns,
@@ -25,13 +24,15 @@ import {
     updateMonthlyReviewPolicy,
     verifyMonthlyReview,
 } from '@/lib/api/cms/retention';
-import type { RetentionPolicy } from '@/types/platform/retention';
+import type { RetentionPolicyPatch, RetentionStatus } from '@/types/platform/retention';
 
 export const retentionKeys = {
     all: ['retention'] as const,
     status: () => [...retentionKeys.all, 'status'] as const,
     runs: () => [...retentionKeys.all, 'runs'] as const,
     actions: (runId?: string) => [...retentionKeys.all, 'actions', runId] as const,
+    run: (id?: string) => [...retentionKeys.all, 'run', id] as const,
+    review: (id?: string) => [...retentionKeys.all, 'review', id] as const,
     holds: () => [...retentionKeys.all, 'holds'] as const,
     monthlyPolicy: () => [...retentionKeys.all, 'monthly-policy'] as const,
     monthlyArchives: () => [...retentionKeys.all, 'monthly-archives'] as const,
@@ -87,8 +88,9 @@ function invalidateRetention(queryClient: ReturnType<typeof useQueryClient>) {
 export function useUpdateRetentionPolicy() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (patch: Partial<RetentionPolicy>) => updateRetentionPolicy(patch),
-        onSuccess: () => {
+        mutationFn: (patch: RetentionPolicyPatch) => updateRetentionPolicy(patch),
+        onSuccess: (policy) => {
+            queryClient.setQueryData<RetentionStatus>(retentionKeys.status(), (status) => status ? { ...status, policy } : status);
             invalidateRetention(queryClient);
             toast({ title: 'Retention policy saved', variant: 'success' });
         },
@@ -101,7 +103,11 @@ export function useUpdateRetentionExecutionControl() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: updateRetentionExecutionControl,
-        onSuccess: () => { invalidateRetention(queryClient); toast({ title: 'Retention execution control saved', variant: 'success' }); },
+        onSuccess: (execution_controls) => {
+            queryClient.setQueryData<RetentionStatus>(retentionKeys.status(), (status) => status ? { ...status, execution_controls } : status);
+            invalidateRetention(queryClient);
+            toast({ title: 'Retention execution control saved', variant: 'success' });
+        },
         onError: (error: Error) => toast({ title: 'Execution control was not saved', description: error.message, variant: 'destructive' }),
     });
 }
@@ -150,7 +156,7 @@ export function useExecuteHistoricalRetention() {
     return useMutation({
         mutationFn: executeHistoricalRetention,
         onSuccess: (action) => { invalidateRetention(queryClient); toast({ title: 'Historical retirement verified', description: `${action.target_count} exact rows were retired after recovery and feed checks.`, variant: 'success' }); },
-        onError: (error: Error) => toast({ title: 'Historical retirement needs attention', description: error.message, variant: 'destructive' }),
+        onError: (error: Error) => { invalidateRetention(queryClient); toast({ title: 'Historical retirement needs attention', description: error.message, variant: 'destructive' }); },
     });
 }
 
@@ -160,23 +166,6 @@ export function useRetentionMaintenanceReport() {
         mutationFn: createRetentionMaintenanceReport,
         onSuccess: (report) => { invalidateRetention(queryClient); toast({ title: report.state === 'free_downgrade_ready' ? 'Free downgrade readiness confirmed' : 'Maintenance readiness measured', description: `${Math.round(report.database_bytes / (1024 * 1024))} MiB measured.`, variant: report.state === 'free_downgrade_ready' ? 'success' : 'default' }); },
         onError: (error: Error) => toast({ title: 'Maintenance report failed', description: error.message, variant: 'destructive' }),
-    });
-}
-
-export function usePrepareRetentionOwnerRequest() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: prepareRetentionOwnerRequest,
-        onSuccess: (data) => { invalidateRetention(queryClient); toast({ title: `${data.request.owner_system === 'storage' ? 'Storage' : 'Media Circulation'} request prepared`, description: 'The owner will reselect and revalidate its own bounded work after approval.', variant: 'success' }); },
-        onError: (error: Error) => toast({ title: 'Owner request was not prepared', description: error.message, variant: 'destructive' }),
-    });
-}
-export function useExecuteRetentionOwnerRequest() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: executeRetentionOwnerRequest,
-        onSuccess: () => { invalidateRetention(queryClient); toast({ title: 'Owner run completed', description: 'The authoritative owner ledger contains the media-side result.', variant: 'success' }); },
-        onError: (error: Error) => toast({ title: 'Owner run needs attention', description: error.message, variant: 'destructive' }),
     });
 }
 
@@ -201,20 +190,7 @@ export function useExecuteRetentionAction() {
             invalidateRetention(queryClient);
             toast({ title: 'Compaction verified', description: `${action.target_count} selected rows were compacted.`, variant: 'success' });
         },
-        onError: (error: Error) =>
-            toast({ title: 'Compaction needs attention', description: error.message, variant: 'destructive' }),
-    });
-}
-
-export function useResetRetentionBreaker() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: resetRetentionBreaker,
-        onSuccess: () => {
-            invalidateRetention(queryClient);
-            toast({ title: 'Retention action breaker reset', description: 'The class remains in probation until Assist trust is re-earned.', variant: 'success' });
-        },
-        onError: (error: Error) => toast({ title: 'Breaker reset failed', description: error.message, variant: 'destructive' }),
+        onError: (error: Error) => { invalidateRetention(queryClient); toast({ title: 'Compaction needs attention', description: error.message, variant: 'destructive' }); },
     });
 }
 
@@ -227,4 +203,11 @@ export function usePauseRetention() {
             toast({ title: 'Retention schedule paused', variant: 'success' });
         },
     });
+}
+
+export function useRetentionRun(id?: string) {
+    return useQuery({ queryKey: retentionKeys.run(id), queryFn: () => getRetentionRun(id!), enabled: Boolean(id), retry: false });
+}
+export function useRetentionActionReview(id?: string) {
+    return useQuery({ queryKey: retentionKeys.review(id), queryFn: () => getRetentionActionReview(id!), enabled: Boolean(id), retry: false });
 }

@@ -39,6 +39,9 @@ export interface RetentionPolicy {
     updated_by?: string;
 }
 
+export type RetentionPolicyPatch = Partial<Omit<RetentionPolicy, 'mode' | 'action_modes' | 'trust_min_decisions' | 'trust_min_agreement_pct'>> & { mode?: 'observe' | 'assist' };
+export type PreparedRetentionManifest<T> = T & { run_id: string; action_id: string };
+
 export interface RetentionExecutionControl {
     tenant_id: string;
     canonical_compaction_enabled: boolean;
@@ -98,6 +101,7 @@ export interface RetentionRun {
     verdict: RetentionVerdict;
     policy_version: number;
     counts?: RetentionPreview;
+    after_evidence?: Record<string, unknown>;
     started_at: string;
     finished_at?: string | null;
     error?: string;
@@ -136,19 +140,29 @@ export interface RetentionCompactionManifest {
     id: string;
     manifest_hash: string;
     state: 'prepared' | 'approved' | 'expired' | 'executed' | 'blocked';
+    story_ids: string[];
+    anchor_content_ids: string[];
+    protected_content_ids: string[];
+    retire_content_ids: string[];
+    policy_version: number;
+    timezone: string;
     story_count: number;
     anchor_count: number;
     protected_count: number;
     retire_count: number;
     estimated_bytes: number;
     expires_at: string;
-    evidence?: { next_cursor?: string; has_more?: boolean; [key: string]: unknown };
+    evidence?: { stories?: Array<{ story_id: string; lead_id: string; representative_ids: string[]; protected_ids: string[]; retire_ids: string[] }>; next_cursor?: string; has_more?: boolean; [key: string]: unknown };
 }
 
 export interface RetentionHistoricalManifest {
     id: string;
     manifest_hash: string;
     state: 'prepared' | 'approved' | 'expired' | 'executed' | 'blocked';
+    content_ids: string[];
+    story_ids: string[];
+    policy_version: number;
+    timezone: string;
     content_count: number;
     story_count: number;
     estimated_bytes: number;
@@ -196,13 +210,12 @@ export interface RetentionStatus {
     forecast: RetentionForecast;
     verdict: RetentionVerdict;
     preview: RetentionPreview;
+    capacity_verdict?: RetentionVerdict;
     historical?: Record<string, unknown>;
     latest_maintenance?: RetentionMaintenanceReport | null;
     execution_controls: RetentionExecutionControl;
     paused: boolean;
     observe_only: boolean;
-    promotion: RetentionPromotionStatus;
-    trust: RetentionTrustStat[];
     satellite_evaluation: RetentionSatelliteEvaluation;
     guarantees: {
         full_fidelity_days: number;
@@ -211,29 +224,6 @@ export interface RetentionStatus {
         sources_preserved: boolean;
         physical_rewrites: string;
     };
-}
-
-export interface RetentionTrustStat {
-    action_class: string;
-    state: 'probation' | 'trusted' | 'demoted' | string;
-    shadow_runs: number;
-    assist_decisions: number;
-    agreed: number;
-    disagreed: number;
-    agreement_pct: number;
-    failures: number;
-    breaker_open: boolean;
-    auto_eligible: boolean;
-    promotion_ready: boolean;
-    failure_window_ends?: string;
-}
-
-export interface RetentionPromotionStatus {
-    mode: RetentionMode;
-    manual_flip_only: boolean;
-    safe_auto_allowed: boolean;
-    blocked_reason?: string;
-    trust: RetentionTrustStat[];
 }
 
 export interface RetentionSatelliteEvaluation {
@@ -275,4 +265,14 @@ export interface MonthlyReviewArchive {
     selected_count: number;
     qualified_count: number;
     finalized_at?: string | null;
+}
+
+export interface RetentionActionReview {
+    action_id: string;
+    run_id: string;
+    action_class: string;
+    outcome: string;
+    approved_at?: string | null;
+    approved_by?: string;
+    manifest: RetentionCompactionManifest | RetentionHistoricalManifest;
 }
