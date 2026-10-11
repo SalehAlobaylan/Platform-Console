@@ -101,13 +101,13 @@ export function feedScoreSeries(runs: FeedIntegrityRun[] | undefined, cap = 12):
             (run) =>
                 (run.status === 'completed' || run.status === 'partial') &&
                 run.feed_results &&
-                Object.keys(run.feed_results).length > 0,
+                Object.values(run.feed_results).some((f) => typeof f.consumer_score === 'number'),
         )
         .sort(byStartedAtAsc)
         .slice(-cap)
         .map((run) => ({
             day: run.started_at,
-            count: Math.round(Math.min(...Object.values(run.feed_results!).map((f) => f.consumer_score))),
+            count: Math.round(Math.min(...Object.values(run.feed_results!).map((f) => f.consumer_score).filter((score): score is number => typeof score === 'number'))),
             failed: 0,
         }));
 }

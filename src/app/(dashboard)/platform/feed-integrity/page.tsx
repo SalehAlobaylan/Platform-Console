@@ -1,125 +1,422 @@
 'use client';
 
-import { Activity, AlertTriangle, Clock3, Pause, Play, RefreshCw, ShieldCheck } from 'lucide-react';
-import { useMemo } from 'react';
+import { Suspense } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
+import { Card, CardContent } from '@/components/ui/card';
 import {
-    useCloseFeedIntegrityEpisode,
-    useFeedIntegrityEpisodes,
-    useFeedIntegrityFindings,
-    useFeedIntegrityRuns,
-    useFeedIntegrityStatus,
-    usePauseFeedIntegritySchedule,
-    useRunFeedIntegrity,
-    useUpdateFeedIntegrityPolicy,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  feedIntegrityKeys,
+  useFeedIntegrityStatus,
+  useRunFeedIntegrity,
 } from '@/hooks/use-feed-integrity';
-import type { FeedIntegrityFeedResult } from '@/types/platform/feed-integrity';
 import { FeedIntegrityAutopilotPanel } from '@/components/platform/feed-integrity/feed-integrity-autopilot-panel';
-import { OperatorLaunchLink } from '@/components/operator/operator-launch-link';
-import { createRouteVisibleContext } from '@/lib/operator/route-manifest';
+import { FeedIntegrityActivity } from '@/components/platform/feed-integrity/feed-integrity-activity';
+import {
+  FeedIntegrityIssues,
+  type IntegrityParams,
+} from '@/components/platform/feed-integrity/feed-integrity-issues';
+import {
+  AttentionSummary,
+  CoverageSummary,
+  FeedSummary,
+  IntegrityTime,
+} from '@/components/platform/feed-integrity/feed-integrity-overview';
+import { FeedIntegritySettings } from '@/components/platform/feed-integrity/feed-integrity-settings';
+import { translate } from '@/components/platform/feed-integrity/presentation';
 
-function tone(value?: string) {
-    if (value === 'healthy' || value === 'completed') return 'success' as const;
-    if (value === 'broken' || value === 'failed' || value === 'critical') return 'destructive' as const;
-    if (value === 'degraded_major' || value === 'degraded_minor' || value === 'partial') return 'warning' as const;
-    return 'secondary' as const;
+function LoadingOverview() {
+  return (
+    <div aria-busy="true" className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Skeleton className="h-56 rounded-lg" />
+        <Skeleton className="h-56 rounded-lg" />
+      </div>
+      <Skeleton className="h-56 rounded-lg" />
+    </div>
+  );
 }
 
-function FeedCard({ title, result }: { title: string; result?: FeedIntegrityFeedResult }) {
-    return (
+function FeedIntegrityWorkspace() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const params = new URLSearchParams(searchParams.toString());
+  const requestedTab = params.get('tab') || 'overview';
+  const tab = ['overview', 'issues', 'activity', 'settings'].includes(
+    requestedTab
+  )
+    ? requestedTab
+    : requestedTab === 'attention'
+      ? 'issues'
+      : requestedTab === 'history'
+        ? 'activity'
+        : 'overview';
+  const locale = params.get('locale') === 'ar' ? 'ar' : 'en';
+  const t = (en: string, ar: string) => translate(locale, en, ar);
+  const status = useFeedIntegrityStatus();
+  const run = useRunFeedIntegrity(locale);
+  const qc = useQueryClient();
+  const data = status.data;
+  const checking = run.isPending || data?.latest_run?.status === 'running';
+  const unavailable = status.isError || !data;
+  const setParams = (changes: IntegrityParams) => {
+    const next = new URLSearchParams(searchParams.toString());
+    Object.entries(changes).forEach(([key, value]) => {
+      if (
+        !value ||
+        value === 'all' ||
+        (key === 'tab' && value === 'overview') ||
+        (key === 'locale' && value === 'en')
+      )
+        next.delete(key);
+      else next.set(key, value);
+    });
+    const query = next.toString();
+    router.replace(`/platform/feed-integrity${query ? `?${query}` : ''}`, {
+      scroll: false,
+    });
+  };
+  const clearSelection = {
+    selected: undefined,
+    inspect: undefined,
+    inspectFeed: undefined,
+    repair: undefined,
+  };
+  const reviewFeed = (feed: string) =>
+    setParams({
+      tab: 'issues',
+      feed,
+      check: undefined,
+      state: undefined,
+      q: undefined,
+      page: undefined,
+      ...clearSelection,
+    });
+  const inspect = (check: string, feed: string) =>
+    setParams({
+      tab: 'issues',
+      check,
+      feed,
+      state: undefined,
+      q: undefined,
+      page: undefined,
+      selected: undefined,
+      inspect: check,
+      inspectFeed: feed,
+    });
+  const repairPanel = (
+    <FeedIntegrityAutopilotPanel
+      view={tab === 'activity' ? 'history' : 'pending'}
+      locale={locale}
+      selectedId={params.get('repair') || ''}
+      onSelect={(id) => setParams({ repair: id })}
+    />
+  );
+  return (
+    <div
+      lang={locale}
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      className={`min-w-0 space-y-5 ${locale === 'ar' ? 'font-sans' : ''}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold tracking-tight">
+            {t('Feed Integrity', 'سلامة الخلاصات')}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t(
+              'Check feed delivery, inspect problems, and verify recovery.',
+              'افحص وصول الخلاصات، وتحقق من المشكلات، وأثبت التعافي.'
+            )}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setParams({ locale: locale === 'en' ? 'ar' : 'en' })}
+          >
+            {locale === 'en' ? 'العربية' : 'English'}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={t(
+              'Reload recorded evidence',
+              'إعادة تحميل الأدلة المسجلة'
+            )}
+            title={t(
+              'Reload recorded evidence; does not run a new check',
+              'إعادة تحميل الأدلة المسجلة دون تشغيل فحص جديد'
+            )}
+            disabled={status.isFetching}
+            onClick={() =>
+              qc.invalidateQueries({ queryKey: feedIntegrityKeys.all })
+            }
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${status.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}`}
+            />
+          </Button>
+          <div className="flex">
+            <Button
+              className="rounded-e-none"
+              disabled={unavailable || checking}
+              onClick={() => run.mutate('light')}
+            >
+              {checking ? (
+                <Loader2 className="me-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+              ) : null}
+              {checking
+                ? t('Checking feeds…', 'جارٍ فحص الخلاصات…')
+                : t('Check feeds', 'فحص الخلاصات')}
+            </Button>
+            <DropdownMenu dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="rounded-s-none border-s border-primary-foreground/20 px-2"
+                  disabled={unavailable || checking}
+                  aria-label={t('Check options', 'خيارات الفحص')}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                lang={locale}
+                align="end"
+                className={`max-w-[calc(100vw-2rem)] ${locale === 'ar' ? 'font-sans' : ''}`}
+              >
+                <DropdownMenuItem
+                  className="block py-3"
+                  onSelect={() => run.mutate('light')}
+                >
+                  <span className="block font-medium">
+                    {t('Quick feed check', 'فحص الخلاصة السريع')}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {t(
+                      'Inventory and CMS feed responses',
+                      'المخزون واستجابات خلاصة CMS'
+                    )}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="block py-3"
+                  onSelect={() => run.mutate('deep')}
+                >
+                  <span className="block font-medium">
+                    {t('Include media URL checks', 'تضمين فحص روابط الوسائط')}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {t(
+                      'Also samples playback, fallback and artwork URLs',
+                      'يفحص أيضًا عينات من روابط التشغيل والبدائل والصور'
+                    )}
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+      {status.isError ? (
         <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between text-base">
-                    {title}
-                    <Badge variant={tone(result?.consumer_verdict)}>{result?.consumer_verdict ?? 'not checked'}</Badge>
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                <Metric label="Experience" value={result ? `${Math.round(result.consumer_score)}%` : '-'} />
-                <Metric label="Readiness" value={result ? `${Math.round(result.readiness_score)}%` : '-'} />
-                <Metric label="Readiness verdict" value={result?.readiness_verdict ?? '-'} />
-                <Metric label="Violations" value={String(result?.violations ?? 0)} />
-            </CardContent>
+          <CardContent className="space-y-3 p-4">
+            <p role="alert" className="text-sm font-medium">
+              {t('Status unavailable', 'الحالة غير متاحة')}.{' '}
+              {data
+                ? t(
+                    'Showing last loaded evidence. Current decisions and new checks are disabled.',
+                    'تُعرض آخر أدلة محملة. القرارات الحالية والفحوصات الجديدة معطلة.'
+                  )
+                : t(
+                    'Feed health could not be read.',
+                    'تعذرت قراءة سلامة الخلاصات.'
+                  )}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => status.refetch()}
+            >
+              {t('Retry status', 'إعادة تحميل الحالة')}
+            </Button>
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer">
+                {t('Error details', 'تفاصيل الخطأ')}
+              </summary>
+              <p className="mt-2 break-words" dir="auto">
+                {status.error.message}
+              </p>
+            </details>
+          </CardContent>
         </Card>
-    );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-    return <div><p className="text-xs text-muted-foreground">{label}</p><p className="font-medium">{value}</p></div>;
+      ) : null}
+      {run.error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {t('Check could not finish', 'تعذر إكمال الفحص')}: {run.error.message}
+        </p>
+      ) : null}
+      {checking ? (
+        <p role="status" className="rounded-md border bg-muted/30 p-3 text-sm">
+          {t(
+            'A check is running. Previously recorded evidence stays visible until new results arrive.',
+            'فحص قيد التنفيذ. تبقى الأدلة المسجلة سابقًا ظاهرة حتى وصول النتائج الجديدة.'
+          )}
+        </p>
+      ) : null}
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setParams({ tab: value, ...clearSelection })}
+        dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      >
+        <TabsList className="mb-4 max-w-full overflow-x-auto">
+          <TabsTrigger value="overview">
+            {t('Overview', 'نظرة عامة')}
+          </TabsTrigger>
+          <TabsTrigger value="issues">{t('Issues', 'المشكلات')}</TabsTrigger>
+          <TabsTrigger value="activity">{t('Activity', 'النشاط')}</TabsTrigger>
+          <TabsTrigger value="settings">
+            {t('Settings', 'الإعدادات')}
+          </TabsTrigger>
+        </TabsList>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <p>
+            {t('Latest check started', 'بدأ آخر فحص')}:{' '}
+            <IntegrityTime
+              value={data?.latest_run?.started_at}
+              locale={locale}
+            />
+            {data?.latest_run?.finished_at ? (
+              <>
+                {' '}
+                · {t('Finished', 'انتهى')}{' '}
+                <IntegrityTime
+                  value={data.latest_run.finished_at}
+                  locale={locale}
+                />
+              </>
+            ) : null}
+          </p>
+          <Badge variant="outline">
+            {data?.posture === 'paused'
+              ? t('Scheduling paused', 'الجدولة متوقفة')
+              : data?.posture === 'scheduled'
+                ? t('Scheduled checks', 'فحوصات مجدولة')
+                : data
+                  ? t('Manual checks', 'فحوصات يدوية')
+                  : t('Schedule unavailable', 'الجدولة غير متاحة')}
+          </Badge>
+        </div>
+        <TabsContent value="overview" className="space-y-4">
+          {status.isLoading ? (
+            <LoadingOverview />
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <FeedSummary
+                  feed="pods"
+                  data={data}
+                  locale={locale}
+                  onReview={() => reviewFeed('pods')}
+                  unavailable={unavailable}
+                />
+                <FeedSummary
+                  feed="news"
+                  data={data}
+                  locale={locale}
+                  onReview={() => reviewFeed('news')}
+                  unavailable={unavailable}
+                />
+              </div>
+              {repairPanel}
+              {data ? (
+                <>
+                  <AttentionSummary
+                    data={data}
+                    locale={locale}
+                    onInspect={inspect}
+                    onAll={() =>
+                      setParams({
+                        tab: 'issues',
+                        feed: undefined,
+                        check: undefined,
+                        state: undefined,
+                        q: undefined,
+                        page: undefined,
+                        ...clearSelection,
+                      })
+                    }
+                  />
+                  <CoverageSummary data={data} locale={locale} />
+                </>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  'These checks cover CMS delivery and sampled assets.',
+                  'تغطي هذه الفحوصات عرض CMS وعينات من الملفات.'
+                )}{' '}
+                <Link
+                  className="text-primary underline underline-offset-4"
+                  href="/platform/real-experience"
+                >
+                  {t(
+                    'View consumer experience monitoring',
+                    'عرض مراقبة تجربة المستخدم'
+                  )}
+                </Link>
+              </p>
+            </>
+          )}
+        </TabsContent>
+        <TabsContent value="issues" className="space-y-4">
+          <FeedIntegrityIssues
+            data={data}
+            locale={locale}
+            params={params}
+            setParams={setParams}
+            unavailable={unavailable}
+            loading={status.isLoading}
+            checking={checking}
+            onCheck={() => run.mutate('deep')}
+          />
+          {repairPanel}
+        </TabsContent>
+        <TabsContent value="activity" className="space-y-4">
+          <FeedIntegrityActivity
+            locale={locale}
+            params={params}
+            setParams={setParams}
+          />
+          {repairPanel}
+        </TabsContent>
+        <TabsContent value="settings">
+          <FeedIntegritySettings
+            policy={data?.policy}
+            locale={locale}
+            unavailable={unavailable}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 }
 
 export default function FeedIntegrityPage() {
-    const { data, isLoading, isFetching, refetch } = useFeedIntegrityStatus();
-    const { data: runs } = useFeedIntegrityRuns();
-    const { data: findings } = useFeedIntegrityFindings();
-    const { data: episodes } = useFeedIntegrityEpisodes();
-    const savePolicy = useUpdateFeedIntegrityPolicy();
-    const run = useRunFeedIntegrity();
-    const pause = usePauseFeedIntegritySchedule();
-    const close = useCloseFeedIntegrityEpisode();
-    const policy = data?.policy;
-    const results = data?.latest_run?.feed_results;
-    const isPaused = !!policy?.paused_until && new Date(policy.paused_until).getTime() > Date.now();
-    const episodeItems = episodes?.items ?? data?.open_episodes ?? [];
-    const operatorContext = useMemo(() => createRouteVisibleContext('/platform/feed-integrity', {
-        subjects: [{ type: 'news_window', id: 'today', label: 'Today' }],
-        selection: { mode: 'explicit', ids: ['today'], count: 1 },
-    }), []);
-
-    return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                    <div className="flex items-center gap-2"><h1 className="text-3xl font-bold tracking-tight">Feed Integrity</h1><Badge variant="outline">CMS edge</Badge></div>
-                    <p className="text-muted-foreground">CMS delivery edge</p>
-                </div>
-                <div className="flex gap-2">
-                    {operatorContext ? <OperatorLaunchLink context={operatorContext} intent="resolve" size="sm">Inspect snapshot</OperatorLaunchLink> : null}
-                    <Button variant="outline" onClick={() => refetch()} disabled={isFetching}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
-                    <Button variant="outline" onClick={() => run.mutate('light')} disabled={run.isPending}><Play className="mr-2 h-4 w-4" />Light run</Button>
-                    <Button onClick={() => run.mutate('deep')} disabled={run.isPending}><ShieldCheck className="mr-2 h-4 w-4" />Deep run</Button>
-                </div>
-            </div>
-
-            <Card>
-                <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
-                    <div><p className="font-medium">{data?.latest_run?.summary ?? 'No checks have run yet.'}</p><p className="text-sm text-muted-foreground">Latest run: {data?.latest_run?.started_at ? new Date(data.latest_run.started_at).toLocaleString() : 'never'}</p></div>
-                    <div className="flex items-center gap-3 rounded-md border px-3 py-2"><Switch checked={policy?.scheduled_enabled ?? false} disabled={!policy || savePolicy.isPending} onCheckedChange={(scheduled_enabled) => savePolicy.mutate({ scheduled_enabled })} /><span className="text-sm">Scheduled checks</span><Badge variant={isPaused ? 'warning' : 'secondary'}>{isPaused ? 'paused' : `${policy?.light_interval_minutes ?? 15} min`}</Badge><Button size="sm" variant="ghost" disabled={pause.isPending} onClick={() => pause.mutate(isPaused ? 0 : 120)}><Pause className="h-4 w-4" /></Button></div>
-                </CardContent>
-            </Card>
-
-            <div className="grid gap-4 md:grid-cols-2"><FeedCard title="Pods" result={results?.pods} /><FeedCard title="News" result={results?.news} /></div>
-
-            <FeedIntegrityAutopilotPanel />
-
-            <div className="grid gap-6 xl:grid-cols-2">
-                <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-destructive" />Attention</CardTitle></CardHeader>
-                    <CardContent className="space-y-3">
-                        {episodeItems.filter((episode) => episode.status === 'open' || episode.status === 'recovering').slice(0, 8).map((episode) => <div className="flex items-start justify-between gap-3 rounded-md border p-3" key={episode.id}><div><div className="flex gap-2"><Badge variant={tone(episode.severity)}>{episode.severity}</Badge><Badge variant="outline">{episode.feed} - {episode.variant}</Badge></div><p className="mt-2 text-sm font-medium">{episode.summary}</p><p className="text-xs text-muted-foreground">Last seen {new Date(episode.last_seen_at).toLocaleString()}</p></div><Button size="sm" variant="outline" disabled={close.isPending} onClick={() => close.mutate({ id: episode.id })}>Close</Button></div>)}
-                        {!isLoading && !episodeItems.some((episode) => episode.status === 'open' || episode.status === 'recovering') ? <p className="text-sm text-muted-foreground">No open integrity episodes.</p> : null}
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4" />Recent runs</CardTitle></CardHeader>
-                    <CardContent className="space-y-2">
-                        {(runs?.items ?? []).slice(0, 8).map((item) => <div key={item.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"><div><span className="font-medium">{item.tier}</span><span className="ml-2 text-muted-foreground">{item.summary}</span></div><Badge variant={tone(item.status)}>{item.status}</Badge></div>)}
-                        {!runs?.items?.length ? <p className="text-sm text-muted-foreground">No run history yet.</p> : null}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock3 className="h-4 w-4" />Recent findings</CardTitle></CardHeader>
-                <CardContent className="space-y-2">
-                    {(findings?.items ?? []).filter((item) => item.status !== 'pass').slice(0, 20).map((item) => <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm" key={item.id}><Badge variant={tone(item.severity)}>{item.severity || item.status}</Badge><span className="font-medium">{item.check_key}</span><span className="text-muted-foreground">{item.feed} - {item.variant}</span>{item.target_ref ? <span className="truncate text-xs text-muted-foreground">{item.target_ref}</span> : null}</div>)}
-                    {!findings?.items?.length ? <p className="text-sm text-muted-foreground">Run a check to populate the ledger.</p> : null}
-                </CardContent>
-            </Card>
-            {isLoading ? <p className="text-sm text-muted-foreground">Loading Feed Integrity...</p> : null}
-        </div>
-    );
+  return (
+    <Suspense fallback={<LoadingOverview />}>
+      <FeedIntegrityWorkspace />
+    </Suspense>
+  );
 }
