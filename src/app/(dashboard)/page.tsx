@@ -6,7 +6,7 @@ import { useOpsAttention, useOpsStatus } from '@/hooks/use-operations-command-ce
 import { useSystemHealth } from '@/hooks/use-system-health';
 import { useFeedIntegrityRuns, useFeedIntegrityStatus } from '@/hooks/use-feed-integrity';
 import { useExperienceRuns, useExperienceStatus } from '@/hooks/use-real-experience';
-import { useAISpendRollups, useAISpendStatus } from '@/hooks/use-ai-spend';
+import { useAISpendStatus } from '@/hooks/use-ai-spend';
 import { useStatusCounts } from '@/hooks/use-pipeline';
 import { useStorageHealth } from '@/hooks/use-storage';
 import { useSources } from '@/hooks/use-sources';
@@ -26,7 +26,6 @@ import {
     feedScoreSeries,
     label,
     ruxHealthSeries,
-    spendDailySeries,
     topAttention,
 } from '@/components/platform/overview/overview-logic';
 
@@ -42,13 +41,12 @@ export default function DashboardPage() {
     const sources = useSources({ page: 1, limit: 1 });
     const integrityRuns = useFeedIntegrityRuns();
     const experienceRuns = useExperienceRuns();
-    const spendRollups = useAISpendRollups();
     const contentStats = useContentStats();
 
     const attentionItems = useMemo(() => topAttention(attention.data?.items), [attention.data]);
     const integrityTrend = useMemo(() => feedScoreSeries(integrityRuns.data?.items), [integrityRuns.data]);
     const ruxTrend = useMemo(() => ruxHealthSeries(experienceRuns.data), [experienceRuns.data]);
-    const spendTrend = useMemo(() => spendDailySeries(spendRollups.data?.rollups), [spendRollups.data]);
+    const spendTrend = useMemo(() => (spend.data?.breakdown?.day ?? []).map(d => ({ day: d.key.slice(0, 10), count: d.cost_usd, failed: 0 })), [spend.data]);
 
     const servicesDetail = deriveServicesDetail(systemHealth.data?.services);
     const feedResults = Object.entries(feedIntegrity.data?.latest_run?.feed_results ?? {})
@@ -57,9 +55,8 @@ export default function DashboardPage() {
         .sort((a, b) => (a.feed === 'pods' ? -1 : b.feed === 'pods' ? 1 : a.feed.localeCompare(b.feed)));
     const openEpisodes = feedIntegrity.data?.open_episodes?.length ?? 0;
     const worstRux = deriveWorstRux(experience.data ? experience.data.surface_verdicts : undefined);
-    const budgets = spend.data?.budgets ?? [];
-    const spendTotal = budgets.reduce((sum, b) => sum + b.spend_usd, 0);
-    const spendState = deriveSpendState(spend.data?.budgets);
+    const spendTotal = spend.data?.totals?.cost_usd ?? 0;
+    const spendState = spend.data?.headline ?? deriveSpendState(spend.data?.budgets);
     const fleetSummary = deriveFleetState(ops.data?.fleet);
 
     const byType = contentStats.data?.by_type;
@@ -133,7 +130,7 @@ export default function DashboardPage() {
                     loading={spend.isLoading}
                     isError={spend.isError}
                     verdict={spendState}
-                    detail={spend.data ? `$${spendTotal.toFixed(2)} across ${budgets.length} budgets` : undefined}
+                    detail={spend.data ? `$${spendTotal.toFixed(2)} in selected 30-day period` : undefined}
                     trend={spendTrend}
                 />
                 <VerdictTile

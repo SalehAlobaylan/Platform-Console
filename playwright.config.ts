@@ -22,7 +22,11 @@ export default defineConfig({
   /* Shared settings for all the projects below */
   use: {
     /* Base URL to use in actions like `await page.goto('/')` */
-    baseURL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    baseURL:
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.PLAYWRIGHT_EXTERNAL_STACK === '1'
+        ? 'http://localhost:3005'
+        : 'http://localhost:3000'),
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
@@ -57,9 +61,12 @@ export default defineConfig({
   ],
 
   /* Run local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer:
+    process.env.PLAYWRIGHT_EXTERNAL_STACK === '1'
+      ? undefined
+      : {
+          command: 'npm run dev',
+          url: 'http://localhost:3000',
+          reuseExistingServer: !process.env.CI,
+        },
 });

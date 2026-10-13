@@ -399,7 +399,7 @@ export function OperatorWorkspace() {
     setCaseSheet(false);
   };
 
-  const send = async (event: FormEvent) => {
+  const send = async (event: FormEvent, confirmed = false): Promise<void> => {
     event.preventDefault();
     const question = prompt.trim();
     if (!question || status.data?.controls.read_enabled !== true) return;
@@ -421,7 +421,7 @@ export function OperatorWorkspace() {
         message: question,
         tier: 'fast',
         thread_id: threadID,
-        spend_acknowledged: Boolean(controls.data?.spend?.interactive),
+        spend_acknowledged: confirmed,
       });
       setLocale(nextLocale);
       setPrompt('');
@@ -436,9 +436,12 @@ export function OperatorWorkspace() {
         queryKey: operatorKeys.thread(threadID),
       });
     } catch (cause) {
-      setError(
-        (cause as ApiError)?.message ?? operatorCopy(locale).unavailable
-      );
+      const failure = cause as ApiError;
+      if (!confirmed && ['ai_budget_confirmation_required','interactive_soft_spend_warning'].includes(failure.code ?? '') && window.confirm(failure.message + '\nContinue with a paid interactive answer?')) {
+        await send(event,true);
+        return;
+      }
+      setError(failure.message ?? operatorCopy(locale).unavailable);
     }
   };
 
