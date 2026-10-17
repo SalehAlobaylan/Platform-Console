@@ -124,6 +124,7 @@ export interface AIPrice {
   provider: string;
   model_pattern: string;
   input_usd_per_1m: number;
+  cached_input_usd_per_1m?: number | null;
   output_usd_per_1m: number;
   unit_usd: number;
   effective_from: string;

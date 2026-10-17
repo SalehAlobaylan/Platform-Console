@@ -102,6 +102,7 @@ export function useUpdateAdminUser() {
     onSuccess: (updated: AdminUser) => {
       queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
       queryClient.setQueryData(adminUserKeys.detail(updated.id), updated);
+      void queryClient.invalidateQueries({queryKey:['platform-economics']});
       toast({
         title: 'Admin user updated',
         description: 'The admin user has been updated successfully.',
@@ -124,6 +125,7 @@ export function useDeleteAdminUser() {
     mutationFn: (id: string) => deleteAdminUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
+      void queryClient.invalidateQueries({queryKey:['platform-economics']});
       toast({
         title: 'Admin user deleted',
         description: 'The admin user has been deleted.',

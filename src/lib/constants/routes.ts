@@ -74,7 +74,7 @@ export const navigation: NavigationSection[] = [
         icon: Gauge,
       },
       {
-        name: 'AI Economics',
+        name: 'Economics',
         href: '/platform/economics',
         icon: CircleDollarSign,
       },

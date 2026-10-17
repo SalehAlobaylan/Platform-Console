@@ -1623,7 +1623,7 @@ function OperationsPanel() {
                                             <TableCell className="font-mono text-xs">{r.op_type}</TableCell>
                                             <TableCell>
                                                 <Badge variant={r.op_class === 'A' ? 'destructive' : 'secondary'}>
-                                                    {r.op_class}
+                                                    {r.op_class === 'F' ? 'Free' : r.op_class === 'U' ? 'Unknown' : r.op_class}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">{formatCount(r.count)}</TableCell>
@@ -1654,7 +1654,7 @@ function OperationsPanel() {
                                                 <span className="flex items-center gap-1">
                                                     <Zap className="h-3 w-3 text-orange-400" /> Cloudflare
                                                 </span>
-                                            ) : 'Internal SDK'}
+                                            ) : s.source === 'cloudflare_legacy' ? 'Legacy Cloudflare (unqualified)' : 'Internal SDK'}
                                         </span>
                                         <span className="font-mono text-sm">{formatCount(s.count)}</span>
                                     </div>
@@ -1662,7 +1662,7 @@ function OperationsPanel() {
                             )}
                             <p className="text-xs text-muted-foreground">
                                 <strong>Internal</strong> = ops we made via our S3 SDK.{' '}
-                                <strong>Cloudflare</strong> = pulled from R2 Analytics, includes public CDN reads.
+                                <strong>Cloudflare</strong> = R2 Analytics, including public CDN reads. Sources overlap and must not be added. Totals use the highest observed daily source per tier/class; gaps and legacy counts remain unqualified. These are usage observations, not an invoice.
                             </p>
                         </div>
                     </div>

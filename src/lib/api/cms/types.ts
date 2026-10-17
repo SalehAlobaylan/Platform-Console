@@ -1,5 +1,6 @@
 // User type used across the application
 export interface User {
+    tenant_id?: string;
     id: string;
     email: string;
     role: string;

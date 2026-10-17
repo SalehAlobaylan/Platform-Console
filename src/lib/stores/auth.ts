@@ -21,6 +21,7 @@ function selectPrimaryRole(roles: string[], isAdmin: boolean): string {
 function mapIamUser(me: IamMeResponse): User {
     return {
         id: me.user_id,
+        tenant_id: me.tenant_id,
         email: me.email,
         role: me.role || selectPrimaryRole(me.roles, me.is_admin),
         permissions: me.permissions || [],

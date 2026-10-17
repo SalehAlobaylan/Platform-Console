@@ -1,6 +1,6 @@
 // Storage Operations / Free-Tier Tracking — types matching CMS responses.
 
-export type OpClass = 'A' | 'B';
+export type OpClass = 'A' | 'B' | 'F' | 'U';
 export type OpClassStatus = 'ok' | 'warn' | 'cap';
 export type OpType =
     | 'PUT'
@@ -11,7 +11,7 @@ export type OpType =
     | 'LIST'
     | 'COPY'
     | 'OTHER';
-export type OpSource = 'internal' | 'cloudflare';
+export type OpSource = 'internal' | 'cloudflare' | 'cloudflare_legacy';
 
 export interface OpClassSummary {
     used: number;

@@ -277,10 +277,10 @@ test.describe('AI spend cockpit', () => {
     );
     await page.goto('/platform/economics');
     await expect(
-      page.getByRole('alert').filter({ hasText: 'Could not load AI spend' })
-    ).toContainText('Could not load AI spend', { timeout: 15000 });
+      page.getByRole('alert').filter({ hasText: 'AI spending is unavailable' })
+    ).toContainText('ledger unavailable', { timeout: 15000 });
     await expect(
-      page.getByRole('button', { name: 'Retry', exact: true })
+      page.getByRole('button', { name: 'Retry AI evidence', exact: true })
     ).toBeVisible();
   });
 
@@ -344,7 +344,7 @@ test.describe('AI spend cockpit', () => {
       await route.fulfill({ json: { rollups: [], total: 0 } });
     });
     await page.goto('/platform/economics');
-    await page.getByRole('button', { name: 'Filters', exact: true }).click();
+    await page.getByRole('button', { name: 'AI filters', exact: true }).click();
     await page.getByLabel('Human actor ID').fill('reviewer');
     await page
       .getByRole('button', { name: 'Apply filters', exact: true })
@@ -533,7 +533,7 @@ test.describe('AI spend cockpit', () => {
     ).toHaveCount(0);
     // Returning to the initial filter reuses its fresh query-cache entry.
     await expect(
-      page.getByRole('button', { name: 'Filters', exact: true })
+      page.getByRole('button', { name: 'AI filters', exact: true })
     ).toBeVisible();
     expect(reads[0].searchParams.get('trigger_source') || '').toBe('');
   });
@@ -547,13 +547,13 @@ test.describe('AI spend cockpit', () => {
       await route.fulfill({ json: fixture() });
     });
     await page.goto('/platform/economics');
-    await page.getByRole('button', { name: 'Filters', exact: true }).click();
+    await page.getByRole('button', { name: 'AI filters', exact: true }).click();
     await page.getByLabel('Model', { exact: true }).fill('draft-model');
     expect(
       reads.some((u) => u.searchParams.get('model') === 'draft-model')
     ).toBe(false);
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Filters', exact: true }).click();
+    await page.getByRole('button', { name: 'AI filters', exact: true }).click();
     await expect(page.getByLabel('Model', { exact: true })).toHaveValue('');
     await page.getByLabel('Model', { exact: true }).fill('reviewed-model');
     await page

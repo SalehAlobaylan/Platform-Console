@@ -43,6 +43,7 @@ import {
   useRunAISpendGovernor,
 } from '@/hooks/use-ai-spend';
 import * as api from '@/lib/api/cms/ai-spend';
+import { PlatformEconomics } from '@/components/platform/economics/platform-economics';
 
 const date = (s?: string | null) =>
   s ? new Date(s).toLocaleString() : 'No evidence';
@@ -80,6 +81,7 @@ const admissionLabel = (reason?: string) =>
   admissionLabels[reason ?? ''] ?? 'Admission unavailable';
 const tabs = [
   'Overview',
+  'Users',
   'Budgets',
   'Usage',
   'Savings & compute',
@@ -88,6 +90,16 @@ const tabs = [
   'Debug',
 ] as const;
 type Tab = (typeof tabs)[number];
+const tabLabels: Record<Tab, string> = {
+  Overview: 'Overview',
+  Users: 'Users',
+  Usage: 'Activity',
+  Budgets: 'Budgets',
+  'Savings & compute': 'Savings & compute',
+  Reconciliation: 'Billing',
+  Episodes: 'Attention',
+  Debug: 'Diagnostics',
+};
 
 export default function EconomicsPage() {
   const { user } = useAuth();
@@ -159,6 +171,7 @@ export default function EconomicsPage() {
   const [model, setModel] = useState('*');
   const [priceClass, setPriceClass] = useState('llm');
   const [inputRate, setInputRate] = useState('');
+  const [cachedInputRate, setCachedInputRate] = useState('');
   const [outputRate, setOutputRate] = useState('');
   const [unitRate, setUnitRate] = useState('');
   const [priceDate, setPriceDate] = useState(day(0));
@@ -319,14 +332,81 @@ export default function EconomicsPage() {
     );
   if (status.isError || !status.data)
     return (
-      <Card>
-        <CardContent className="p-5">
-          <p role="alert">
-            Could not load AI spend economics. {status.error?.message}
-          </p>
-          <Button onClick={() => void status.refetch()}>Retry</Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-5">
+        <Card>
+          <CardContent className="space-y-3 p-5">
+            <h1 className="text-2xl font-semibold">Economics</h1>
+            <p role="alert">
+              AI spending is unavailable. {status.error?.message}
+            </p>
+            <Button onClick={() => void status.refetch()}>
+              Retry AI evidence
+            </Button>
+          </CardContent>
+        </Card>
+        {user?.role === 'admin' && (
+          <>
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label="Economics workspaces"
+            >
+              {(
+                [
+                  'Overview',
+                  'Users',
+                  'Usage',
+                  'Reconciliation',
+                  'Episodes',
+                  'Debug',
+                ] as const
+              ).map((t) => (
+                <Button
+                  key={t}
+                  variant={tab === t ? 'default' : 'outline'}
+                  onClick={() => setTab(t)}
+                >
+                  {tabLabels[t]}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <label className="text-sm">
+                From (UTC)
+                <Input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                />
+              </label>
+              <label className="text-sm">
+                To (exclusive, UTC)
+                <Input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              </label>
+            </div>
+            <PlatformEconomics
+              key={`${user?.tenant_id}:${user?.id}`}
+              view={
+                tab === 'Users'
+                  ? 'users'
+                  : tab === 'Usage'
+                    ? 'activity'
+                    : tab === 'Reconciliation'
+                      ? 'billing'
+                      : tab === 'Episodes'
+                        ? 'attention'
+                        : tab === 'Debug'
+                          ? 'diagnostics'
+                          : 'overview'
+              }
+              period={{ from, to }}
+            />
+          </>
+        )}
+      </div>
     );
   const s = status.data;
   const totals = s.totals;
@@ -357,11 +437,10 @@ export default function EconomicsPage() {
     <div className="mx-auto max-w-[1440px] space-y-5 pb-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            AI Economics
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Economics</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Understand spend. Keep autonomous work within your limits.
+            Understand platform costs, investigate accounts, and manage AI
+            spending.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -394,6 +473,7 @@ export default function EconomicsPage() {
         >
           {[
             ['Overview', 'Overview'],
+            ...(user?.role === 'admin' ? [['Users', 'Users']] : []),
             ['Usage', 'Activity'],
             ['Budgets', 'Budgets'],
             ['Reconciliation', 'Billing'],
@@ -470,7 +550,7 @@ export default function EconomicsPage() {
             }}
           >
             <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filters
+            AI filters
             {Object.values(period).filter((v, i) => i > 1 && v).length > 0
               ? ` (${Object.values(period).filter((v, i) => i > 1 && v).length})`
               : ''}
@@ -581,8 +661,9 @@ export default function EconomicsPage() {
           <DialogHeader>
             <DialogTitle>Filter activity</DialogTitle>
             <DialogDescription>
-              These filters apply to report totals and activity. Budget controls
-              always use their full anchored window.
+              These AI filters apply to AI totals and activity. Platform and
+              user reports use the shared date period. Budget controls always
+              use their full anchored window.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -746,6 +827,48 @@ export default function EconomicsPage() {
             Back to overview
           </Button>
         </div>
+      )}
+      {user?.role === 'admin' && tab === 'Overview' && (
+        <PlatformEconomics
+          key={`${user?.tenant_id}:${user?.id}`}
+          view="overview"
+          period={{ from, to }}
+        />
+      )}
+      {user?.role === 'admin' && tab === 'Users' && (
+        <PlatformEconomics
+          key={`${user?.tenant_id}:${user?.id}`}
+          view="users"
+          period={{ from, to }}
+        />
+      )}
+      {user?.role === 'admin' && tab === 'Usage' && (
+        <PlatformEconomics
+          key={`${user?.tenant_id}:${user?.id}`}
+          view="activity"
+          period={{ from, to }}
+        />
+      )}
+      {user?.role === 'admin' && tab === 'Reconciliation' && (
+        <PlatformEconomics
+          key={`${user?.tenant_id}:${user?.id}`}
+          view="billing"
+          period={{ from, to }}
+        />
+      )}
+      {user?.role === 'admin' && tab === 'Episodes' && (
+        <PlatformEconomics
+          key={`${user?.tenant_id}:${user?.id}`}
+          view="attention"
+          period={{ from, to }}
+        />
+      )}
+      {user?.role === 'admin' && tab === 'Debug' && (
+        <PlatformEconomics
+          key={`${user?.tenant_id}:${user?.id}`}
+          view="diagnostics"
+          period={{ from, to }}
+        />
       )}
       {tab === 'Overview' && (
         <EconomicsOverview
@@ -976,6 +1099,7 @@ export default function EconomicsPage() {
                           <th>Class / provider</th>
                           <th>Prefix</th>
                           <th>Input / 1M</th>
+                          <th>Provider-cached input / 1M</th>
                           <th>Output / 1M</th>
                           <th>Unit USD</th>
                           <th>Effective</th>
@@ -989,6 +1113,11 @@ export default function EconomicsPage() {
                             </td>
                             <td>{p.model_pattern}</td>
                             <td>{usd(p.input_usd_per_1m)}</td>
+                            <td>
+                              {p.cached_input_usd_per_1m == null
+                                ? 'Standard input rate'
+                                : usd(p.cached_input_usd_per_1m)}
+                            </td>
                             <td>{usd(p.output_usd_per_1m)}</td>
                             <td>{usd(p.unit_usd)}</td>
                             <td>{date(p.effective_from)}</td>
@@ -1008,6 +1137,10 @@ export default function EconomicsPage() {
                             provider,
                             model_pattern: model,
                             input_usd_per_1m: Number(inputRate),
+                            cached_input_usd_per_1m:
+                              cachedInputRate.trim() === ''
+                                ? null
+                                : Number(cachedInputRate),
                             output_usd_per_1m: Number(outputRate),
                             unit_usd: Number(unitRate),
                             effective_from: new Date(
@@ -1024,6 +1157,11 @@ export default function EconomicsPage() {
                       ['Provider', provider, setProvider],
                       ['Model prefix', model, setModel],
                       ['Input USD / 1M', inputRate, setInputRate],
+                      [
+                        'Provider-cached input USD / 1M (optional)',
+                        cachedInputRate,
+                        setCachedInputRate,
+                      ],
                       ['Output USD / 1M', outputRate, setOutputRate],
                       ['Unit USD', unitRate, setUnitRate],
                       ['Note', priceNote, setPriceNote],
@@ -1032,6 +1170,19 @@ export default function EconomicsPage() {
                         {label as string}
                         <Input
                           value={value as string}
+                          type={
+                            (label as string).includes('USD')
+                              ? 'number'
+                              : 'text'
+                          }
+                          min={
+                            (label as string).includes('USD') ? 0 : undefined
+                          }
+                          step={
+                            (label as string).includes('USD')
+                              ? 'any'
+                              : undefined
+                          }
                           onChange={(e) =>
                             (setter as (s: string) => void)(e.target.value)
                           }
@@ -1640,7 +1791,6 @@ export default function EconomicsPage() {
                   <Input
                     required
                     type="number"
-                    min="0"
                     step="any"
                     value={invoiceAmount}
                     onChange={(e) => setInvoiceAmount(e.target.value)}
