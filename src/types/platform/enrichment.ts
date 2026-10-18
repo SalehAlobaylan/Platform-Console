@@ -210,6 +210,7 @@ export interface EnrichmentAutopilotAction {
   content_id?: string;
   artifact: string;
   status:
+    | 'admitted'
     | 'success'
     | 'error'
     | 'skipped'

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -127,19 +127,59 @@ describe('System Health Autopilot hooks', () => {
   });
 });
 
-
 test('closed history sheets do not fetch, then load when opened', async () => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   jest.mocked(listSystemAutopilotRuns).mockResolvedValue({ items: [] });
   jest.mocked(listSystemIncidentEpisodes).mockResolvedValue({ items: [] });
-  const result = renderHook(({ open }) => ({
-    runs: useSystemAutopilotRuns(20, open),
-    episodes: useSystemIncidentEpisodes(50, open),
-  }), { initialProps: { open: false }, wrapper: wrapper(client) });
+  const result = renderHook(
+    ({ open }) => ({
+      runs: useSystemAutopilotRuns(20, open),
+      episodes: useSystemIncidentEpisodes(50, open),
+    }),
+    { initialProps: { open: false }, wrapper: wrapper(client) }
+  );
   expect(listSystemAutopilotRuns).not.toHaveBeenCalled();
   expect(listSystemIncidentEpisodes).not.toHaveBeenCalled();
   result.rerender({ open: true });
   await waitFor(() => expect(result.result.current.runs.isSuccess).toBe(true));
   expect(listSystemAutopilotRuns).toHaveBeenCalledTimes(1);
   expect(listSystemIncidentEpisodes).toHaveBeenCalledTimes(1);
+});
+
+test('refreshes selected incident detail and stops polling when closed', async () => {
+  jest.useFakeTimers();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  });
+  mockEpisode.mockResolvedValue({
+    episode: { id: 'incident' },
+    actions: [],
+  } as never);
+  const result = renderHook(
+    ({ id }: { id: string | null }) => useSystemIncidentEpisode(id),
+    {
+      initialProps: { id: 'incident' as string | null },
+      wrapper: wrapper(client),
+    }
+  );
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(1);
+  });
+  expect(mockEpisode).toHaveBeenCalled();
+  const before = mockEpisode.mock.calls.length;
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(30_000);
+  });
+  expect(mockEpisode.mock.calls.length).toBeGreaterThan(before);
+  result.rerender({ id: null });
+  const closed = mockEpisode.mock.calls.length;
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(30_000);
+  });
+  expect(mockEpisode.mock.calls.length).toBe(closed);
+  result.unmount();
+  client.clear();
+  jest.useRealTimers();
 });

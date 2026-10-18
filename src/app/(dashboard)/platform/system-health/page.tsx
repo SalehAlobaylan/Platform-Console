@@ -97,7 +97,7 @@ function SystemHealthWorkspace() {
   }, []);
   const stale = !!data && (isError || snapshotIsStale(data, now));
   const incidentData = incidents.data;
-  const activeIncidents = incidentData?.open_episodes.length;
+  const activeIncidents = incidentData?.open_episode_count;
   const monitorWarning =
     incidents.isError ||
     !incidentData?.monitor?.fresh ||
@@ -110,13 +110,15 @@ function SystemHealthWorkspace() {
       ? 'Loading incident monitoring'
       : activeIncidents
         ? `${activeIncidents} active incident${activeIncidents === 1 ? '' : 's'}`
-        : incidentData.monitor?.state === 'disabled'
-          ? 'Scheduled incident monitor off'
-          : incidentData.monitor?.state === 'never_observed'
-            ? 'No incident probe has run'
-            : monitorWarning
-              ? 'Incident monitoring needs review'
-              : 'No open incidents recorded';
+        : activeIncidents === undefined
+          ? 'Incident total not reported by CMS'
+          : incidentData.monitor?.state === 'disabled'
+            ? 'Scheduled incident monitor off'
+            : incidentData.monitor?.state === 'never_observed'
+              ? 'No incident probe has run'
+              : monitorWarning
+                ? 'Incident monitoring needs review'
+                : 'No open incidents recorded';
 
   function navigate(updates: Record<string, string | null>) {
     if (updates.service && !selected)
@@ -335,12 +337,14 @@ function SystemHealthWorkspace() {
           </div>
         </TabsContent>
 
-      <TabsContent value="incidents" className="mt-5">
+        <TabsContent value="incidents" className="mt-5">
           <SystemAutopilotPanel
             initialEpisodeId={search.get('incident')}
-            onIncidentChange={(id) => navigate({ tab: 'incidents', incident: id })}
+            onIncidentChange={(id) =>
+              navigate({ tab: 'incidents', incident: id })
+            }
           />
-      </TabsContent>
+        </TabsContent>
 
         <TabsContent value="processing" className="mt-5 space-y-4">
           <Tabs defaultValue="workers">
@@ -454,6 +458,7 @@ function SystemHealthWorkspace() {
               )}
               <ServiceCard
                 service={selected}
+                observedAt={data?.timestamp}
                 onRecheck={() => void refetch()}
                 isRechecking={isFetching}
                 stale={stale}

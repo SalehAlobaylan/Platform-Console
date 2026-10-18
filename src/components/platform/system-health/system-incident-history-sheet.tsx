@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SystemContainmentTargets } from './system-containment-targets';
+import { useObservationClock } from '@/hooks/use-observation-clock';
+import type { SystemIncidentEpisode } from '@/types/platform/system-autopilot';
 
 function actionTarget(output: unknown): { tenant?: string; until?: string } {
   if (!output || typeof output !== 'object') return {};
@@ -44,116 +46,183 @@ export function SystemIncidentHistorySheet({
   onOpenChange,
   selectedId,
   onSelectedChange,
+  onCloseIncident,
+  isClosing = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedId?: string | null;
   onSelectedChange?: (id: string | null) => void;
+  onCloseIncident?: (episode: SystemIncidentEpisode) => void;
+  isClosing?: boolean;
 }) {
   const [selected, setSelected] = useState<string | null>(selectedId ?? null);
   useEffect(() => {
     setSelected(selectedId ?? null);
   }, [selectedId]);
-  const episodesQuery = useSystemIncidentEpisodes(50, open);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open && selected && contentRef.current)
+      contentRef.current.scrollTop = 0;
+  }, [open, selected]);
+  const episodesQuery = useSystemIncidentEpisodes(50, open && !selected);
   const detailQuery = useSystemIncidentEpisode(open ? selected : null);
   const episodes = episodesQuery.data?.items ?? [];
   const detail = detailQuery.data;
+  const now = useObservationClock(open);
+  const stale =
+    detailQuery.isError ||
+    (!!detailQuery.dataUpdatedAt && now - detailQuery.dataUpdatedAt > 45_000);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={contentRef}
         side="right"
         className="w-full overflow-y-auto p-5 sm:max-w-2xl"
+        onOpenAutoFocus={() => {
+          openerRef.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (openerRef.current?.isConnected) {
+            event.preventDefault();
+            openerRef.current.focus();
+          }
+        }}
       >
         <SheetHeader className="mb-4 text-left">
           <SheetTitle>System Health incident history</SheetTitle>
         </SheetHeader>
-        {episodesQuery.isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
-          </div>
-        ) : null}
-        {episodesQuery.isError ? (
-          <div
-            role="alert"
-            className="space-y-2 rounded-md border border-destructive/40 p-3 text-sm text-destructive"
+        {selected && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSelected(null);
+              onSelectedChange?.(null);
+            }}
           >
-            <p>Incident history could not be loaded.</p>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={episodesQuery.isFetching}
-              onClick={() => void episodesQuery.refetch()}
-            >
-              Retry history
-            </Button>
-          </div>
-        ) : null}
-        {!episodesQuery.isLoading &&
-        !episodesQuery.isError &&
-        episodes.length === 0 ? (
-          <p className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">
-            No incidents have been recorded. New incident episodes will appear
-            here after a probe confirms them.
-          </p>
-        ) : null}
-        <div className="space-y-2">
-          {episodes.map((episode) => (
-            <button
-              key={episode.id}
-              type="button"
-              onClick={() => {
-                const next = selected === episode.id ? null : episode.id;
-                setSelected(next);
-                onSelectedChange?.(next);
-              }}
-              className="w-full rounded-md border p-3 text-left hover:bg-muted/40"
-            >
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant={
-                    episode.status === 'open'
-                      ? 'destructive'
-                      : episode.status === 'recovering'
-                        ? 'warning'
-                        : 'outline'
-                  }
-                >
-                  {episode.status}
-                </Badge>
-                {episode.shadow ? (
-                  <Badge variant="secondary">shadow</Badge>
-                ) : null}
-                <span className="text-sm font-medium">
-                  {episode.root_service}
-                </span>
+            Back to incident history
+          </Button>
+        )}
+        {!selected && (
+          <>
+            {episodesQuery.isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
               </div>
-              <p className="mt-2 text-sm">{episode.summary}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {episode.verdict} · last seen{' '}
-                {new Date(episode.last_seen_at).toLocaleString()}
+            ) : null}
+            {episodesQuery.isError ? (
+              <div
+                role="alert"
+                className="space-y-2 rounded-md border border-destructive/40 p-3 text-sm text-destructive"
+              >
+                <p>Incident history could not be loaded.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={episodesQuery.isFetching}
+                  onClick={() => void episodesQuery.refetch()}
+                >
+                  Retry history
+                </Button>
+              </div>
+            ) : null}
+            {!episodesQuery.isLoading &&
+            !episodesQuery.isError &&
+            episodes.length === 0 ? (
+              <p className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">
+                No incidents have been recorded. New incident episodes will
+                appear here after a probe confirms them.
               </p>
-            </button>
-          ))}
-        </div>
+            ) : null}
+            <div className="space-y-2">
+              {episodes.map((episode) => (
+                <button
+                  key={episode.id}
+                  type="button"
+                  onClick={() => {
+                    const next = selected === episode.id ? null : episode.id;
+                    setSelected(next);
+                    onSelectedChange?.(next);
+                  }}
+                  className="w-full rounded-md border p-3 text-left hover:bg-muted/40"
+                >
+                  <div className="flex flex-wrap gap-2">
+                    <Badge
+                      variant={
+                        episode.status === 'open'
+                          ? 'destructive'
+                          : episode.status === 'recovering'
+                            ? 'warning'
+                            : 'outline'
+                      }
+                    >
+                      {episode.status}
+                    </Badge>
+                    {episode.shadow ? (
+                      <Badge variant="secondary">shadow</Badge>
+                    ) : null}
+                    <span className="text-sm font-medium">
+                      {episode.root_service}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm">{episode.summary}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {episode.verdict} · last seen{' '}
+                    {new Date(episode.last_seen_at).toLocaleString()}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         {selected ? (
           <section className="mt-5 space-y-3">
             <h3 className="text-sm font-semibold">Incident detail</h3>
             {detailQuery.isLoading ? (
               <Skeleton className="h-48 w-full" />
-            ) : detailQuery.isError || !detail ? (
+            ) : !detail ? (
               <p className="text-sm text-destructive">
                 Incident detail could not be loaded.
               </p>
             ) : (
               <>
+                {stale && (
+                  <div role="alert" className="text-sm text-destructive">
+                    Incident evidence is stale. Showing the last reported
+                    result.{' '}
+                    <Button
+                      variant="link"
+                      onClick={() => detailQuery.refetch()}
+                    >
+                      Retry incident
+                    </Button>
+                  </div>
+                )}
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {detail.episode.root_service} · {detail.episode.status}
+                  </p>
+                  <h4 className="mt-1 text-sm font-semibold">
+                    {detail.episode.summary}
+                  </h4>
+                  {detail.episode.root_cause_hint && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {detail.episode.root_cause_hint}
+                    </p>
+                  )}
+                </div>
                 <div className="rounded-md border p-3">
                   <h4 className="text-sm font-semibold">Recovery progress</h4>
                   {detail.recovery ? (
                     <>
                       <p className="mt-1 text-sm">
-                        {detail.recovery.evidence_fresh
+                        {detail.recovery.evidence_fresh && !stale
                           ? `Recovery check ${detail.recovery.healthy_samples} of ${detail.recovery.required_samples}`
                           : 'Recovery evidence is not current'}
                       </p>
@@ -175,9 +244,6 @@ export function SystemIncidentHistorySheet({
                     </p>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {detail.episode.root_cause_hint || detail.episode.summary}
-                </p>
                 {allowedHref(detail.recommended_action?.href) ? (
                   <a
                     className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
@@ -190,6 +256,30 @@ export function SystemIncidentHistorySheet({
                     {detail.recommended_action.label}
                   </p>
                 ) : null}
+                {onCloseIncident &&
+                  ['open', 'recovering'].includes(detail.episode.status) && (
+                    <details className="rounded-md border p-3">
+                      <summary className="cursor-pointer text-sm font-medium">
+                        Administrative actions
+                      </summary>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Closing records a human decision. It does not repair the
+                        service, verify recovery, or release pauses. An authored
+                        reason is required.
+                      </p>
+                      <Button
+                        className="mt-2"
+                        variant="outline"
+                        disabled={stale || isClosing}
+                        onClick={() => {
+                          if (!stale && !isClosing)
+                            onCloseIncident(detail.episode);
+                        }}
+                      >
+                        Close incident
+                      </Button>
+                    </details>
+                  )}
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold">
                     Containment by tenant

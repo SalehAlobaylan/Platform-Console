@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { SystemIncidentHistorySheet } from '../platform/system-health/system-incident-history-sheet';
 
 const mockDetail = {
@@ -45,12 +45,39 @@ const mockDetail = {
   },
 };
 
+let mockDetailError = false;
+let mockDetailUpdatedAt = 0;
+const mockRefetch = jest.fn();
+let mockHistory = [
+  { ...mockDetail.episode, id: 'other', summary: 'Other incident in history' },
+];
 jest.mock('@/hooks/use-system-autopilot', () => ({
-  useSystemIncidentEpisodes: () => ({ data: { items: [] }, isLoading: false }),
-  useSystemIncidentEpisode: () => ({ data: mockDetail, isLoading: false }),
+  useSystemIncidentEpisodes: () => ({
+    data: { items: mockHistory },
+    isLoading: false,
+  }),
+  useSystemIncidentEpisode: () => ({
+    data: mockDetail,
+    isLoading: false,
+    isError: mockDetailError,
+    dataUpdatedAt: mockDetailUpdatedAt,
+    refetch: mockRefetch,
+  }),
 }));
 
 describe('Incident investigation', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-26T12:00:00Z'));
+    mockDetailError = false;
+    mockDetailUpdatedAt = Date.now();
+    mockRefetch.mockClear();
+    mockHistory = [];
+    mockDetail.containment.targets[0].outcome = 'release_pending';
+    mockDetail.containment.targets[0].reason =
+      'Release requires current authority';
+  });
+  afterEach(() => jest.useRealTimers());
   it('shows CMS recovery progress, tenant ownership and exact action evidence', () => {
     render(
       <SystemIncidentHistorySheet
@@ -90,5 +117,86 @@ describe('Incident investigation', () => {
     expect(
       screen.queryByText(/New automation work is paused/)
     ).not.toBeInTheDocument();
+  });
+
+  it('stops claiming protection when a cached pause expires while open', () => {
+    mockDetail.containment.targets[0].outcome = 'paused';
+    render(
+      <SystemIncidentHistorySheet
+        open
+        onOpenChange={jest.fn()}
+        selectedId="incident"
+      />
+    );
+    expect(screen.getByText(/pipeline · Pause active/)).toBeInTheDocument();
+    act(() => jest.advanceTimersByTime(60 * 60 * 1000));
+    expect(screen.getByText(/pipeline · Lease expired/)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/pipeline · Pause active/)
+    ).not.toBeInTheDocument();
+  });
+
+  it('preserves incident evidence after refresh failure and offers retry', () => {
+    mockDetailError = true;
+    render(
+      <SystemIncidentHistorySheet
+        open
+        onOpenChange={jest.fn()}
+        selectedId="incident"
+      />
+    );
+    expect(screen.getByText(/Incident evidence is stale/)).toBeInTheDocument();
+    expect(
+      screen.getByText('Recovery evidence is not current')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: 'Containment targets' })
+    ).toHaveTextContent('tenant-one');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry incident' }));
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens selected incident evidence before the history list and supports returning to history', () => {
+    mockHistory = [
+      {
+        ...mockDetail.episode,
+        id: 'other',
+        summary: 'Other incident in history',
+      },
+    ];
+    render(
+      <SystemIncidentHistorySheet
+        open
+        onOpenChange={jest.fn()}
+        selectedId="incident"
+      />
+    );
+    expect(screen.getByText('Dependency recovering')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Other incident in history')
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to incident history' })
+    );
+    expect(screen.getByText('Other incident in history')).toBeInTheDocument();
+    expect(screen.queryByText('Recovery check 2 of 3')).not.toBeInTheDocument();
+  });
+
+  it('offers authored closure only as a secondary action inside selected detail', () => {
+    const close = jest.fn();
+    render(
+      <SystemIncidentHistorySheet
+        open
+        onOpenChange={jest.fn()}
+        selectedId="incident"
+        onCloseIncident={close}
+      />
+    );
+    fireEvent.click(screen.getByText('Administrative actions'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close incident' }));
+    expect(close).toHaveBeenCalledWith(mockDetail.episode);
+    expect(
+      screen.getByText(/An authored reason is required/)
+    ).toBeInTheDocument();
   });
 });

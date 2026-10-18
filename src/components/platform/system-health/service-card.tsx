@@ -9,6 +9,8 @@ import { useAuditedAction } from '@/hooks/use-audited-action';
 import { useIsAdmin } from '@/lib/stores/auth';
 import { restartService, type RestartTarget } from '@/lib/api/restart';
 import { migrateUp } from '@/lib/api/migrations';
+import { useObservationClock } from '@/hooks/use-observation-clock';
+import { snapshotIsStale } from '@/lib/system-health';
 import type {
   ServiceHealth,
   ServiceName,
@@ -33,15 +35,29 @@ interface ServiceCardProps {
   onRecheck?: () => void;
   isRechecking?: boolean;
   stale?: boolean;
+  observedAt?: string;
 }
 
 export function ServiceCard({
   service,
   onRecheck,
   isRechecking,
-  stale = false,
+  stale: staleSnapshot = false,
+  observedAt,
 }: ServiceCardProps) {
   const isAdmin = useIsAdmin();
+  const now = useObservationClock();
+  const evidenceExpired = () =>
+    staleSnapshot ||
+    (!!observedAt && snapshotIsStale({ timestamp: observedAt }, Date.now()));
+  const stale =
+    staleSnapshot ||
+    (!!observedAt && snapshotIsStale({ timestamp: observedAt }, now));
+  const disabledReason = !isAdmin
+    ? 'Administrator access is required.'
+    : stale
+      ? 'Service evidence is stale. Refresh checks before acting.'
+      : undefined;
   const canRestart = isAdmin && RESTARTABLE.has(service.name);
 
   const restartAction = useAuditedAction(
@@ -188,8 +204,10 @@ export function ServiceCard({
                     </span>
                   }
                   confirmLabel="Run migrate up"
+                  disabledReason={disabledReason}
                   confirmVariant="default"
                   onConfirm={async () => {
+                    if (!isAdmin || evidenceExpired()) return;
                     await migrateAction.run();
                   }}
                 />
@@ -219,8 +237,10 @@ export function ServiceCard({
                     </span>
                   }
                   confirmLabel="Restart"
+                  disabledReason={disabledReason}
                   confirmVariant="destructive"
                   onConfirm={async () => {
+                    if (!isAdmin || evidenceExpired()) return;
                     await restartAction.run();
                   }}
                 />

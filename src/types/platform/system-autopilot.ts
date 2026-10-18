@@ -115,6 +115,8 @@ export interface RegisteredSystemAutopilot {
   dependencies: string[];
   capabilities?: string[];
   containment_enabled: boolean;
+  effect_scope?: string;
+  admission_enforced?: boolean;
 }
 
 export type SystemMonitorState =
@@ -144,6 +146,8 @@ export interface SystemContainmentTargetProjection {
   until?: string;
   human_owned?: boolean;
   reason?: string;
+  effect_scope?: string;
+  admission_enforced?: boolean;
 }
 
 export interface SystemContainmentProjection {
@@ -162,6 +166,8 @@ export interface SystemAttentionProjection {
   status: string;
   reason?: string;
   at: string;
+  responsible_role?: string;
+  recommended_action?: SystemRecommendedAction;
 }
 
 export interface SystemAutopilotStatus {
@@ -169,12 +175,14 @@ export interface SystemAutopilotStatus {
   state: SystemAutopilotState;
   latest_run?: SystemAutopilotRun | null;
   open_episodes: SystemIncidentEpisode[];
+  open_episode_count?: number;
   recent_episodes?: SystemIncidentEpisode[];
   registered_autopilots: RegisteredSystemAutopilot[];
   monitor?: SystemMonitorProjection;
   containment?: SystemContainmentProjection;
   attention?: SystemAttentionProjection[];
   status_version?: string;
+  outcome?: { headline: string; summary: string };
 }
 
 export interface SystemAutopilotRunDetail {

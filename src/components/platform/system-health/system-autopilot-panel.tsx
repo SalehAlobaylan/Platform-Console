@@ -11,7 +11,6 @@ import {
   RefreshCw,
   Settings2,
   ShieldAlert,
-  XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,6 +70,8 @@ function headlineLabel(value?: string): string {
       return 'Containment active';
     case 'recovering':
       return 'Recovery checking';
+    case 'release_pending':
+      return 'Containment needs review';
     case 'watching':
       return 'Watching signals';
     default:
@@ -81,15 +82,9 @@ function headlineLabel(value?: string): string {
 function IncidentRow({
   episode,
   onInspect,
-  onClose,
-  isClosing,
-  canClose = true,
 }: {
   episode: SystemIncidentEpisode;
   onInspect: () => void;
-  onClose: (id: string) => void;
-  isClosing: boolean;
-  canClose?: boolean;
 }) {
   const lastTransition = episode.timeline?.[episode.timeline.length - 1];
   return (
@@ -127,18 +122,6 @@ function IncidentRow({
           <Eye className="mr-2 h-4 w-4" />
           Inspect
         </Button>
-        {canClose ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={isClosing}
-            onClick={() => onClose(episode.id)}
-          >
-            <XCircle className="mr-2 h-4 w-4" />
-            Close
-          </Button>
-        ) : null}
       </div>
     </div>
   );
@@ -175,7 +158,13 @@ export function SystemAutopilotPanel({
   const recentInactiveEpisodes = (data?.recent_episodes ?? []).filter(
     (episode) => episode.status !== 'open' && episode.status !== 'recovering'
   );
-  const latestRunSummary = data?.latest_run?.summary;
+  const latestRunSummary =
+    data?.outcome?.summary ??
+    (data?.latest_run?.summary
+      ? `Last run: ${data.latest_run.summary}`
+      : undefined);
+  const displayedHeadline =
+    data?.outcome?.headline ?? data?.latest_run?.headline;
   const monitor = data?.monitor;
   const containment = data?.containment;
   const monitorLabel =
@@ -257,16 +246,18 @@ export function SystemAutopilotPanel({
                     ? 'Paused'
                     : 'Unknown'}
           </Badge>
-          {data?.latest_run ? (
+          {displayedHeadline ? (
             <Badge
               variant={
-                data.latest_run.headline === 'incident_open' ||
-                data.latest_run.headline === 'contained'
+                displayedHeadline === 'incident_open' ||
+                displayedHeadline === 'contained' ||
+                displayedHeadline === 'release_pending'
                   ? 'warning'
                   : 'outline'
               }
             >
-              {headlineLabel(data.latest_run.headline)}
+              {data?.outcome ? '' : 'Last run: '}
+              {headlineLabel(displayedHeadline)}
             </Badge>
           ) : null}
           {data?.latest_run?.status &&
@@ -310,12 +301,14 @@ export function SystemAutopilotPanel({
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">Containment</p>
             <p className="mt-1 text-sm font-medium">
-              {containment?.active ?? 0} active · {containment?.pending ?? 0}{' '}
-              pending
+              {containment
+                ? `${containment.active} active · ${containment.pending} pending`
+                : 'Containment has not been reported by CMS'}
             </p>
             <p className="text-xs text-muted-foreground">
-              {containment?.human_owned ?? 0} human-owned ·{' '}
-              {containment?.expired ?? 0} expired
+              {containment
+                ? `${containment.human_owned} human-owned · ${containment.expired} expired`
+                : 'Current protection is unknown'}
             </p>
           </div>
         </div>
@@ -347,6 +340,19 @@ export function SystemAutopilotPanel({
                   </span>{' '}
                   {item.reason || item.guardrail || item.status}
                   {item.tenant_id ? ` · Tenant: ${item.tenant_id}` : ''}
+                  {' · '}
+                  {item.responsible_role ?? 'Platform administrator'}
+                  {' · Evidence: '}
+                  {formatDate(item.at)}
+                  {item.recommended_action?.href?.startsWith('/platform/') &&
+                    !item.recommended_action.href.startsWith('//') && (
+                      <a
+                        className="ml-2 underline"
+                        href={item.recommended_action.href}
+                      >
+                        {item.recommended_action.label}
+                      </a>
+                    )}
                   {item.episode_id && (
                     <Button
                       type="button"
@@ -463,18 +469,26 @@ export function SystemAutopilotPanel({
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-destructive" />
               <h3 className="text-sm font-semibold">Open incidents</h3>
+              <Badge variant="secondary">
+                {data?.open_episode_count ?? 'Total not reported'}
+              </Badge>
             </div>
+            {data?.open_episode_count !== undefined &&
+              data.open_episode_count > openEpisodes.length && (
+                <p className="text-xs text-muted-foreground">
+                  Showing {openEpisodes.length} of {data.open_episode_count}{' '}
+                  active incidents. Open incident history to inspect more.
+                </p>
+              )}
             <div className="space-y-2">
               {openEpisodes.map((episode) => (
                 <IncidentRow
                   key={episode.id}
                   episode={episode}
-                  isClosing={closeEpisode.isPending}
                   onInspect={() => {
                     onIncidentChange?.(episode.id);
                     setHistoryOpen(true);
                   }}
-                  onClose={() => setEpisodeToClose(episode)}
                 />
               ))}
             </div>
@@ -498,13 +512,10 @@ export function SystemAutopilotPanel({
                 <IncidentRow
                   key={episode.id}
                   episode={episode}
-                  isClosing={true}
-                  canClose={false}
                   onInspect={() => {
                     onIncidentChange?.(episode.id);
                     setHistoryOpen(true);
                   }}
-                  onClose={() => undefined}
                 />
               ))}
             </div>
@@ -577,6 +588,12 @@ export function SystemAutopilotPanel({
                         ? item.capabilities.join(', ')
                         : item.dependencies.join(', ')}
                     </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {item.effect_scope ??
+                        (item.key === 'pipeline'
+                          ? 'Observe-only cockpit pause; canonical pipeline repairs are not stopped by this policy'
+                          : 'Native admission enforcement has not been reported by CMS')}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -602,6 +619,8 @@ export function SystemAutopilotPanel({
         }
       />
       <SystemIncidentHistorySheet
+        onCloseIncident={setEpisodeToClose}
+        isClosing={closeEpisode.isPending}
         open={historyOpen}
         selectedId={initialEpisodeId}
         onSelectedChange={onIncidentChange}

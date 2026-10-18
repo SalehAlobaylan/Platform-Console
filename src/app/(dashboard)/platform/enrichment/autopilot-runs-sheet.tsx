@@ -19,6 +19,7 @@ const RUN_STATUS_STYLES: Record<string, string> = {
 };
 
 const ACTION_STATUS_STYLES: Record<string, string> = {
+    admitted: 'text-amber-600 dark:text-amber-400',
     success: 'text-emerald-600 dark:text-emerald-400',
     would_trigger: 'text-sky-600 dark:text-sky-400',
     would_skip: 'text-muted-foreground',

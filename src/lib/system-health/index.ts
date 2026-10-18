@@ -75,7 +75,7 @@ export function postgresStatus(services: ServiceHealth[]): ServiceStatus {
 }
 
 export function snapshotIsStale(
-  snapshot: SystemHealthSnapshot,
+  snapshot: Pick<SystemHealthSnapshot, 'timestamp'>,
   now: number
 ): boolean {
   const captured = Date.parse(snapshot.timestamp);
