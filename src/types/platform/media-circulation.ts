@@ -717,3 +717,10 @@ export interface GenerateRecommendationsResponse {
         source: VerdictBucketCount;
     };
 }
+
+export interface MediaSupplyActionHistoryPage {
+ schema_version: 'media-supply-action-history/v1';
+ episode_id: string;
+ items: MediaSupplyActionRequest[];
+ next_cursor: string;
+}

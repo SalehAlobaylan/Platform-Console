@@ -104,11 +104,8 @@ describe('SupplyContinuityPanel', () => {
     expect(
       screen.queryByRole('button', { name: /retry|repair|run now/i })
     ).not.toBeInTheDocument();
-    const operatorLaunch = screen.getByRole('link', { name: 'Investigate in Operator' });
-    expect(operatorLaunch).toHaveAttribute(
-      'href',
-      '/platform/operator?domain=media_circulation&view=supply&intent=resolve&subject_type=tenant&subject_id=current&selection_id=current'
-    );
+    const operatorLaunch = screen.getByRole('button', { name: 'Investigate in Operator' });
+    expect(operatorLaunch).toBeEnabled();
   });
 
   it('renders an explicit unavailable state for malformed or absent CMS evidence', () => {

@@ -10,6 +10,7 @@ import {
     getMediaAutopilotRun,
     getMediaCirculationCockpit,
     getMediaSupplyStatus,
+    listMediaSupplyActionHistory,
 	    listMediaSupplyEligibleActions,
 	    createMediaSupplyActionPreview,
 	    confirmMediaSupplyActionPreview,
@@ -55,6 +56,7 @@ export const mediaCirculationKeys = {
     supply: () => [...mediaCirculationKeys.all, 'supply'] as const,
     supplyEpisodes: () => [...mediaCirculationKeys.all, 'supply-episodes'] as const,
     supplyEpisodeActions: (id: string) => [...mediaCirculationKeys.all, 'supply-episode-actions', id] as const,
+    supplyActionHistory: (id: string) => [...mediaCirculationKeys.all, 'supply-action-history', id] as const,
     supplyAction: (id: string) => [...mediaCirculationKeys.all, 'supply-action', id] as const,
     supplyActionEvents: (id: string) => [...mediaCirculationKeys.all, 'supply-action-events', id] as const,
 	supplyQualification: () => [...mediaCirculationKeys.all, 'supply-qualification'] as const,
@@ -209,11 +211,12 @@ export function useMediaSupplyStatus() {
     });
 }
 
-export function useMediaSupplyEpisodes(limit = 8) {
+export function useMediaSupplyEpisodes(limit = 8, cursor = '', enabled = true) {
     return useQuery({
-        queryKey: [...mediaCirculationKeys.supplyEpisodes(), limit],
+        queryKey: [...mediaCirculationKeys.supplyEpisodes(), limit, cursor],
+        enabled,
 		meta: { affectedDomains: ['media_circulation'] },
-        queryFn: () => listMediaSupplyEpisodes(limit),
+        queryFn: ({ signal }) => listMediaSupplyEpisodes(limit, cursor, signal),
         staleTime: 60_000,
         gcTime: CACHE_CONFIG.lists.gcTime,
         refetchInterval: 120_000,
@@ -221,6 +224,10 @@ export function useMediaSupplyEpisodes(limit = 8) {
         refetchOnWindowFocus: false,
         retry: 1,
     });
+}
+
+export function useMediaSupplyActionHistory(episodeID: string, cursor = '') {
+ return useQuery({ queryKey: [...mediaCirculationKeys.supplyActionHistory(episodeID), cursor], queryFn: ({ signal }) => listMediaSupplyActionHistory(episodeID, cursor, signal), enabled: Boolean(episodeID), staleTime: 0, refetchInterval: 10_000, refetchIntervalInBackground: false, retry: 2, retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 8_000) });
 }
 
 export function useMediaSupplyEligibleActions(episodeID: string | null) {
@@ -321,6 +328,7 @@ export function useConfirmMediaSupplyActionPreview() {
         mutationFn: (previewID: string) => confirmMediaSupplyActionPreview(previewID),
         onSuccess: (action) => {
 			queryClient.setQueryData(mediaCirculationKeys.supplyAction(action.id), action);
+            void queryClient.invalidateQueries({ queryKey: [...mediaCirculationKeys.all, 'supply-action-history'] });
 			void queryClient.invalidateQueries({ queryKey: mediaCirculationKeys.supplyEpisodes() });
 		},
     });
@@ -332,6 +340,7 @@ export function useCancelMediaSupplyAction() {
         mutationFn: (actionID: string) => cancelMediaSupplyAction(actionID),
         onSuccess: (action) => {
 			queryClient.setQueryData(mediaCirculationKeys.supplyAction(action.id), action);
+            void queryClient.invalidateQueries({ queryKey: [...mediaCirculationKeys.all, 'supply-action-history'] });
 			void queryClient.invalidateQueries({ queryKey: mediaCirculationKeys.supplyEpisodes() });
 		},
     });

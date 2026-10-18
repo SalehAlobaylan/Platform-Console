@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -24,10 +24,13 @@ import {
   useMediaSupplyAction,
   useMediaSupplyActionEvents,
   useMediaSupplyEligibleActions,
+  useMediaSupplyEpisodes,
+  useMediaSupplyActionHistory,
 	useMediaSupplyQualificationState,
 } from '@/hooks/use-media-circulation';
 import type {
   MediaSupplyEpisode,
+  MediaSupplyActionPreview,
   MediaSupplyEpisodeListResponse,
   MediaSupplyStatusResponse,
 } from '@/types/platform/media-circulation';
@@ -179,9 +182,8 @@ interface SupplyContinuityPanelProps {
 }
 
 /**
- * A compact "proof spine" rather than a health score: every segment names one
- * CMS-owned boundary. The Console intentionally has no repair/retry button;
- * evidence is surfaced before a later registered action can be admitted.
+ * Each segment names one CMS-owned boundary. Recovery uses the exact eligible
+ * descriptor, reviewable preview, and approval supplied by CMS.
  */
 export function SupplyContinuityPanel({
   status,
@@ -192,6 +194,12 @@ export function SupplyContinuityPanel({
   onInspectRequest,
 }: SupplyContinuityPanelProps) {
 	const { locale, ar } = usePanelLocale();
+  const [episodeCursor, setEpisodeCursor] = useState('');
+  const [episodePrevious, setEpisodePrevious] = useState<string[]>([]);
+  const [selectedEpisodeID, setSelectedEpisodeID] = useState<string | null>(null);
+  const episodePage = useMediaSupplyEpisodes(8, episodeCursor, Boolean(episodeCursor));
+  const displayedEpisodes = episodeCursor ? episodePage.data : episodes;
+
   if (loading && !status) {
     return <SupplySkeleton ar={ar} />;
   }
@@ -222,8 +230,8 @@ export function SupplyContinuityPanel({
   const evaluation = status.supply_evaluation;
   const meta = verdictMeta(evaluation.verdict, ar);
   const Icon = meta.icon;
-  const attentionEpisodes = episodes?.items ?? [];
-	const openEpisode = attentionEpisodes.find((episode) => episode.state !== 'resolved');
+  const attentionEpisodes = displayedEpisodes?.items ?? [];
+	const openEpisode = attentionEpisodes.find((episode) => episode.id === selectedEpisodeID) ?? attentionEpisodes.find((episode) => episode.state !== 'resolved') ?? attentionEpisodes[0];
   const evaluator = status.evaluator;
   const operational = status.operational;
 
@@ -424,32 +432,35 @@ export function SupplyContinuityPanel({
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               {ar ? 'تنبيهات دائمة' : 'Durable attention'}
             </p>
-            {episodes?.next_cursor ? (
+            {displayedEpisodes?.next_cursor ? (
               <span className="text-[11px] text-muted-foreground">
-                {ar ? 'تُعرض أحدث 8' : 'Latest 8 shown'}
+                {ar ? 'توجد حوادث أخرى' : 'More episodes available'}
               </span>
             ) : null}
           </div>
-          {episodesError ? (
+          {episodesError || episodePage.error ? (
             <p className="mt-3 rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
               {ar ? 'سجل الحوادث غير متاح؛ يبقى حكم CMS الحالي أعلاه مستقلاً.' : 'Episode history is unavailable; the current CMS verdict above remains separate.'}
             </p>
           ) : attentionEpisodes.length > 0 ? (
             <>
               <ul className="mt-2 divide-y divide-border/70">
-                {attentionEpisodes.slice(0, 4).map((episode) => (
-                  <SupplyEpisodeRow key={episode.id} episode={episode} ar={ar} />
+                {attentionEpisodes.map((episode) => (
+                  <SupplyEpisodeRow key={episode.id} episode={episode} ar={ar} selected={episode.id === openEpisode?.id} onSelect={() => setSelectedEpisodeID(episode.id)} />
                 ))}
               </ul>
-              {attentionEpisodes.find((episode) => episode.state !== 'resolved') ? (
-                <SupplyActionLifecycle episode={attentionEpisodes.find((episode) => episode.state !== 'resolved')!} locale={locale} />
-              ) : null}
+              {openEpisode ? <SupplyActionLifecycle key={openEpisode.id} episode={openEpisode} locale={locale} /> : null}
             </>
           ) : (
             <p className="mt-3 rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
               {ar ? 'لا توجد حوادث إمداد دائمة مفتوحة أو مسجلة بعد.' : 'No durable Supply attention episodes are open or recorded yet.'}
             </p>
           )}
+          <div className="mt-3 flex gap-2">
+            {episodePrevious.length ? <Button size="sm" variant="outline" onClick={() => { const previous = [...episodePrevious]; setEpisodeCursor(previous.pop() ?? ''); setEpisodePrevious(previous); setSelectedEpisodeID(null); }}>{ar ? 'السابق' : 'Previous episodes'}</Button> : null}
+            {displayedEpisodes?.next_cursor ? <Button size="sm" variant="outline" disabled={episodePage.isFetching} onClick={() => { setEpisodePrevious((old) => [...old, episodeCursor]); setEpisodeCursor(displayedEpisodes.next_cursor); setSelectedEpisodeID(null); }}>{ar ? 'حوادث أخرى' : 'More episodes'}</Button> : null}
+          </div>
+          {episodePage.isFetching ? <p role="status" className="mt-2 text-xs text-muted-foreground">{ar ? 'جارٍ تحميل الحوادث…' : 'Loading episodes…'}</p> : null}
         </div>
       </div>
 	  <SupplyQualificationCard ar={ar} />
@@ -457,13 +468,13 @@ export function SupplyContinuityPanel({
   );
 }
 
-function SupplyEpisodeRow({ episode, ar }: { episode: MediaSupplyEpisode; ar: boolean }) {
+function SupplyEpisodeRow({ episode, ar, selected, onSelect }: { episode: MediaSupplyEpisode; ar: boolean; selected: boolean; onSelect: () => void }) {
   const episodeMeta = verdictMeta(episode.verdict, ar);
   const isResolved = episode.state === 'resolved';
   return (
     <li className="py-3 first:pt-1 last:pb-0">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium leading-5" dir="auto">{episode.summary}</p>
+      <button type="button" aria-pressed={selected} onClick={onSelect} className="flex w-full items-start justify-between gap-2 rounded-sm p-1 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className={cn('text-sm font-medium leading-5', selected && 'underline underline-offset-4')} dir="auto">{episode.summary}</span>
         <span
           className={cn(
             'mt-1 h-2 w-2 shrink-0 rounded-full',
@@ -471,7 +482,7 @@ function SupplyEpisodeRow({ episode, ar }: { episode: MediaSupplyEpisode; ar: bo
           )}
           aria-label={episode.severity}
         />
-      </div>
+      </button>
       <p className="mt-1 text-xs text-muted-foreground">
         {isResolved && episode.resolved_at ? `${ar ? 'استرداد متحقق' : 'Verified recovery'} · ${formatRelativeTime(episode.resolved_at)}` : `${episode.owner} · ${ar ? 'آخر رصد' : 'last seen'} ${formatRelativeTime(episode.last_seen_at)}`}
       </p>
@@ -482,21 +493,34 @@ function SupplyEpisodeRow({ episode, ar }: { episode: MediaSupplyEpisode; ar: bo
 // This component accepts only an immutable episode ID. It never takes a
 // target, queue name, provider argument, or action key from the page; all of
 // those values arrive in a CMS-validated eligibility descriptor.
-function SupplyActionLifecycle({ episode, locale }: { episode: MediaSupplyEpisode; locale: 'en' | 'ar' }) {
+export function SupplyActionLifecycle({ episode, locale }: { episode: MediaSupplyEpisode; locale: 'en' | 'ar' }) {
   const eligible = useMediaSupplyEligibleActions(episode.id);
   const previewAction = useCreateMediaSupplyActionPreview();
   const confirmAction = useConfirmMediaSupplyActionPreview();
   const cancelAction = useCancelMediaSupplyAction();
-  const [previewID, setPreviewID] = useState<string | null>(null);
+  const [preview, setPreview] = useState<(MediaSupplyActionPreview & { execution_owner: string }) | null>(null);
+  const previewID = preview?.id ?? null;
+  const [previewNow, setPreviewNow] = useState(Date.now());
+  const [historyCursor, setHistoryCursor] = useState('');
+  const [historyPrevious, setHistoryPrevious] = useState<string[]>([]);
+  const history = useMediaSupplyActionHistory(episode.id, historyCursor);
+  const restored = useRef(false);
   const [actionID, setActionID] = useState<string | null>(null);
   const action = useMediaSupplyAction(actionID);
   const actionIsLive = !action.data || ['queued', 'claimed', 'running', 'verifying', 'uncertain'].includes(action.data.state);
   const events = useMediaSupplyActionEvents(actionID, actionIsLive);
 
   useEffect(() => {
-    setPreviewID(null);
-    setActionID(null);
-  }, [episode.id]);
+    if (!history.data || restored.current) return;
+    restored.current = true;
+    if (history.data.items[0]) setActionID(history.data.items[0].id);
+  }, [history.data]);
+  useEffect(() => {
+    if (!preview) return;
+    const timer = setInterval(() => setPreviewNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, [preview]);
+  const previewExpired = Boolean(preview && Date.parse(preview.expires_at) <= previewNow);
 
   const installed = eligible.data?.items.filter((candidate) => !candidate.manual_only && !candidate.disabled) ?? [];
   const disabled = eligible.data?.items.filter((candidate) => !candidate.manual_only && candidate.disabled) ?? [];
@@ -517,18 +541,29 @@ function SupplyActionLifecycle({ episode, locale }: { episode: MediaSupplyEpisod
       {installed.length > 0 && !previewID && !actionID ? (
         <div className="mt-2 flex flex-wrap gap-2">
           {installed.map((candidate) => (
-            <Button key={candidate.id} size="sm" variant="outline" disabled={busy} onClick={() => previewAction.mutate({ key: candidate.key, episodeID: episode.id, eligibilityID: candidate.id }, { onSuccess: (preview) => setPreviewID(preview.id) })}>
+            <Button key={candidate.id} size="sm" variant="outline" disabled={busy} onClick={() => previewAction.mutate({ key: candidate.key, episodeID: episode.id, eligibilityID: candidate.id }, { onSuccess: (result) => { setPreviewNow(Date.now()); setPreview({ ...result, execution_owner: candidate.execution_owner }); } })}>
 						{ar ? 'معاينة' : 'Preview'} {supplyActionLabel(candidate.key, ar)}
             </Button>
           ))}
         </div>
       ) : null}
-      {previewID && !actionID ? (
+      {preview && !actionID ? (
         <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-3 text-xs">
           <p dir="auto">{ar ? 'ثبّت CMS معاينة الاسترداد ذات الهدف الواحد. يؤدّي التأكيد إلى وضع إجراء دائم في CMS في الطابور؛ ولا يصل المتصفح إلى أي طابور.' : 'CMS froze this one-target recovery preview. Confirming queues a durable CMS action; it does not access a queue from this browser.'}</p>
+          <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div><dt className="text-muted-foreground">{ar ? 'الإجراء' : 'Action'}</dt><dd>{supplyActionLabel(preview.action_key, ar)}</dd></div>
+            <div><dt className="text-muted-foreground">{ar ? 'المالك' : 'Owner'}</dt><dd><bdi dir="ltr">{preview.execution_owner}</bdi></dd></div>
+            <div className="min-w-0 sm:col-span-2"><dt className="text-muted-foreground">{ar ? 'الهدف المحدد' : 'Exact target'}</dt><dd className="break-all"><bdi dir="ltr">{preview.target_type}: {preview.target_id}</bdi></dd></div>
+            <div><dt className="text-muted-foreground">{ar ? 'انتهاء المعاينة' : 'Preview expires'}</dt><dd><time dateTime={preview.expires_at}>{new Date(preview.expires_at).toLocaleString(ar ? 'ar-SA' : 'en-GB')}</time></dd></div>
+            <div className="sm:col-span-2"><dt className="text-muted-foreground">{ar ? 'الأثر المتوقع' : 'Expected effect'}</dt><dd dir="auto">{String(preview.planned_effects.verification ?? preview.planned_effects.expected_effect ?? supplyActionLabel(preview.action_key, ar))}</dd></div>
+            <div className="min-w-0 sm:col-span-2"><dt className="text-muted-foreground">{ar ? 'بصمة الأدلة' : 'Evidence digest'}</dt><dd className="break-all"><bdi dir="ltr">{preview.evidence_digest}</bdi></dd></div>
+            <div className="min-w-0 sm:col-span-2"><dt className="text-muted-foreground">{ar ? 'بصمة السياسة' : 'Policy digest'}</dt><dd className="break-all"><bdi dir="ltr">{preview.policy_digest}</bdi></dd></div>
+          </dl>
+          {preview.deep_links.map((href) => <Link key={href} href={href} className="mt-2 inline-flex underline underline-offset-2">{ar ? 'فتح الدليل الأصلي' : 'Open native evidence'}</Link>)}
+          {previewExpired ? <p role="status" className="mt-2">{ar ? 'انتهت المعاينة؛ اطلب معاينة جديدة.' : 'Preview expired; request a fresh preview.'}</p> : null}
           <div className="mt-2 flex gap-2">
-            <Button size="sm" disabled={busy} onClick={() => confirmAction.mutate(previewID, { onSuccess: (request) => setActionID(request.id) })}>{ar ? 'تأكيد ووضع في الطابور' : 'Confirm and queue'}</Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => setPreviewID(null)}>{ar ? 'إلغاء المعاينة' : 'Discard preview'}</Button>
+            <Button size="sm" disabled={busy || previewExpired} onClick={() => confirmAction.mutate(preview.id, { onSuccess: (request) => setActionID(request.id) })}>{ar ? 'تأكيد ووضع في الطابور' : 'Confirm and queue'}</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => setPreview(null)}>{ar ? 'إلغاء المعاينة' : 'Discard preview'}</Button>
           </div>
         </div>
       ) : null}
@@ -549,6 +584,17 @@ function SupplyActionLifecycle({ episode, locale }: { episode: MediaSupplyEpisod
 		  </div> : null}
         </div>
       ) : null}
+      <div className="mt-3 border-t border-border/60 pt-3">
+        <p className="font-medium">{ar ? 'سجل الإجراءات الدائم' : 'Persisted action history'}</p>
+        {history.isLoading ? <p role="status">{ar ? 'جارٍ تحميل السجل…' : 'Loading history…'}</p> : null}
+        {history.error ? <p role="alert">{ar ? 'تعذّر تحميل سجل CMS. حدّث الصفحة لإعادة المحاولة.' : 'CMS action history is unavailable. Refresh to retry.'}</p> : null}
+        {history.data?.items.map((record) => <button type="button" key={record.id} aria-pressed={record.id === actionID} className="mt-2 block w-full rounded-sm border border-border p-2 text-start focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setPreview(null); setActionID(record.id); }}><span>{supplyActionLabel(record.action_key, ar)} · {supplyActionStateLabel(record.state, ar)}</span><span className="mt-1 block break-all text-muted-foreground" dir="ltr">{record.id}</span></button>)}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {historyPrevious.length ? <Button size="sm" variant="outline" onClick={() => { const previous = [...historyPrevious]; setHistoryCursor(previous.pop() ?? ''); setHistoryPrevious(previous); }}>{ar ? 'السجل السابق' : 'Previous actions'}</Button> : null}
+          {history.data?.next_cursor ? <Button size="sm" variant="outline" onClick={() => { setHistoryPrevious((old) => [...old, historyCursor]); setHistoryCursor(history.data!.next_cursor); }}>{ar ? 'إجراءات أخرى' : 'More actions'}</Button> : null}
+          {actionID && !actionIsLive && installed.length > 0 ? <Button size="sm" variant="outline" onClick={() => { setActionID(null); setPreview(null); }}>{ar ? 'معاينة استرداد جديد' : 'Preview new recovery'}</Button> : null}
+        </div>
+      </div>
       {mutationError ? <p className="mt-2 text-xs text-amber-700">{mutationError.message}</p> : null}
     </div>
   );

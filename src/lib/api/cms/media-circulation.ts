@@ -20,6 +20,7 @@ import type {
     MediaSupplyActionEventPage,
     MediaSupplyActionPreview,
     MediaSupplyActionRequest,
+    MediaSupplyActionHistoryPage,
 	MediaSupplyQualificationState,
     OverrideListResponse,
     RecommendationListResponse,
@@ -244,6 +245,7 @@ const verifiedSupplyEffectsSchema = z.object({
 });
 const mediaSupplyActionPreviewSchema = z.object({ id: uuidSchema, action_key: z.string().min(1), target_type: z.string().min(1), target_id: uuidSchema, evidence_digest: z.string().regex(/^[a-f0-9]{64}$/), policy_digest: z.string().regex(/^[a-f0-9]{64}$/), state: z.enum(['active','consumed','invalidated']), expires_at: timestampSchema, planned_effects: z.object({}).passthrough(), affected_subjects: z.array(z.unknown()), deep_links: z.array(internalSupplyDeepLinkSchema) });
 const mediaSupplyActionRequestSchema = z.object({ id: uuidSchema, action_key: z.string().min(1), target_type: z.string().min(1), target_id: uuidSchema, execution_owner: z.string().min(1), state: z.string().min(1), planned_effects: z.object({}).passthrough(), before_effects: z.object({}).passthrough().optional(), after_effects: z.object({}).passthrough().optional(), verified_effects: verifiedSupplyEffectsSchema.optional(), affected_subjects: z.array(z.unknown()), affected_domains: z.array(z.string().min(1)).max(10), deep_links: z.array(internalSupplyDeepLinkSchema), created_at: timestampSchema, updated_at: timestampSchema, finished_at: nullableTimestampSchema });
+const mediaSupplyActionHistorySchema = z.object({ schema_version: z.literal('media-supply-action-history/v1'), episode_id: uuidSchema, items: z.array(mediaSupplyActionRequestSchema).max(50), next_cursor: z.string().max(1024) });
 const mediaSupplyActionEventsSchema = z.object({ id: uuidSchema, state: z.string().min(1), events: z.array(z.object({ id: uuidSchema, sequence: z.number().int().positive(), event_type: z.string().min(1), payload: z.object({}).passthrough(), occurred_at: timestampSchema })).max(100), next_sequence: z.number().int().nonnegative() });
 const mediaSupplyQualificationStateSchema = z.object({
 	schema_version: z.literal('media-supply-qualification/v1'),
@@ -282,8 +284,8 @@ export async function getMediaSupplyStatus(): Promise<MediaSupplyStatusResponse>
 }
 
 /** GET /admin/media/circulation/supply/episodes — immutable episode cursor page. */
-export async function listMediaSupplyEpisodes(limit = 8): Promise<MediaSupplyEpisodeListResponse> {
-    const payload = await cmsClient.get<unknown>('/admin/media/circulation/supply/episodes', { limit });
+export async function listMediaSupplyEpisodes(limit = 8, cursor = '', signal?: AbortSignal): Promise<MediaSupplyEpisodeListResponse> {
+    const payload = await cmsClient.get<unknown>('/admin/media/circulation/supply/episodes', { limit, ...(cursor ? { cursor } : {}) }, signal);
     return parseSupplyPayload(mediaSupplyEpisodeListSchema, payload, 'Media Supply episode list');
 }
 
@@ -296,6 +298,9 @@ export async function createMediaSupplyActionPreview(key: string, episodeID: str
 export async function confirmMediaSupplyActionPreview(previewID: string): Promise<MediaSupplyActionRequest> {
     return parseSupplyPayload(mediaSupplyActionRequestSchema, await cmsClient.post<unknown>(`/admin/media/circulation/supply/action-previews/${encodeURIComponent(previewID)}/confirm`, { confirmation: 'CONFIRM' }), 'Media Supply action confirmation');
 }
+export async function listMediaSupplyActionHistory(episodeID: string, cursor = '', signal?: AbortSignal): Promise<MediaSupplyActionHistoryPage> {
+ return parseSupplyPayload(mediaSupplyActionHistorySchema, await cmsClient.get<unknown>(`/admin/media/circulation/supply/episodes/${encodeURIComponent(episodeID)}/action-history`, { limit: 10, ...(cursor ? { cursor } : {}) }, signal), 'Media Supply action history');
+}
 export async function getMediaSupplyAction(actionID: string, signal?: AbortSignal): Promise<MediaSupplyActionRequest> { return parseSupplyPayload(mediaSupplyActionRequestSchema, await cmsClient.get<unknown>(`/admin/media/circulation/supply/actions/${encodeURIComponent(actionID)}`, undefined, signal), 'Media Supply action'); }
 export async function cancelMediaSupplyAction(actionID: string): Promise<MediaSupplyActionRequest> { return parseSupplyPayload(mediaSupplyActionRequestSchema, await cmsClient.post<unknown>(`/admin/media/circulation/supply/actions/${encodeURIComponent(actionID)}/cancel`, {}), 'Media Supply action cancellation'); }
 export async function listMediaSupplyActionEvents(actionID: string, after = 0, signal?: AbortSignal): Promise<MediaSupplyActionEventPage> { return parseSupplyPayload(mediaSupplyActionEventsSchema, await cmsClient.get<unknown>(`/admin/media/circulation/supply/actions/${encodeURIComponent(actionID)}/events`, { after }, signal), 'Media Supply action events'); }
@@ -307,6 +312,7 @@ export const mediaSupplySchemas = {
     eligibleActions: mediaSupplyEligibleActionsSchema,
     actionPreview: mediaSupplyActionPreviewSchema,
     actionRequest: mediaSupplyActionRequestSchema,
+    actionHistory: mediaSupplyActionHistorySchema,
     actionEvents: mediaSupplyActionEventsSchema,
 	qualification: mediaSupplyQualificationStateSchema,
 };
