@@ -1,21 +1,10 @@
-'use client';
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, RefreshCw, ShieldAlert, X } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { confirmRedundancyPair, getRedundancyStatus, listRedundancyPairs, rejectRedundancyPair, runRedundancy, listRedundancyFamilies, listRedundancyRuns, listRedundancyActions, pauseRedundancy } from '@/lib/api/cms/redundancy';
+import { Suspense } from 'react';
+import RedundancyWorkspace from '@/components/platform/media/redundancy/workspace';
 
 export default function RedundancyPage() {
- const qc=useQueryClient(); const status=useQuery({queryKey:['redundancy','status'],queryFn:getRedundancyStatus}); const pairs=useQuery({queryKey:['redundancy','pairs'],queryFn:listRedundancyPairs}); const refresh=()=>qc.invalidateQueries({queryKey:['redundancy']});
- const families=useQuery({queryKey:['redundancy','families'],queryFn:listRedundancyFamilies}); const runs=useQuery({queryKey:['redundancy','runs'],queryFn:listRedundancyRuns}); const actions=useQuery({queryKey:['redundancy','actions'],queryFn:listRedundancyActions});
- const run=useMutation({mutationFn:runRedundancy,onSuccess:refresh}); const confirm=useMutation({mutationFn:confirmRedundancyPair,onSuccess:refresh}); const reject=useMutation({mutationFn:({id,reason}:{id:string;reason:string})=>rejectRedundancyPair(id,reason),onSuccess:refresh});
- const pause=useMutation({mutationFn:pauseRedundancy,onSuccess:refresh});
- return <div className="space-y-6"><div className="flex items-start justify-between"><div><div className="flex items-center gap-2"><h1 className="text-3xl font-bold tracking-tight">Redundancy Hygiene</h1><Badge variant="outline">Human-confirmed</Badge></div><p className="text-muted-foreground">Detect duplicate media without hiding valid episodes by mistake.</p></div><Button onClick={()=>run.mutate()} disabled={run.isPending}><RefreshCw className="mr-2 h-4 w-4"/>Run bounded scan</Button></div>
- <div className="grid gap-4 md:grid-cols-3"><Metric title="Open proposals" value={status.data?.open_proposals ?? 0}/><Metric title="Active families" value={status.data?.active_families ?? 0}/><Metric title="Feed collapse" value={status.data?.policy?.collapse_enabled?'ready':'off'}/></div>
- <Card><CardContent className="flex items-center justify-between p-4"><span className="text-sm">Automation is {status.data?.policy?.enabled?'enabled':'manual-only'}. Pause immediately if a source incident affects identity evidence.</span><Button size="sm" variant="outline" disabled={pause.isPending} onClick={()=>pause.mutate(120)}>Pause 2h</Button></CardContent></Card>
- <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><ShieldAlert className="h-4 w-4"/>Review queue</CardTitle></CardHeader><CardContent className="space-y-3">{(pairs.data?.data??[]).filter(p=>!p.tombstoned&&['probable_duplicate','high_confidence_duplicate'].includes(p.verdict)).map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"><div><div className="flex gap-2"><Badge variant={p.verdict==='high_confidence_duplicate'?'warning':'secondary'}>{p.verdict.replaceAll('_',' ')}</Badge><span className="font-medium">{Math.round(p.confidence*100)}% confidence</span></div><p className="mt-1 text-xs text-muted-foreground">{p.item_a_id} ↔ {p.item_b_id}</p></div><div className="flex gap-2"><Button size="sm" disabled={confirm.isPending} onClick={()=>confirm.mutate(p.id)}><Check className="mr-1 h-4 w-4"/>Confirm</Button><Button size="sm" variant="outline" disabled={reject.isPending} onClick={()=>reject.mutate({id:p.id,reason:'not duplicate'})}><X className="mr-1 h-4 w-4"/>Reject</Button></div></div>)}{!pairs.data?.data?.length?<p className="text-sm text-muted-foreground">Run a bounded scan to populate the review queue.</p>:null}</CardContent></Card>
- <div className="grid gap-6 xl:grid-cols-2"><Card><CardHeader><CardTitle className="text-base">Active families</CardTitle></CardHeader><CardContent className="space-y-2">{(families.data?.data??[]).filter(f=>f.status==='active').map(f=><div key={f.id} className="rounded border p-2 text-sm"><Badge>{f.status}</Badge><span className="ml-2 text-xs text-muted-foreground">canonical {f.canonical_content_item_id}</span></div>)||<p className="text-sm text-muted-foreground">No confirmed families.</p>}</CardContent></Card><Card><CardHeader><CardTitle className="text-base">Recent actions</CardTitle></CardHeader><CardContent className="space-y-2">{(actions.data?.data??[]).slice(0,8).map(a=><div key={a.id} className="rounded border p-2 text-sm"><span className="font-medium">{a.action_kind}</span><span className="ml-2 text-muted-foreground">{a.outcome} · {a.actor}</span></div>)}</CardContent></Card></div><Card><CardHeader><CardTitle className="text-base">Recent scans</CardTitle></CardHeader><CardContent className="space-y-2">{(runs.data?.data??[]).slice(0,8).map(r=><div key={r.id} className="rounded border p-2 text-sm"><Badge variant="outline">{r.status}</Badge><span className="ml-2">{r.summary}</span></div>)}</CardContent></Card></div>
+  return (
+    <Suspense fallback={<p aria-busy="true">Loading… / جار التحميل…</p>}>
+      <RedundancyWorkspace />
+    </Suspense>
+  );
 }
-function Metric({title,value}:{title:string;value:string|number}) { return <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">{title}</p><p className="mt-1 text-2xl font-semibold">{value}</p></CardContent></Card> }

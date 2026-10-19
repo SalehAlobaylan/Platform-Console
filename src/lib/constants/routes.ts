@@ -99,6 +99,11 @@ export const navigation: NavigationSection[] = [
         href: '/platform/media/circulation',
         icon: Recycle,
       },
+      {
+        name: 'Redundancy Hygiene',
+        href: '/platform/media/redundancy',
+        icon: Recycle,
+      },
       { name: 'Storage', href: '/platform/storage', icon: HardDrive },
       { name: 'Pipeline', href: '/platform/pipeline', icon: Activity },
       { name: 'Intelligence', href: '/platform/intelligence', icon: Brain },
