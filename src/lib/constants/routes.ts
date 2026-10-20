@@ -43,6 +43,7 @@ export const navigation: NavigationSection[] = [
     items: [
       { name: 'Overview', href: '/', icon: LayoutDashboard },
       { name: 'Operations', href: '/platform/operations', icon: ShieldAlert },
+      { name: 'Workload & Capacity', href: '/platform/workload', icon: Gauge },
       {
         name: 'System Health',
         href: '/platform/system-health',
@@ -146,6 +147,7 @@ export const ROUTES = {
     MODERATION: '/platform/moderation',
     SYSTEM_HEALTH: '/platform/system-health',
     OPERATIONS: '/platform/operations',
+    WORKLOAD: '/platform/workload',
     FEED_INTEGRITY: '/platform/feed-integrity',
     RETENTION: '/platform/retention',
     FEED_RECOVERY: '/platform/feed-recovery',
