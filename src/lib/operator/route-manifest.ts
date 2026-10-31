@@ -73,6 +73,27 @@ export function resolveOperatorRoute(pathname: string): OperatorRouteDescriptor 
   return operatorRouteManifest.find((route) => route.pattern.test(pathname));
 }
 
+// A scope picker must use registered, record-independent views, never detail
+// routes or URL placeholders that imply a selected record.
+export const operatorWorkspaceScopes = operatorRouteManifest.filter(
+  (route, index, routes) =>
+    ['operations', 'cockpit', 'list', 'storage', 'users'].includes(
+      route.view
+    ) &&
+    routes.findIndex(
+      (candidate) =>
+        candidate.domain === route.domain &&
+        ['operations', 'cockpit', 'list', 'storage', 'users'].includes(
+          candidate.view
+        )
+    ) === index
+);
+
+export const defaultOperatorScope = operatorWorkspaceScopes.find(
+  (route) => route.domain === 'global_ops'
+)!;
+
+
 export function createRouteVisibleContext(pathname: string, contribution: OperatorContextContribution = {}): OperatorVisibleContext | undefined {
   const route = resolveOperatorRoute(pathname);
   if (!route) return undefined;

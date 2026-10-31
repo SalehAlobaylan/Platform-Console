@@ -2,39 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, PanelLeftClose, PanelLeft, Bot } from 'lucide-react';
+import { X, PanelLeftClose, PanelLeft } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { navigation, NavigationSection } from '@/lib/constants/routes';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 interface SidebarProps {
   className?: string;
-}
-
-function WahbSidebarMark({ size = 26 }: { size?: 24 | 26 }) {
-  const className =
-    size === 24
-      ? 'h-6 w-6 bg-contain bg-center bg-no-repeat'
-      : 'h-[26px] w-[26px] bg-contain bg-center bg-no-repeat';
-
-  return (
-    <>
-      <span
-        aria-hidden="true"
-        className={cn('block dark:hidden', className)}
-        style={{ backgroundImage: "url('/images/wahb_mark_transparent.png')" }}
-      />
-      <span
-        aria-hidden="true"
-        className={cn('hidden dark:block', className)}
-        style={{ backgroundImage: "url('/images/wahb_mark_transparent_dark.png')" }}
-      />
-      <span className="sr-only">Wahb</span>
-    </>
-  );
 }
 
 export function Sidebar({ className }: SidebarProps) {
@@ -46,52 +23,39 @@ export function Sidebar({ className }: SidebarProps) {
     setMobileSidebarOpen,
   } = useUIStore();
 
-  const matches = (href: string) => href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/');
-  const activeHref = navigation.flatMap(section => section.items).map(item => item.href).filter(matches).sort((a,b) => b.length-a.length)[0];
+  const matches = (href: string) =>
+    href === '/'
+      ? pathname === '/'
+      : pathname === href || pathname.startsWith(href + '/');
+  const activeHref = navigation
+    .flatMap((section) => section.items)
+    .map((item) => item.href)
+    .filter(matches)
+    .sort((a, b) => b.length - a.length)[0];
   const isActive = (href: string) => href === activeHref;
 
   const NavContent = ({ mobile = false }: { mobile?: boolean }) => (
     <>
-      {/* Logo / Brand */}
-      <div
-        className={cn(
-          'flex h-14 items-center border-b px-4',
-          mobile
-            ? 'justify-between'
-            : sidebarCollapsed
-              ? 'justify-center'
-              : 'justify-between'
-        )}
-      >
-        {mobile || !sidebarCollapsed ? (
-          <Link href="/" className="flex items-center gap-2.5">
-            <WahbSidebarMark />
-            <span className="text-sm font-semibold tracking-tight">Platform Console</span>
-          </Link>
-        ) : (
-          <Link href="/" className="mx-auto flex items-center justify-center">
-            <WahbSidebarMark size={24} />
-          </Link>
-        )}
-        {mobile && (
+      {mobile ? (
+        <div className="flex h-14 items-center justify-between border-b px-4">
+          <span className="text-sm font-semibold">Console</span>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setMobileSidebarOpen(false)}
-            className="lg:hidden h-8 w-8"
+            aria-label="Close navigation"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </Button>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-3">
-		<div className="mb-3 px-2"><Link href="/platform/operator" onClick={() => mobile && setMobileSidebarOpen(false)} className={cn('flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/10', !mobile && sidebarCollapsed && 'justify-center px-2')} title={sidebarCollapsed && !mobile ? 'Wahb Operator' : undefined}><Bot className="h-4 w-4 flex-shrink-0" />{(mobile || !sidebarCollapsed) && <span>Wahb Operator</span>}</Link></div>
+      <nav className="scrollbar-thin flex-1 overflow-y-auto py-3">
         {navigation.map((section: NavigationSection) => (
           <div key={section.title} className="mb-1">
             {(mobile || !sidebarCollapsed) && (
-              <h3 className="mb-1 px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+              <h3 className="mb-1 px-4 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
                 {section.title}
               </h3>
             )}
@@ -143,7 +107,7 @@ export function Sidebar({ className }: SidebarProps) {
             variant="ghost"
             size="sm"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden w-full justify-center lg:flex h-8 text-muted-foreground hover:text-foreground"
+            className="hidden h-8 w-full justify-center text-muted-foreground hover:text-foreground lg:flex"
             aria-label={
               sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
             }
@@ -164,7 +128,7 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden flex-col border-r bg-card transition-all duration-200 lg:flex',
+          'hidden shrink-0 flex-col border-r bg-card transition-all duration-200 lg:flex',
           sidebarCollapsed ? 'w-[52px]' : 'w-60',
           className
         )}
@@ -174,16 +138,6 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Mobile Sidebar - Sheet/Drawer */}
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <SheetTrigger asChild className="lg:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="fixed left-4 top-3.5 z-40 h-8 w-8 border bg-background shadow-sm"
-          >
-            <Menu className="h-4 w-4" />
-            <span className="sr-only">Open sidebar</span>
-          </Button>
-        </SheetTrigger>
         <SheetContent side="left" className="w-60 p-0">
           <div className="flex h-full flex-col">
             <NavContent mobile />

@@ -62,10 +62,10 @@ export interface FleetSummary {
 /** Rolls the ops fleet lane states into one dashboard verdict. */
 export function deriveFleetState(fleet: OpsFleetStatus[] | undefined): FleetSummary {
     const lanes = fleet ?? [];
-    const stalled = lanes.filter((f) => f.state === 'stalled' || f.state === 'errored').length;
+    const stalled = lanes.filter((f) => f.state === 'stalled' || f.state === 'run_stuck' || f.state === 'errored').length;
     const paused = lanes.filter((f) => f.state === 'paused').length;
     return {
-        state: lanes.length ? (stalled ? 'stalled' : paused ? 'paused' : 'all_clear') : undefined,
+        state: !lanes.length ? undefined : stalled ? 'stalled' : lanes.some((f) => f.state === 'attention') ? 'attention' : lanes.some((f) => f.state === 'unknown' || f.state === 'unconfigured') ? 'unknown' : paused ? 'paused' : lanes.every((f) => f.state === 'disabled') ? 'disabled' : 'all_clear',
         lanes: lanes.length,
         stalled,
         paused,

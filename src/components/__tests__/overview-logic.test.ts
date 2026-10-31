@@ -285,3 +285,16 @@ describe('spendDailySeries', () => {
         expect(spendDailySeries(rollups, 14)).toHaveLength(14);
     });
 });
+
+
+describe('fleet evidence completeness', () => {
+  it('keeps unknown and unconfigured lanes from becoming green', () => {
+    const unknown = { state: 'unknown' } as OpsFleetStatus;
+    const unconfigured = { state: 'unconfigured' } as OpsFleetStatus;
+    expect(deriveFleetState([unknown]).state).toBe('unknown');
+    expect(deriveFleetState([unconfigured, { state: 'idle' } as OpsFleetStatus]).state).toBe('unknown');
+  });
+  it('counts stuck runs as fleet failures', () => {
+    expect(deriveFleetState([{ state: 'run_stuck' } as OpsFleetStatus])).toMatchObject({ state: 'stalled', stalled: 1 });
+  });
+});

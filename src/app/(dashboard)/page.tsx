@@ -71,7 +71,7 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-8">
-            <OverviewHeader status={ops.data} isLoading={ops.isLoading} />
+            <OverviewHeader status={ops.data} isLoading={ops.isLoading} isError={ops.isError} />
 
             <ContentStatStrip stats={contentScale} loading={contentStatsLoading} />
 
@@ -151,7 +151,7 @@ export default function DashboardPage() {
                 <AttentionPreview
                     items={attentionItems}
                     isLoading={attention.isLoading}
-                    isError={attention.isError}
+                    isError={attention.isError || !!attention.data?.adapter_errors.length}
                     onRetry={() => attention.refetch()}
                 />
                 <ContentFlowPanel

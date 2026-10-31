@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 
 import {
   OperatorCapabilityNotices,
-  OperatorStatusBand,
+  OperatorTranscript,
 } from '@/components/platform/operator/operator-workspace-components';
 import {
   actionLabel,
@@ -12,13 +12,6 @@ import {
 test('Arabic status and independent governance notices preserve dashboard parity', () => {
   render(
     <div dir="rtl">
-      <OperatorStatusBand
-        locale="ar"
-        active={2}
-        approvals={1}
-        failures={3}
-        enabledControls={2}
-      />
       <OperatorCapabilityNotices
         locale="ar"
         controls={{
@@ -30,8 +23,6 @@ test('Arabic status and independent governance notices preserve dashboard parity
       />
     </div>
   );
-  expect(screen.getByText('المهام النشطة')).toBeInTheDocument();
-  expect(screen.getByText('تحتاج موافقة')).toBeInTheDocument();
   expect(
     screen.getByText('تم تعطيل تفسير النموذج. تظل الأدلة الحتمية متاحة.')
   ).toBeInTheDocument();
@@ -55,4 +46,44 @@ test('registered action and lifecycle labels never expose raw keys', () => {
   expect(actionLabel('unregistered.tool', 'en')).toBeUndefined();
   expect(lifecycleLabel('awaiting_approval', 'ar')).toBe('يحتاج موافقة');
   expect(lifecycleLabel('future_state', 'en')).toBe('Unknown state');
+  expect(lifecycleLabel('packet_superseded', 'en')).toBe('Context refreshed');
+});
+
+test('a greeting renders as a reply without a degraded or operational-fact label', () => {
+  render(
+    <OperatorTranscript
+      locale="en"
+      messages={[
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          kind: 'response',
+          actor_type: 'operator',
+          created_at: '2026-10-30T12:00:00Z',
+          content: {
+            blocks: [
+              {
+                kind: 'message',
+                text: 'Hello! What would you like me to look into?',
+              },
+            ],
+          },
+        },
+      ]}
+      investigationState="completed"
+      investigationEvents={[]}
+      actions={[]}
+      recommendations={[]}
+      onEvidence={jest.fn()}
+      onPrepare={jest.fn()}
+      onCancelInvestigation={jest.fn()}
+    />
+  );
+  expect(
+    screen.getByText('Hello! What would you like me to look into?')
+  ).toBeInTheDocument();
+  expect(screen.queryByText('Degraded result')).not.toBeInTheDocument();
+  expect(screen.queryByText('Confirmed facts')).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('No changes are suggested for this reply.')
+  ).not.toBeInTheDocument();
 });

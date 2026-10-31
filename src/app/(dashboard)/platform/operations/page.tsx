@@ -1,40 +1,271 @@
 'use client';
-
-import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock3, Pause, Play, RefreshCw, ShieldAlert } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Pause, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAckOpsAttention, useMarkOpsBriefingSeen, useOpsAttention, useOpsBriefing, useOpsCommands, useOpsStatus, usePauseOpsFleet, usePauseOpsMember, useResumeOpsCommand, useSnoozeOpsAttention } from '@/hooks/use-operations-command-center';
+import {
+  useOpsClock,
+  useOpsRegistry,
+  useOpsStatus,
+} from '@/hooks/use-operations-command-center';
+import type { OpsCommandScope } from '@/lib/api/cms/operations';
+import { AttentionInbox } from '@/components/platform/operations/attention-inbox';
+import { FleetStatus } from '@/components/platform/operations/fleet-status';
+import { OpsCommandDialog } from '@/components/platform/operations/command-dialog';
+import { CommandHistory } from '@/components/platform/operations/command-history';
+import {
+  RunCalendar,
+  ShiftBriefing,
+} from '@/components/platform/operations/shift-history';
+import {
+  OpsBadge,
+  OpsNotice,
+  OpsTime,
+  opsSnapshotFresh,
+  type OpsLocale,
+} from '@/components/platform/operations/presentation';
 
-const relative = (value?: string | null) => value ? new Intl.RelativeTimeFormat('en').format(Math.round((new Date(value).getTime() - Date.now()) / 60_000), 'minute') : 'never';
-const tone = (value: string) => value === 'incident' || value === 'critical' || value === 'errored' || value === 'stalled' ? 'destructive' as const : value === 'attention' || value === 'major' || value === 'paused' ? 'warning' as const : value === 'all_clear' || value === 'idle' ? 'success' as const : 'secondary' as const;
-
-export default function OperationsPage() {
-    const status = useOpsStatus(); const attention = useOpsAttention(); const briefing = useOpsBriefing(); const commands = useOpsCommands();
-    const ack = useAckOpsAttention(); const snooze = useSnoozeOpsAttention(); const pause = usePauseOpsFleet(); const pauseMember = usePauseOpsMember(); const resume = useResumeOpsCommand(); const seen = useMarkOpsBriefingSeen();
-    const [reason, setReason] = useState(''); const [minutes, setMinutes] = useState(60);
-    const blocked = !!status.data?.adapter_errors.length;
-    const visibleAttention = useMemo(() => (attention.data?.items ?? []).filter(item => !item.snoozed), [attention.data]);
-    if (status.isLoading) return <div className="grid gap-4 md:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32" />)}</div>;
-    if (status.isError || !status.data) return <Card><CardContent className="p-6 text-destructive">Operations Command Center is unavailable.</CardContent></Card>;
-    return <div className="space-y-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div><div className="flex items-center gap-2"><h1 className="text-3xl font-bold tracking-tight">Operations Command Center</h1><Badge variant={tone(status.data.headline)}>{status.data.headline}</Badge></div><p className="mt-1 text-muted-foreground">{status.data.summary}</p><p className="mt-1 text-xs text-muted-foreground">Snapshot {new Date(status.data.as_of).toLocaleString()}</p></div>
-            <div className="flex flex-wrap items-center gap-2 rounded-md border p-2"><Input className="h-9 w-48" value={reason} onChange={event => setReason(event.target.value)} placeholder="Pause reason" /><Input className="h-9 w-24" type="number" min={1} max={1440} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /><Button variant="destructive" disabled={!reason.trim() || blocked || pause.isPending} onClick={() => pause.mutate({ reason, minutes })}><Pause className="mr-2 h-4 w-4" />Pause fleet</Button></div>
-        </div>
-        {status.data.adapter_errors.length ? <Card className="border-destructive"><CardContent className="flex gap-2 p-4 text-sm text-destructive"><ShieldAlert className="h-4 w-4 shrink-0" />Commands are disabled until all pause-target adapters are readable: {status.data.adapter_errors.join(' · ')}</CardContent></Card> : null}
-        <div className="grid gap-4 md:grid-cols-4"><Metric label="Needs attention" value={String(visibleAttention.length)} /><Metric label="Stalled lanes" value={String(status.data.fleet.filter(item => item.state === 'stalled').length)} /><Metric label="Paused lanes" value={String(status.data.fleet.filter(item => item.state === 'paused').length)} /><Metric label="Fleet lanes" value={String(status.data.fleet.length)} /></div>
-        <div className="grid gap-6 xl:grid-cols-[1.45fr_1fr]">
-            <Card><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Attention inbox</CardTitle><CardDescription>Each item stays owned by its domain cockpit.</CardDescription></CardHeader><CardContent className="space-y-3">{visibleAttention.slice(0, 16).map(item => <div key={item.key} className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap gap-2"><Badge variant={tone(item.severity)}>{item.severity}</Badge><Badge variant="outline">{item.system}</Badge><Badge variant="secondary">{item.kind}</Badge></div><Link className="mt-2 block font-medium hover:underline" href={item.href}>{item.title}</Link><p className="text-sm text-muted-foreground">{item.detail || 'No additional detail'} · {relative(item.first_seen)}</p></div><div className="flex gap-2"><Button size="sm" variant="outline" disabled={ack.isPending} onClick={() => ack.mutate(item.key)}>Ack</Button><Button size="sm" variant="ghost" disabled={snooze.isPending} onClick={() => snooze.mutate({ key: item.key, minutes: 120 })}>Snooze 2h</Button></div></div>)}{!visibleAttention.length ? <p className="py-6 text-center text-sm text-muted-foreground"><CheckCircle2 className="mx-auto mb-2 h-5 w-5 text-success" />No active fleet attention.</p> : null}</CardContent></Card>
-            <Card><CardHeader><CardTitle className="flex items-center gap-2"><Clock3 className="h-5 w-5" />Since your last visit</CardTitle></CardHeader><CardContent className="space-y-3">{(briefing.data?.commands ?? []).slice(0, 8).map(command => <div key={command.id} className="rounded-md border p-3 text-sm"><div className="flex justify-between gap-2"><span className="font-medium">{command.command.replaceAll('_', ' ')}</span><Badge variant={tone(command.status)}>{command.status}</Badge></div><p className="mt-1 text-muted-foreground">{command.reason || command.scope}</p></div>)}{briefing.data?.commands.length ? <Button className="w-full" variant="outline" disabled={seen.isPending} onClick={() => seen.mutate(briefing.data!.through)}>Mark briefing read</Button> : <p className="text-sm text-muted-foreground">No new fleet commands since your last visit.</p>}</CardContent></Card>
-        </div>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2"><RefreshCw className="h-5 w-5" />Fleet status</CardTitle><CardDescription>Derived from each owner’s policy and run evidence. Unknown is intentionally not green.</CardDescription></CardHeader><CardContent className="space-y-2">{status.data.fleet.map(item => <div key={`${item.member_key}:${item.lane_key}:${item.tenant_id ?? 'platform'}`} className="flex flex-col gap-2 rounded-md border px-3 py-2 text-sm md:flex-row md:items-center"><div className="min-w-52"><Link href={item.cockpit_path} className="font-medium hover:underline">{item.member_label} · {item.lane_label}</Link><p className="text-xs text-muted-foreground">{item.tenant_id ?? 'platform'} · {item.kind}</p></div><Badge variant={tone(item.state)}>{item.state}</Badge><span className="text-muted-foreground">{item.mode || '—'}</span><span className="ml-auto text-xs text-muted-foreground">last run {relative(item.last_run_at)} · {item.liveness}</span>{item.pausable ? <Button size="sm" variant="outline" disabled={!reason.trim() || blocked || pauseMember.isPending} onClick={() => pauseMember.mutate({ member: item.member_key, lane: item.lane_key, reason, minutes })}><Pause className="mr-1 h-3 w-3" />Pause</Button> : null}</div>)}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Recent fleet commands</CardTitle></CardHeader><CardContent className="space-y-2">{(commands.data?.items ?? []).slice(0, 12).map(command => <div key={command.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"><div><span className="font-medium">{command.command.replaceAll('_', ' ')}</span><span className="ml-2 text-muted-foreground">{command.scope} · {relative(command.created_at)}</span></div><div className="flex items-center gap-2"><Badge variant={tone(command.status)}>{command.status}</Badge>{command.command.startsWith('pause') ? <Button size="sm" variant="outline" disabled={resume.isPending} onClick={() => resume.mutate(command.id)}><Play className="mr-1 h-3 w-3" />Resume</Button> : null}</div></div>)}{!(commands.data?.items ?? []).length ? <p className="text-sm text-muted-foreground">No Command Center pauses have been issued.</p> : null}</CardContent></Card>
-    </div>;
+function OperationsLoading() {
+  return (
+    <div role="status" aria-label="Loading operations" className="space-y-4">
+      <Skeleton className="h-28" />
+      <Skeleton className="h-64" />
+    </div>
+  );
 }
-
-function Metric({ label, value }: { label: string; value: string }) { return <Card><CardHeader className="pb-2"><CardDescription>{label}</CardDescription><CardTitle>{value}</CardTitle></CardHeader></Card>; }
+function OperationsWorkspace() {
+  const search = useSearchParams();
+  const router = useRouter();
+  const locale: OpsLocale = search.get('locale') === 'ar' ? 'ar' : 'en';
+  const t = (en: string, ar: string) => (locale === 'ar' ? ar : en);
+  const status = useOpsStatus();
+  const now = useOpsClock();
+  const [scope, setScope] = useState<OpsCommandScope>();
+  const [debugOpen, setDebugOpen] = useState(false);
+  const registry = useOpsRegistry(debugOpen);
+  const data = status.data;
+  const fresh = !!data && !status.isError && opsSnapshotFresh(data.as_of, now);
+  const fleetReady = fresh && data?.pause_targets_readable === true;
+  const changeLocale = () => {
+    const params = new URLSearchParams(search.toString());
+    params.set('locale', locale === 'en' ? 'ar' : 'en');
+    router.replace(`/platform/operations?${params}`, { scroll: false });
+  };
+  if (status.isLoading && !data) return <OperationsLoading />;
+  if (!data)
+    return (
+      <OpsNotice t={t} retry={() => void status.refetch()}>
+        {t(
+          'Operations is unavailable. No fleet state can be confirmed.',
+          'العمليات غير متاحة. لا يمكن تأكيد حالة الأنظمة.'
+        )}
+      </OpsNotice>
+    );
+  return (
+    <div
+      className="space-y-6"
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      lang={locale}
+    >
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-editorial text-3xl font-bold">
+              {t('Operations Command Center', 'مركز قيادة العمليات')}
+            </h1>
+            <OpsBadge value={fresh ? data.headline : 'unknown'} />
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground" dir="auto">
+            {data.summary}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t('Snapshot', 'اللقطة')}{' '}
+            <OpsTime value={data.as_of} locale={locale} /> ·{' '}
+            {new Set(data.fleet.map((row) => row.member_key)).size}{' '}
+            {t('systems', 'نظاماً')} · {data.fleet.length}{' '}
+            {t('tenant lanes', 'مساراً للمستأجرين')}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={changeLocale}>
+            {locale === 'en' ? 'العربية' : 'English'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void status.refetch()}
+            disabled={status.isFetching}
+          >
+            <RefreshCw className="me-2 h-4 w-4" />
+            {t('Refresh', 'تحديث')}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={!fleetReady}
+            onClick={() => setScope({ command: 'pause_all' })}
+          >
+            <Pause className="me-2 h-4 w-4" />
+            {t('Review fleet pause', 'راجع إيقاف الأسطول')}
+          </Button>
+        </div>
+      </header>
+      <nav
+        aria-label={t('Operations sections', 'أقسام العمليات')}
+        className="flex flex-wrap gap-x-5 gap-y-2 border-b pb-4 text-sm"
+      >
+        {[
+          ['attention', t('Inbox', 'التنبيهات')],
+          ['fleet', t('Fleet', 'الأنظمة')],
+          ['briefing', t('Briefing', 'الموجز')],
+          ['calendar', t('Calendar', 'الجدول')],
+          ['commands', t('Commands', 'الأوامر')],
+        ].map(([id, label]) => (
+          <a
+            key={id}
+            href={`#ops-${id}`}
+            className="rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      {!fresh && (
+        <OpsNotice t={t} retry={() => void status.refetch()}>
+          {t(
+            'Live status is unavailable or stale. The last successful snapshot remains visible; commands are disabled.',
+            'الحالة الحية غير متاحة أو قديمة. تبقى آخر لقطة ناجحة ظاهرة وتُعطّل الأوامر.'
+          )}
+        </OpsNotice>
+      )}
+      {!!data.adapter_errors.length && (
+        <OpsNotice t={t}>
+          {fleetReady
+            ? t(
+                'Some fleet evidence is unavailable. Pause targets remain readable and can be reviewed.',
+                'بعض أدلة الأنظمة غير متاحة. لا تزال أهداف الإيقاف مقروءة ويمكن مراجعتها.'
+              )
+            : t(
+                'Partial fleet evidence. Fleet-wide pause is disabled; readable members can be reviewed individually.',
+                'أدلة الأنظمة جزئية. يُعطّل الإيقاف الشامل ويمكن مراجعة الأنظمة المقروءة منفردة.'
+              )}{' '}
+          {data.adapter_errors.join(' · ')}
+        </OpsNotice>
+      )}
+      <section
+        id="ops-attention"
+        className="scroll-mt-4"
+        aria-label={t('Attention inbox', 'صندوق التنبيهات')}
+      >
+        <AttentionInbox fleet={data.fleet} locale={locale} t={t} />
+      </section>
+      <section
+        id="ops-fleet"
+        className="scroll-mt-4"
+        aria-label={t('Fleet status', 'حالة الأنظمة')}
+      >
+        <FleetStatus
+          fleet={data.fleet}
+          fresh={fresh}
+          review={setScope}
+          locale={locale}
+          t={t}
+        />
+      </section>
+      <section
+        id="ops-briefing"
+        className="scroll-mt-4"
+        aria-label={t('Shift briefing', 'موجز الوردية')}
+      >
+        <ShiftBriefing locale={locale} t={t} />
+      </section>
+      <section
+        id="ops-calendar"
+        className="scroll-mt-4"
+        aria-label={t('Run calendar', 'جدول التشغيل')}
+      >
+        <RunCalendar locale={locale} t={t} />
+      </section>
+      <section
+        id="ops-commands"
+        className="scroll-mt-4"
+        aria-label={t('Command history', 'سجل الأوامر')}
+      >
+        <CommandHistory fresh={fresh} review={setScope} locale={locale} t={t} />
+      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <button
+              className="w-full text-start"
+              aria-expanded={debugOpen}
+              onClick={() => setDebugOpen((value) => !value)}
+            >
+              {t('Diagnostics', 'التشخيص')} {debugOpen ? '−' : '+'}
+            </button>
+          </CardTitle>
+        </CardHeader>
+        {debugOpen && (
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t(
+                'Owner evidence and the static fleet registry. These reads do not change policy.',
+                'أدلة الأنظمة وسجلها الثابت. لا تغيّر هذه القراءات السياسات.'
+              )}
+            </p>
+            {registry.isError && (
+              <OpsNotice t={t} retry={() => void registry.refetch()}>
+                {t('Registry unavailable.', 'السجل غير متاح.')}
+              </OpsNotice>
+            )}
+            <details>
+              <summary className="cursor-pointer text-sm">
+                {t('Raw snapshot', 'اللقطة الخام')}
+              </summary>
+              <pre
+                className="mt-2 max-h-96 overflow-auto border p-3 text-xs"
+                dir="ltr"
+              >
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </details>
+            <details>
+              <summary className="cursor-pointer text-sm">
+                {t('Registry and lanes', 'الأنظمة والمسارات')}
+              </summary>
+              <pre
+                className="mt-2 max-h-96 overflow-auto border p-3 text-xs"
+                dir="ltr"
+              >
+                {JSON.stringify(
+                  registry.data?.members ?? registry.data,
+                  null,
+                  2
+                )}
+              </pre>
+            </details>
+          </CardContent>
+        )}
+      </Card>
+      {scope && (
+        <OpsCommandDialog
+          key={JSON.stringify(scope)}
+          scope={scope}
+          close={() => setScope(undefined)}
+          t={t}
+          locale={locale}
+          snapshotFresh={fresh}
+        />
+      )}
+    </div>
+  );
+}
+export default function OperationsPage() {
+  return (
+    <Suspense fallback={<OperationsLoading />}>
+      <OperationsWorkspace />
+    </Suspense>
+  );
+}
