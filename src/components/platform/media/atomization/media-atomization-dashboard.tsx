@@ -1,5 +1,7 @@
 'use client';
 
+import { PodsPipelineControl } from '@/components/platform/media/pods-pipeline-control';
+
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -1406,6 +1408,7 @@ export function MediaAtomizationDashboard() {
 
     return (
         <div className="space-y-5 text-foreground">
+            <PodsPipelineControl compact />
             {((!workflowActive && !policyActive && !diagnosticsActive) || boardActive) && <>
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>

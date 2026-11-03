@@ -44,3 +44,32 @@ test('an open maintenance confirmation ages without a parent refresh', () => {
   expect(screen.getByRole('button', { name: 'Restart' })).toBeDisabled();
   expect(mockRun).not.toHaveBeenCalled();
 });
+
+test('separates health response time from readiness endpoint timing', () => {
+  render(
+    <ServiceCard
+      service={{
+        ...service,
+        latencyMs: 3,
+        probes: [
+          {
+            label: 'Health',
+            endpointUrl: 'http://cms/health',
+            latencyMs: 3,
+            httpStatus: 200,
+          },
+          {
+            label: 'Readiness',
+            endpointUrl: 'http://cms/ready',
+            latencyMs: 630,
+            httpStatus: 200,
+          },
+        ],
+      }}
+    />
+  );
+  expect(screen.getByText('Health response')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Endpoint timings'));
+  expect(screen.getByText('Readiness')).toBeInTheDocument();
+  expect(screen.getByText('630 ms · HTTP 200')).toBeInTheDocument();
+});

@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { SystemHealthSnapshot } from '@/types/platform/system-health';
 
-async function fetchSystemHealth(): Promise<SystemHealthSnapshot> {
-    const resp = await fetch('/api/system-health', { cache: 'no-store' });
+async function fetchSystemHealth({ signal }: { signal: AbortSignal }): Promise<SystemHealthSnapshot> {
+    const resp = await fetch('/api/system-health', { cache: 'no-store', signal });
     if (!resp.ok) {
         throw new Error(`Failed to load system health (HTTP ${resp.status})`);
     }

@@ -38,9 +38,11 @@ function summarizeProblemService(svc: ServiceHealth) {
         endpointUrl: svc.endpointUrl,
         status: svc.status,
         latencyMs: svc.latencyMs,
+        probes: svc.probes,
         httpStatus: svc.httpStatus,
         version: svc.version,
         rawError: svc.rawError,
+        queueStatsError: svc.queueStatsError,
         unhealthyDeps: svc.deps?.filter((d) => d.status !== 'healthy') ?? [],
         failingQueues:
             svc.queues?.filter((q) => q.failed > 0) ?? [],
@@ -70,6 +72,7 @@ function buildProblemPayload(snapshot: SystemHealthSnapshot) {
     return {
         kind: 'system-health-problems',
         timestamp: snapshot.timestamp,
+        durationMs: snapshot.durationMs,
         overall: snapshot.overall,
         issues: snapshot.issues,
         relatedServices: relevantServices.map(summarizeProblemService),

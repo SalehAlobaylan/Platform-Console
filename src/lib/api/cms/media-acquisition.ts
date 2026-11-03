@@ -2,6 +2,8 @@ import { cmsClient } from '@/lib/api/client';
 import type { MediaAcquisitionMode } from '@/types/platform/source';
 
 export interface MediaAcquisitionConfig {
+    environment?: string;
+    can_manage?: boolean;
     tenant_id: string;
     default_mode: MediaAcquisitionMode;
     pods_source_run_item_limit: number;
@@ -27,6 +29,7 @@ export const getMediaAcquisitionConfig = () =>
     cmsClient.get<MediaAcquisitionConfig>('/admin/media-acquisition/config');
 
 export interface MediaAcquisitionConfigUpdate {
+    expected_updated_at?: string;
     default_mode?: MediaAcquisitionMode;
     pods_source_run_item_limit?: number;
 }

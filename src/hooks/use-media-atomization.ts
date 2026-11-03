@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { podsAutomationKey } from '@/hooks/use-pods-automation';
 import {
     atomizeMediaParent,
     getMediaAtomizationParentContext,
@@ -222,6 +223,7 @@ export function useUpdateMediaAtomizationPolicy() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: mediaAtomizationKeys.all });
             toast({ title: 'Atomization policy updated', variant: 'success' });
+            queryClient.invalidateQueries({ queryKey: podsAutomationKey });
             queryClient.invalidateQueries({ queryKey: ['media-journey'] });
         },
         onError: (error: Error) => toast({ title: 'Policy update failed', description: error.message, variant: 'destructive' }),

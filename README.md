@@ -11,6 +11,8 @@ It is a thin **backend-for-frontend (BFF)**: it holds **no business logic and no
 **Port:** 3005 · **Production:** https://wahb-console.salehspace.dev · **Stack:** Next.js 15 (App Router), React 19, TypeScript, shadcn/ui, TanStack Query, Zustand, Recharts
 
 > Full feature + architecture reference: [`../docs/platform-console.md`](../docs/platform-console.md). System overview: [`../docs/index.md`](../docs/index.md).
+>
+> UX/UI standard: [`DESIGN.md`](DESIGN.md). Read its [system-control standard](DESIGN.md#7-system-controls-and-automation) before building or revising enable, pause, resume, run, cancellation, or automation settings.
 
 ## Quick Start
 

@@ -5,6 +5,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 interface SwitchProps {
+    className?: string;
     checked: boolean;
     onCheckedChange: (checked: boolean) => void;
     disabled?: boolean;
@@ -16,7 +17,7 @@ interface SwitchProps {
  * Minimal accessible toggle (no Radix dependency). Controlled: pass `checked`
  * and `onCheckedChange`. Styled to match the shadcn token palette.
  */
-export function Switch({ checked, onCheckedChange, disabled, id, ...rest }: SwitchProps) {
+export function Switch({ checked, onCheckedChange, disabled, id, className, ...rest }: SwitchProps) {
     return (
         <button
             type="button"
@@ -29,7 +30,8 @@ export function Switch({ checked, onCheckedChange, disabled, id, ...rest }: Swit
                 'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
-                checked ? 'bg-primary' : 'bg-input'
+                checked ? 'bg-primary' : 'bg-input',
+                    className
             )}
             {...rest}
         >

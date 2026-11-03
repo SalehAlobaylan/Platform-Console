@@ -164,14 +164,14 @@ export function OpsCommandDialog({
             <div className="space-y-1 border-s-2 border-destructive ps-3 text-sm">
               <p className="font-medium">
                 {t(
-                  'Continues during a fleet pause',
-                  'يستمر أثناء الإيقاف المؤقت للأسطول'
+                  'Not changed by this command',
+                  'لا يغيّره هذا الأمر'
                 )}
               </p>
               <p>
                 {t(
-                  'Services, queues, in-flight work, Ranking Intelligence, Storage, Atomization execution and workload protection continue. System Health keeps observing; only its containment authority pauses.',
-                  'تستمر الخدمات والطوابير والعمل الجاري والترتيب والتخزين وتنفيذ التجزئة وحماية أحمال العمل. تواصل صحة النظام الرصد؛ وتتوقف صلاحية الاحتواء فقط.'
+                  'This command does not stop services, queues, in-flight work, Ranking Intelligence, Storage, Atomization execution or workload protection. The Pods pipeline keeps its own Pause/Resume control. System Health keeps observing; only its containment authority pauses.',
+                  'لا يوقف هذا الأمر الخدمات أو الطوابير أو العمل الجاري أو الترتيب أو التخزين أو تنفيذ التجزئة أو حماية أحمال العمل. يحتفظ مسار بودز بضابط الإيقاف والاستئناف الخاص به. تواصل صحة النظام الرصد؛ وتتوقف صلاحية الاحتواء فقط.'
                 )}
               </p>
             </div>

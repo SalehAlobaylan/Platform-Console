@@ -209,6 +209,14 @@ const fleetRow: OpsFleetStatus = {
   cockpit_path: '/platform/pipeline',
   trust: { state: 'not_applicable', earned: 0, total: 0 },
 };
+it('links the Pods pipeline to its owner instead of exposing a fleet pause', () => {
+  const review = jest.fn();
+  render(<FleetStatus fleet={[{ ...fleetRow, member_key: 'pods_pipeline', member_label: 'Pods pipeline', kind: 'pipeline', lane_key: 'processing', lane_label: 'Processing', pausable: false, state: 'paused', cockpit_path: '/platform/media/sources#pods-pipeline', evidence: 'Pipeline paused until resumed; manual processing also waits.' }]} fresh review={review} locale="en" t={t} />);
+  expect(screen.getByRole('link', { name: 'Pipeline controls' })).toHaveAttribute('href', '/platform/media/sources#pods-pipeline');
+  expect(screen.queryByRole('button', { name: 'Pause' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/Next due/)).not.toBeInTheDocument();
+  expect(review).not.toHaveBeenCalled();
+});
 it('does not show a cached fleet verdict as current or invent a zero trust score', () => {
   render(
     <FleetStatus
@@ -302,7 +310,8 @@ it('requires explicit scope review, reason and valid TTL before pause', async ()
   );
   const dialog = screen.getByRole('dialog');
   expect(dialog).toHaveTextContent('tenant-b');
-  expect(dialog).toHaveTextContent('Services, queues, in-flight work');
+  expect(dialog).toHaveTextContent('This command does not stop services, queues, in-flight work');
+  expect(dialog).toHaveTextContent('The Pods pipeline keeps its own Pause/Resume control.');
   const apply = within(dialog).getByRole('button', { name: 'Confirm pause' });
   expect(apply).toBeDisabled();
   expect(mutation.mutate).not.toHaveBeenCalled();

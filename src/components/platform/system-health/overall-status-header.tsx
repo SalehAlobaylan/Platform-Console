@@ -113,6 +113,7 @@ export function OverallStatusHeader({
               </time>
             </p>
           ) : null}
+          {snapshot?.durationMs != null && <p>Checks completed in {snapshot.durationMs.toLocaleString()} ms</p>}
         </div>
       </div>
       <dl className="grid grid-cols-2 border-t bg-muted/20 sm:grid-cols-4">

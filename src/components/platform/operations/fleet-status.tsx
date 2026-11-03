@@ -84,21 +84,38 @@ export function FleetStatus({
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <Link
-                  href={row.cockpit_path}
-                  className="font-medium hover:underline"
-                >
-                  {row.member_label} · {row.lane_label}
-                </Link>
+                {row.member_key === 'pods_pipeline' ? (
+                  <p className="font-medium">
+                    {t('Pods pipeline', 'مسار بودز')}
+                  </p>
+                ) : (
+                  <Link
+                    href={row.cockpit_path}
+                    className="font-medium hover:underline"
+                  >
+                    {row.member_label} · {row.lane_label}
+                  </Link>
+                )}
                 <p
                   className="break-words text-xs text-muted-foreground"
                   dir="ltr"
                 >
-                  {row.tenant_id || 'platform'} · {row.kind} · {row.mode || '—'}
+                  {row.member_key === 'pods_pipeline'
+                    ? row.tenant_id
+                      ? `${t('Tenant', 'المستأجر')}: ${row.tenant_id}`
+                      : t('Scope not reported', 'النطاق غير مسجّل')
+                    : `${row.tenant_id || 'platform'} · ${row.kind} · ${row.mode || '—'}`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <OpsBadge value={fresh ? row.state : 'unknown'} />
+                {row.member_key === 'pods_pipeline' && (
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={row.cockpit_path}>
+                      {t('Pipeline controls', 'التحكم بالمسار')}
+                    </Link>
+                  </Button>
+                )}
                 {row.pausable && (
                   <Button
                     size="sm"
@@ -131,38 +148,40 @@ export function FleetStatus({
                 {opsLabel(row.state)}
               </p>
             )}
-            <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-              <span>
-                {t('Last run', 'آخر تشغيل')}:{' '}
-                <OpsTime value={row.last_run_at} locale={locale} />{' '}
-                {row.last_run_status && opsLabel(row.last_run_status)}
-              </span>
-              <span>
-                {t('Next due', 'الاستحقاق التالي')}:{' '}
-                <OpsTime value={row.next_due_at} locale={locale} />
-              </span>
-              {row.deep_due_at && (
+            {row.member_key !== 'pods_pipeline' && (
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
                 <span>
-                  {t('Deep check due', 'استحقاق الفحص العميق')}:{' '}
-                  <OpsTime value={row.deep_due_at} locale={locale} />
+                  {t('Last run', 'آخر تشغيل')}:{' '}
+                  <OpsTime value={row.last_run_at} locale={locale} />{' '}
+                  {row.last_run_status && opsLabel(row.last_run_status)}
                 </span>
-              )}
-              {row.paused_until && (
                 <span>
-                  {Date.parse(row.paused_until) > now
-                    ? t('Pause expires', 'ينتهي الإيقاف')
-                    : t('Pause expired', 'انتهى الإيقاف')}
-                  : <OpsTime value={row.paused_until} locale={locale} />
+                  {t('Next due', 'الاستحقاق التالي')}:{' '}
+                  <OpsTime value={row.next_due_at} locale={locale} />
                 </span>
-              )}
-              <span>
-                {t('Liveness', 'الرصد')}: {opsLabel(row.liveness)}
-              </span>
-              <span>
-                {t('Open attention', 'التنبيهات المفتوحة')}:{' '}
-                {row.open_attention_count ?? 0}
-              </span>
-            </div>
+                {row.deep_due_at && (
+                  <span>
+                    {t('Deep check due', 'استحقاق الفحص العميق')}:{' '}
+                    <OpsTime value={row.deep_due_at} locale={locale} />
+                  </span>
+                )}
+                {row.paused_until && (
+                  <span>
+                    {Date.parse(row.paused_until) > now
+                      ? t('Pause expires', 'ينتهي الإيقاف')
+                      : t('Pause expired', 'انتهى الإيقاف')}
+                    : <OpsTime value={row.paused_until} locale={locale} />
+                  </span>
+                )}
+                <span>
+                  {t('Liveness', 'الرصد')}: {opsLabel(row.liveness)}
+                </span>
+                <span>
+                  {t('Open attention', 'التنبيهات المفتوحة')}:{' '}
+                  {row.open_attention_count ?? 0}
+                </span>
+              </div>
+            )}
             {row.trust && row.trust.state !== 'not_applicable' && (
               <p className="text-xs">
                 {t('Trust', 'الثقة')}:{' '}
@@ -182,11 +201,12 @@ export function FleetStatus({
                 )}
               </p>
             )}
-            {row.containment?.pause_scope && (
-              <p className="text-xs text-muted-foreground">
-                {row.containment.pause_scope}
-              </p>
-            )}
+            {row.member_key !== 'pods_pipeline' &&
+              row.containment?.pause_scope && (
+                <p className="text-xs text-muted-foreground">
+                  {row.containment.pause_scope}
+                </p>
+              )}
             {(row.error || row.evidence || row.last_run_headline) && (
               <p
                 className={`text-sm ${row.error ? 'text-destructive' : 'text-muted-foreground'}`}

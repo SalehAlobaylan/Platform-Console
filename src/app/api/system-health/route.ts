@@ -1,13 +1,17 @@
-import { dependencyStatus } from '@/lib/system-health';
+import {
+    aggregationDependencies,
+    parseQueueStats,
+    queueWarnings,
+} from '@/lib/system-health/aggregation';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type {
     DependencyHealth,
     EnvAuditEntry,
     ModelLoad,
-    QueueDepth,
     ServiceHealth,
     ServiceName,
+    ServiceProbe,
     ServiceStatus,
     SystemHealthSnapshot,
     SystemIssue,
@@ -19,7 +23,6 @@ export const revalidate = 0;
 
 const ACCESS_COOKIE = 'console_access_token';
 const PROBE_TIMEOUT_MS = 3000;
-const QUEUE_WAITING_WARN = 100;
 
 const ENV_KEYS = [
     'CMS_BASE_URL',
@@ -40,7 +43,7 @@ interface ProbeResult {
 
 async function probe(
     url: string,
-    init?: { authorize?: boolean; expectJson?: boolean }
+    init?: { authorize?: boolean; expectJson?: boolean; signal?: AbortSignal }
 ): Promise<ProbeResult> {
     const headers = new Headers();
     if (init?.authorize) {
@@ -59,9 +62,10 @@ async function probe(
             method: 'GET',
             headers,
             cache: 'no-store',
-            signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+            signal: init?.signal
+                ? AbortSignal.any([init.signal, AbortSignal.timeout(PROBE_TIMEOUT_MS)])
+                : AbortSignal.timeout(PROBE_TIMEOUT_MS),
         });
-        const latencyMs = Math.round(performance.now() - start);
         let body: unknown = null;
         if (init?.expectJson !== false) {
             const text = await resp.text();
@@ -70,11 +74,15 @@ async function probe(
             } catch {
                 body = text;
             }
+        } else {
+            // Consume the page response so timing includes its body and the
+            // connection can be reused by later checks.
+            await resp.arrayBuffer();
         }
         return {
             ok: resp.ok,
             httpStatus: resp.status,
-            latencyMs,
+            latencyMs: Math.round(performance.now() - start),
             body,
         };
     } catch (err) {
@@ -86,6 +94,16 @@ async function probe(
             error: err instanceof Error ? err.message : 'probe failed',
         };
     }
+}
+
+function probeTiming(label: string, endpointUrl: string, result: ProbeResult): ServiceProbe {
+    return {
+        label,
+        endpointUrl,
+        latencyMs: result.latencyMs,
+        httpStatus: result.httpStatus,
+        error: result.error,
+    };
 }
 
 function joinUrl(base: string, path: string): string {
@@ -141,11 +159,11 @@ function mapModels(readyBody: Record<string, unknown> | null): ModelLoad[] {
     return models;
 }
 
-async function checkCms(baseUrl: string | undefined): Promise<ServiceHealth> {
+async function checkCms(baseUrl: string | undefined, signal?: AbortSignal): Promise<ServiceHealth> {
     const display = { name: 'cms' as ServiceName, displayName: 'CMS' };
     if (!baseUrl) return missing(display, 'CMS_BASE_URL');
     const url = joinUrl(baseUrl, '/health');
-    const r = await probe(url);
+    const r = await probe(url, { signal });
     const body = asRecord(r.body);
     const reported = body && typeof body.status === 'string' ? (body.status as string) : null;
     const healthy = r.ok && (reported === 'ok' || reported === 'healthy');
@@ -155,6 +173,7 @@ async function checkCms(baseUrl: string | undefined): Promise<ServiceHealth> {
         status: healthy ? 'healthy' : 'unhealthy',
         latencyMs: r.latencyMs,
         httpStatus: r.httpStatus,
+        probes: [probeTiming('Health', url, r)],
         // Postgres reachability is implicit — CMS won't return 200 if DB is down at boot.
         deps: [{ name: 'postgres', status: healthy ? 'healthy' : 'unknown' }],
         rawError: r.error,
@@ -162,11 +181,11 @@ async function checkCms(baseUrl: string | undefined): Promise<ServiceHealth> {
     };
 }
 
-async function checkIam(baseUrl: string | undefined): Promise<ServiceHealth> {
+async function checkIam(baseUrl: string | undefined, signal?: AbortSignal): Promise<ServiceHealth> {
     const display = { name: 'iam' as ServiceName, displayName: 'IAM' };
     if (!baseUrl) return missing(display, 'IAM_BASE_URL');
     const url = joinUrl(baseUrl, '/health');
-    const r = await probe(url);
+    const r = await probe(url, { signal });
     const body = asRecord(r.body);
     const reportedStatus = body && typeof body.status === 'string' ? (body.status as string) : null;
     const version = body && typeof body.version === 'string' ? (body.version as string) : undefined;
@@ -177,6 +196,7 @@ async function checkIam(baseUrl: string | undefined): Promise<ServiceHealth> {
         status: healthy ? 'healthy' : r.ok ? 'degraded' : 'unhealthy',
         latencyMs: r.latencyMs,
         httpStatus: r.httpStatus,
+        probes: [probeTiming('Health', url, r)],
         version,
         // IAM /health does a DB ping; an unhealthy response implies DB trouble.
         deps: [{ name: 'postgres', status: healthy ? 'healthy' : 'unhealthy' }],
@@ -185,41 +205,38 @@ async function checkIam(baseUrl: string | undefined): Promise<ServiceHealth> {
     };
 }
 
-async function checkAggregation(baseUrl: string | undefined): Promise<ServiceHealth> {
+async function checkAggregation(
+    baseUrl: string | undefined,
+    cmsCheck: Promise<ServiceHealth>,
+    signal?: AbortSignal
+): Promise<ServiceHealth> {
     const display = { name: 'aggregation' as ServiceName, displayName: 'Aggregation' };
     if (!baseUrl) return missing(display, 'AGGREGATION_BASE_URL');
     const healthUrl = joinUrl(baseUrl, '/health');
     const readyUrl = joinUrl(baseUrl, '/ready');
     const queuesUrl = joinUrl(baseUrl, '/admin/queues');
-    const [health, ready, queues] = await Promise.all([
-        probe(healthUrl),
-        probe(readyUrl),
-        probe(queuesUrl, { authorize: true }),
+    const [health, ready, queues, cms] = await Promise.all([
+        probe(healthUrl, { signal }),
+        probe(readyUrl, { signal }),
+        probe(queuesUrl, { authorize: true, signal }),
+        cmsCheck.catch(() => null),
     ]);
 
-    const readyBody = asRecord(ready.body);
-    const depsObj = readyBody ? asRecord(readyBody.dependencies) : null;
-    const deps: DependencyHealth[] = [];
-    if (depsObj) {
-        for (const [name, value] of Object.entries(depsObj)) {
-            const v = typeof value === 'string' ? value : String(value);
-            deps.push({ name, status: dependencyStatus(value), detail: v });
-        }
-    }
-
-    const queueList = Array.isArray(queues.body)
-        ? (queues.body as unknown[]).filter((q): q is QueueDepth => {
-              const r = asRecord(q);
-              return !!r && typeof r.queue === 'string';
-          })
+    const topology = asRecord(asRecord(cms?.raw)?.supply_owner_readiness)?.aggregation;
+    const deps = aggregationDependencies(ready, topology, Date.now());
+    const queueList = queues.ok ? parseQueueStats(queues.body) : undefined;
+    const queueStatsError = queueList === undefined
+        ? queues.error || (queues.ok
+            ? 'Invalid queue statistics response'
+            : `HTTP ${queues.httpStatus ?? 'unavailable'}`)
         : undefined;
 
     const reachable = health.ok || ready.ok;
     let status: ServiceStatus;
     if (!reachable) status = 'unhealthy';
-    else if (!ready.ok || deps.some((d) => d.status !== 'healthy')) status = 'degraded';
-    else if (queueList && queueList.some((q) => q.waiting > QUEUE_WAITING_WARN || q.failed > 0))
+    else if (deps.some((d) => d.status === 'unhealthy' || d.status === 'degraded'))
         status = 'degraded';
+    else if (!ready.ok || deps.some((d) => d.status === 'unknown')) status = 'unknown';
     else status = 'healthy';
 
     return {
@@ -228,19 +245,35 @@ async function checkAggregation(baseUrl: string | undefined): Promise<ServiceHea
         status,
         latencyMs: health.latencyMs ?? ready.latencyMs,
         httpStatus: health.httpStatus ?? ready.httpStatus,
+        probes: [
+            probeTiming('Health', healthUrl, health),
+            probeTiming('Readiness', readyUrl, ready),
+            probeTiming('Queue statistics', queuesUrl, queues),
+        ],
         deps,
         queues: queueList,
+        queueStatsError,
         rawError: health.error || ready.error,
-        raw: { health: health.body, ready: ready.body, queues: queues.body },
+        raw: {
+            health: health.body,
+            ready: ready.body,
+            topology: topology ?? null,
+            queues: queues.body,
+            queuesHttpStatus: queues.httpStatus,
+            queueStatsError,
+        },
     };
 }
 
-async function checkEnrichment(baseUrl: string | undefined): Promise<ServiceHealth> {
+async function checkEnrichment(baseUrl: string | undefined, signal?: AbortSignal): Promise<ServiceHealth> {
     const display = { name: 'enrichment' as ServiceName, displayName: 'Enrichment' };
     if (!baseUrl) return missing(display, 'ENRICHMENT_BASE_URL');
     const healthUrl = joinUrl(baseUrl, '/health');
     const readyUrl = joinUrl(baseUrl, '/ready');
-    const [health, ready] = await Promise.all([probe(healthUrl), probe(readyUrl)]);
+    const [health, ready] = await Promise.all([
+        probe(healthUrl, { signal }),
+        probe(readyUrl, { signal }),
+    ]);
 
     const healthBody = asRecord(health.body);
     const version =
@@ -277,6 +310,10 @@ async function checkEnrichment(baseUrl: string | undefined): Promise<ServiceHeal
         status,
         latencyMs: health.latencyMs ?? ready.latencyMs,
         httpStatus: health.httpStatus ?? ready.httpStatus,
+        probes: [
+            probeTiming('Health', healthUrl, health),
+            probeTiming('Readiness', readyUrl, ready),
+        ],
         version,
         deps,
         models,
@@ -285,16 +322,16 @@ async function checkEnrichment(baseUrl: string | undefined): Promise<ServiceHeal
     };
 }
 
-async function checkMedia(baseUrl: string | undefined): Promise<ServiceHealth> {
+async function checkMedia(baseUrl: string | undefined, signal?: AbortSignal): Promise<ServiceHealth> {
     const display = { name: 'media' as ServiceName, displayName: 'Media' };
     if (!baseUrl) return missing(display, 'MEDIA_BASE_URL');
     const healthUrl = joinUrl(baseUrl, '/health');
     const readyUrl = joinUrl(baseUrl, '/ready');
     const queueUrl = joinUrl(baseUrl, '/health/queue');
     const [health, ready, queue] = await Promise.all([
-        probe(healthUrl),
-        probe(readyUrl),
-        probe(queueUrl),
+        probe(healthUrl, { signal }),
+        probe(readyUrl, { signal }),
+        probe(queueUrl, { signal }),
     ]);
 
     const healthBody = asRecord(health.body);
@@ -370,6 +407,11 @@ async function checkMedia(baseUrl: string | undefined): Promise<ServiceHealth> {
         status,
         latencyMs: health.latencyMs ?? ready.latencyMs,
         httpStatus: health.httpStatus ?? ready.httpStatus,
+        probes: [
+            probeTiming('Health', healthUrl, health),
+            probeTiming('Readiness', readyUrl, ready),
+            probeTiming('Async worker', queueUrl, queue),
+        ],
         version,
         deps,
         models,
@@ -379,16 +421,17 @@ async function checkMedia(baseUrl: string | undefined): Promise<ServiceHealth> {
     };
 }
 
-async function checkPlatform(baseUrl: string | undefined): Promise<ServiceHealth> {
+async function checkPlatform(baseUrl: string | undefined, signal?: AbortSignal): Promise<ServiceHealth> {
     const display = { name: 'platform' as ServiceName, displayName: 'Wahb-Platform' };
     if (!baseUrl) return missing(display, 'PLATFORM_BASE_URL');
-    const r = await probe(baseUrl, { expectJson: false });
+    const r = await probe(baseUrl, { expectJson: false, signal });
     return {
         ...display,
         endpointUrl: baseUrl,
         status: r.ok ? 'healthy' : 'unhealthy',
         latencyMs: r.latencyMs,
         httpStatus: r.httpStatus,
+        probes: [probeTiming('Page response', baseUrl, r)],
         deps: [],
         rawError: r.error,
     };
@@ -444,23 +487,21 @@ function collectIssues(
                     service: svc.name,
                     message: `${svc.displayName} dependency "${dep.name}" is unhealthy${dep.detail ? ` (${dep.detail})` : ''}`,
                 });
+            } else if (svc.name === 'aggregation' && dep.status === 'unknown') {
+                issues.push({
+                    severity: 'warning',
+                    service: svc.name,
+                    message: `Aggregation readiness for "${dep.name}" is unavailable${dep.detail ? ` (${dep.detail})` : ''}`,
+                });
             }
         }
-        for (const q of svc.queues ?? []) {
-            if (q.failed > 0) {
-                issues.push({
-                    severity: 'warning',
-                    service: svc.name,
-                    message: `Queue "${q.queue}" has ${q.failed} failed job(s)`,
-                });
-            }
-            if (q.waiting > QUEUE_WAITING_WARN) {
-                issues.push({
-                    severity: 'warning',
-                    service: svc.name,
-                    message: `Queue "${q.queue}" is backed up (${q.waiting} waiting)`,
-                });
-            }
+        if (svc.name === 'aggregation') issues.push(...queueWarnings(svc.queues ?? []));
+        if (svc.queueStatsError) {
+            issues.push({
+                severity: 'warning',
+                service: svc.name,
+                message: `Queue statistics unavailable: ${svc.queueStatsError}`,
+            });
         }
         for (const m of svc.models ?? []) {
             if (!m.loaded) {
@@ -503,7 +544,7 @@ function collectIssues(
     return issues;
 }
 
-export async function GET(): Promise<NextResponse<SystemHealthSnapshot | { message: string }>> {
+export async function GET(request: Request): Promise<NextResponse<SystemHealthSnapshot | { message: string }>> {
     // Require an authenticated console session. This snapshot exposes internal
     // service URLs, versions, model inventory and env-var presence — admin-only
     // recon data — so anonymous callers are rejected, matching the sibling
@@ -512,6 +553,7 @@ export async function GET(): Promise<NextResponse<SystemHealthSnapshot | { messa
     if (!accessToken) {
         return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
     }
+    const start = performance.now();
 
     const env: Record<(typeof ENV_KEYS)[number], string | undefined> = {
         // Trim — a stray trailing space in a *_BASE_URL env (easy to leave in a
@@ -525,13 +567,15 @@ export async function GET(): Promise<NextResponse<SystemHealthSnapshot | { messa
         PLATFORM_BASE_URL: process.env.PLATFORM_BASE_URL?.trim(),
     };
 
+    // Reuse the same CMS observation for the inventory and distributed role proof.
+    const cmsCheck = checkCms(env.CMS_BASE_URL, request.signal);
     const settled = await Promise.allSettled([
-        checkCms(env.CMS_BASE_URL),
-        checkIam(env.IAM_BASE_URL),
-        checkAggregation(env.AGGREGATION_BASE_URL),
-        checkEnrichment(env.ENRICHMENT_BASE_URL),
-        checkMedia(env.MEDIA_BASE_URL),
-        checkPlatform(env.PLATFORM_BASE_URL),
+        cmsCheck,
+        checkIam(env.IAM_BASE_URL, request.signal),
+        checkAggregation(env.AGGREGATION_BASE_URL, cmsCheck, request.signal),
+        checkEnrichment(env.ENRICHMENT_BASE_URL, request.signal),
+        checkMedia(env.MEDIA_BASE_URL, request.signal),
+        checkPlatform(env.PLATFORM_BASE_URL, request.signal),
     ]);
 
     const services: ServiceHealth[] = settled.map((s, i) => {
@@ -558,6 +602,7 @@ export async function GET(): Promise<NextResponse<SystemHealthSnapshot | { messa
 
     const snapshot: SystemHealthSnapshot = {
         timestamp: new Date().toISOString(),
+        durationMs: Math.round(performance.now() - start),
         overall: computeOverall(services),
         services,
         envAudit,

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/toast';
 import { contentKeys } from '@/hooks/use-content';
+import { podsAutomationKey } from '@/hooks/use-pods-automation';
 import {
     bulkRequestMediaAcquisition,
     getMediaAcquisitionConfig,
@@ -30,6 +31,7 @@ export function useUpdateMediaAcquisitionConfig() {
             queryClient.setQueryData(mediaAcquisitionKeys.config, config);
             queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
             queryClient.invalidateQueries({ queryKey: ['sources'] });
+            queryClient.invalidateQueries({ queryKey: podsAutomationKey });
             toast({ title: 'Media acquisition settings saved', variant: 'success' });
         },
         onError: (error: Error) => toast({ title: 'Failed to save acquisition settings', description: error.message, variant: 'destructive' }),

@@ -30,6 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MediaFindingPage, MediaSettings, YouTubeImportPanel } from '@/components/platform/media/finding/media-finding-page';
 import { MediaOutputChart } from '@/components/platform/media/sources/media-output-chart';
 import { MediaSourcesSummary } from '@/components/platform/media/sources/media-sources-summary';
+import { PodsPipelineControl } from '@/components/platform/media/pods-pipeline-control';
+import { MediaAcquisitionSettingsCard } from '@/components/platform/media/media-acquisition-settings-card';
 import { MediaSourcesManager } from '@/components/platform/sources/manage/media-sources-manager';
 import { useAllSources, useSourceStats, sourceKeys } from '@/hooks/use-sources';
 import { useApproveSuggestion, useMediaSourcesContext, useRejectSuggestion } from '@/hooks/use-discovery';
@@ -144,14 +146,6 @@ export default function MediaSourcesPage() {
                             Add source
                         </Link>
                     </Button>
-                    <Button variant="outline" onClick={() => setTab('import')}>
-                        <Upload className="mr-1.5 h-4 w-4" />
-                        Import
-                    </Button>
-                    <Button onClick={() => setTab('finding')}>
-                        <Radar className="mr-1.5 h-4 w-4" />
-                        Review candidates
-                    </Button>
                     <Button
                         variant="ghost"
                         size="icon"
@@ -166,6 +160,8 @@ export default function MediaSourcesPage() {
                     </Button>
                 </div>
             </div>
+
+            <PodsPipelineControl />
 
             {context.isError && !context.data ? (
                 <Card>
@@ -236,7 +232,8 @@ export default function MediaSourcesPage() {
                             />
                         </TabsContent>
 
-                        <TabsContent value="policy" className="space-y-5">
+                        <TabsContent value="policy" forceMount hidden={tab !== 'policy'} className="space-y-5 data-[state=inactive]:hidden">
+                            <MediaAcquisitionSettingsCard />
                             {context.data?.config ? (
                                 <MediaSettings config={context.data.config} />
                             ) : (

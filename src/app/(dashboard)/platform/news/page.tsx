@@ -22,6 +22,7 @@ import { PullFreshButton } from '@/components/platform/news/run-source-dialog';
 import { RecclusterDialog } from '@/components/platform/news/recluster-dialog';
 import { FeedsManager } from '@/components/platform/news/feeds-manager';
 import { NewsSectionNav } from '@/components/platform/news/news-section-nav';
+import { NewsCollectionOverview } from '@/components/platform/sources/manage/news-collection-controls';
 import { useReclassify } from '@/hooks/use-news';
 import { CONTENT_STATUS_LABELS } from '@/types/platform/content';
 import type { ContentStatus } from '@/types/platform/content';
@@ -161,6 +162,7 @@ export default function NewsPage() {
             </div>
 
             <NewsSectionNav />
+            {view === 'overview' && !active && <NewsCollectionOverview />}
 
             {/* View switcher */}
             <Tabs value={view} onValueChange={(v) => setView(v as NewsViewTab)}>

@@ -119,7 +119,11 @@ export function ServiceCard({
       <CardContent className="space-y-3 text-sm">
         <div className="grid grid-cols-3 gap-2 text-xs">
           <div>
-            <p className="text-muted-foreground">Latency</p>
+            <p className="text-muted-foreground">
+              {service.name === 'platform'
+                ? 'Page response'
+                : 'Health response'}
+            </p>
             <p className="font-medium">
               {service.latencyMs != null ? `${service.latencyMs} ms` : '—'}
             </p>
@@ -133,6 +137,38 @@ export function ServiceCard({
             <p className="font-medium">{service.version ?? '—'}</p>
           </div>
         </div>
+
+        {!!service.probes?.length && (
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Endpoint timings
+            </summary>
+            <dl className="mt-2 space-y-2">
+              {service.probes.map((probe) => (
+                <div key={probe.endpointUrl}>
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <dt className="font-medium">{probe.label}</dt>
+                    <dd>
+                      {probe.latencyMs == null ? '—' : `${probe.latencyMs} ms`}{' '}
+                      · HTTP {probe.httpStatus ?? 'unavailable'}
+                    </dd>
+                  </div>
+                  <p className="break-all text-muted-foreground">
+                    {probe.endpointUrl}
+                  </p>
+                  {probe.error && (
+                    <p className="break-words text-destructive">
+                      {probe.error}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2 text-muted-foreground">
+              Each timing includes the response body. Checks run concurrently.
+            </p>
+          </details>
+        )}
 
         {service.deps.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">

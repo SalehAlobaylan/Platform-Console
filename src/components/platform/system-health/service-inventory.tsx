@@ -117,8 +117,8 @@ export function ServiceInventory({
         </div>
       )}
       <p className="border-t px-4 py-3 text-xs text-muted-foreground">
-        Checks needing review appear first. Response time is one probe, not an
-        average.
+        Checks needing review appear first. Response is the health or page
+        request; readiness and worker timings are in service diagnostics.
       </p>
     </Card>
   );

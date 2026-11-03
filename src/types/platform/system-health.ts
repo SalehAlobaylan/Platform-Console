@@ -45,13 +45,23 @@ export interface ServiceHealth {
     status: ServiceStatus;
     latencyMs: number | null;
     httpStatus: number | null;
+    probes?: ServiceProbe[];
     version?: string;
     deps: DependencyHealth[];
     queues?: QueueDepth[];
+    queueStatsError?: string;
     models?: ModelLoad[];
     worker?: WorkerHealth;
     rawError?: string;
     raw?: unknown;
+}
+
+export interface ServiceProbe {
+    label: string;
+    endpointUrl: string;
+    latencyMs: number | null;
+    httpStatus: number | null;
+    error?: string;
 }
 
 export interface EnvAuditEntry {
@@ -69,6 +79,7 @@ export interface SystemIssue {
 
 export interface SystemHealthSnapshot {
     timestamp: string;
+    durationMs?: number;
     overall: ServiceStatus;
     services: ServiceHealth[];
     envAudit: EnvAuditEntry[];

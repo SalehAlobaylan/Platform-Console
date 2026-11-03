@@ -30,6 +30,9 @@ import { runSource, updateSource } from '@/lib/api/cms/sources';
 import type { ContentSource } from '@/types/platform/source';
 
 interface SourceActionMenuProps {
+    disabled?: boolean;
+    hideActivation?: boolean;
+    onRequestActivation?: (id: string, active: boolean) => void;
     source: ContentSource;
     /** Where the editor should return to (the `from` param). */
     returnTo: string;
@@ -53,6 +56,9 @@ export function SourceActionMenu({
     onRequestDelete,
     align = 'end',
     onChanged,
+    disabled,
+    onRequestActivation,
+    hideActivation,
 }: SourceActionMenuProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -94,12 +100,12 @@ export function SourceActionMenu({
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Source actions" disabled={busy}>
+                <Button variant="ghost" size="icon" aria-label="Source actions" disabled={busy || disabled}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align={align} className="w-48">
-                <DropdownMenuItem onClick={() => run(() => runSource(source.id), 'Ingestion queued')}>
+                <DropdownMenuItem disabled={!source.is_active} onClick={() => run(() => runSource(source.id), 'Ingestion queued')}>
                     <Play className="mr-2 h-4 w-4" /> Run now
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push(editHref)}>
@@ -109,8 +115,9 @@ export function SourceActionMenu({
                     <LinkIcon className="mr-2 h-4 w-4" /> Copy feed URL
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                {!hideActivation && <>
                 <DropdownMenuItem
-                    onClick={() =>
+                    onClick={() => onRequestActivation ? onRequestActivation(source.id, !source.is_active) :
                         run(
                             () => updateSource(source.id, { is_active: !source.is_active }),
                             source.is_active ? 'Source disabled' : 'Source enabled'
@@ -127,6 +134,7 @@ export function SourceActionMenu({
                         </>
                     )}
                 </DropdownMenuItem>
+                </>}
                 <DropdownMenuItem
                     onClick={() =>
                         run(

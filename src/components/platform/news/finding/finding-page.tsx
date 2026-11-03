@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { newsSourceHealth } from '@/lib/sources/news-health';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     Plus, Play, Pencil, Trash2, Loader2, Radar, Check, X, Eye, Lightbulb, Filter,
@@ -70,14 +71,6 @@ function timeAgo(iso?: string | null): string {
 function domainOf(url?: string): string {
     if (!url) return '';
     try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
-}
-
-function sourceHealth(s: NewsSource): { label: string; variant: 'success' | 'warning' | 'secondary' | 'outline' } {
-    if (!s.is_active) return { label: 'paused', variant: 'secondary' };
-    if (!s.last_item_at) return { label: 'new', variant: 'outline' };
-    const ageDays = (Date.now() - new Date(s.last_item_at).getTime()) / 86_400_000;
-    if (ageDays <= 3) return { label: 'live', variant: 'success' };
-    return { label: 'stale', variant: 'warning' };
 }
 
 // Cross-Arabic-news cosine peaks ~0.25, so map relevance onto a friendly,
@@ -177,7 +170,7 @@ export function FindingPage() {
                 <div>
                     <span className="brand-overline text-news">News Center</span>
                     <h1 className="font-editorial text-3xl font-bold tracking-tight">Feeds Finding</h1>
-                    <p className="text-muted-foreground">Define interests, review discovered sources, and manage your live feeds.</p>
+                    <p className="text-muted-foreground">Define interests, discover sources, and review suggestions.</p>
                 </div>
                 <Button className="flex-shrink-0" onClick={() => { setEditing(null); setDialogOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" /> New interest
@@ -295,7 +288,7 @@ export function FindingPage() {
                                     {scopedSuggestions.length > 0 && <CountBadge className="ml-2">{scopedSuggestions.length}</CountBadge>}
                                 </TabsTrigger>
                                 <TabsTrigger value="sources">
-                                    Active sources
+                                    Sources
                                     {scopedSources.length > 0 && <span className="ml-2 text-muted-foreground">{scopedSources.length}</span>}
                                 </TabsTrigger>
                                 <TabsTrigger value="network">Network</TabsTrigger>
@@ -371,7 +364,7 @@ export function FindingPage() {
                                             <TableHead className="text-right">Items</TableHead>
                                             <TableHead className="text-right">Failed</TableHead>
                                             <TableHead>Last item</TableHead>
-                                            <TableHead>Health</TableHead>
+                                            <TableHead>Collection / health</TableHead>
                                             <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -380,7 +373,7 @@ export function FindingPage() {
                                             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
                                         )}
                                         {!sourcesLoading && scopedSources.length === 0 && (
-                                            <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No active sources yet — approve a suggestion to add one.</TableCell></TableRow>
+                                            <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No sources in this interest yet. Approve a suggestion to add one.</TableCell></TableRow>
                                         )}
                                         {scopedSources.map((s) => (
                                             <ActiveSourceRow key={s.id} source={s} onDelete={() => handleDeleteSource(s.id, s.name)} />
@@ -567,7 +560,7 @@ function SuggestionCard({ suggestion, onApprove, onReject, onPreview, busy }: {
 
 function ActiveSourceRow({ source, onDelete }: { source: NewsSource; onDelete: () => void }) {
     const run = useRunSource();
-    const health = sourceHealth(source);
+    const health = newsSourceHealth(source);
     const running = run.isPending && run.variables === source.id;
     return (
         <TableRow>
@@ -578,10 +571,10 @@ function ActiveSourceRow({ source, onDelete }: { source: NewsSource; onDelete: (
             <TableCell className="text-right">{source.items_count}</TableCell>
             <TableCell className={cn('text-right', source.failed > 0 && 'text-destructive')}>{source.failed}</TableCell>
             <TableCell>{formatDate(source.last_item_at)}</TableCell>
-            <TableCell><Badge variant={health.variant}>{health.label}</Badge></TableCell>
+            <TableCell><p className="mb-1 text-xs text-muted-foreground">{source.is_active ? 'Enabled' : 'Paused'}</p><Badge variant={health.variant}>{health.label}</Badge></TableCell>
             <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
-                    <Button size="sm" variant="outline" onClick={() => run.mutate(source.id)} disabled={running}>
+                    <Button size="sm" variant="outline" onClick={() => run.mutate(source.id)} disabled={running || !source.is_active}>
                         {running ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1 h-3.5 w-3.5" />}
                         Run
                     </Button>

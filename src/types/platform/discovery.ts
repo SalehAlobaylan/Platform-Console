@@ -100,6 +100,11 @@ export interface SuggestedProfileDraft {
 }
 
 export interface NewsSource {
+    last_attempted_at?: string;
+    last_provider_success_at?: string;
+    next_due_at?: string;
+    failure_streak?: number;
+    intake_circuit_until?: string;
     id: string;
     name: string;
     type: string;

@@ -7,7 +7,7 @@ import { Video, Mic, Clapperboard } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { SttSettingsCard } from '@/components/platform/media/stt-settings-card';
-import { MediaAcquisitionSettingsCard } from '@/components/platform/media/media-acquisition-settings-card';
+import { PodsPipelineControl } from '@/components/platform/media/pods-pipeline-control';
 import { MediaList } from '@/components/platform/media/media-list';
 import { cn } from '@/lib/utils';
 import type { ContentType } from '@/types/platform/content';
@@ -45,8 +45,8 @@ export default function MediaPage() {
                 </Button>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-2">
-                <MediaAcquisitionSettingsCard />
+            <PodsPipelineControl compact />
+            <div className="max-w-3xl">
                 <SttSettingsCard />
             </div>
 

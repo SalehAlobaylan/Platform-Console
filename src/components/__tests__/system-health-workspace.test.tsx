@@ -85,6 +85,18 @@ test('critical findings cannot be snoozed and stay before warnings', () => {
   expect(screen.getByText('Retained failed jobs')).toBeInTheDocument();
 });
 
+test('a healthy service with retained queue findings stays inspectable in Needs review', () => {
+  const aggregation = { ...healthy, name: 'aggregation' as const, displayName: 'Aggregation' };
+  render(<ServiceInventory
+    services={[healthy, aggregation]}
+    issues={[{ severity: 'warning', service: 'aggregation', message: 'Retained failed jobs' }]}
+    onInspect={jest.fn()}
+  />);
+  fireEvent.click(screen.getByRole('button', { name: 'Needs review · 1' }));
+  expect(screen.getByRole('button', { name: 'Inspect Aggregation' })).toHaveTextContent('healthy');
+  expect(screen.queryByRole('button', { name: 'Inspect CMS' })).not.toBeInTheDocument();
+});
+
 
 test('snoozing in an inspector updates the mounted overview too', () => {
   const issues = [{ severity: 'warning' as const, message: 'Shared warning' }];
