@@ -1,9 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import Link from '@/lib/console-link';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import { ArrowUpRight, Bot, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,37 +29,13 @@ import { useSystemHealth } from '@/hooks/use-system-health';
 import { useSystemAutopilotStatus } from '@/hooks/use-system-autopilot';
 import { SERVICE_ROLES, snapshotIsStale } from '@/lib/system-health';
 
-const AggregationHealthPanel = dynamic(
-  () =>
-    import('@/components/platform/aggregation-health-panel').then(
-      (module) => module.AggregationHealthPanel
-    ),
-  { loading: () => <Skeleton className="h-48 w-full" /> }
-);
+const AggregationHealthPanel = lazy(() => import('@/components/platform/aggregation-health-panel').then((module) => ({ default: module.AggregationHealthPanel })));
 
-const AiMetricsPanel = dynamic(
-  () =>
-    import('@/components/platform/system-health/ai-metrics-panel').then(
-      (module) => module.AiMetricsPanel
-    ),
-  { loading: () => <Skeleton className="h-48 w-full" /> }
-);
+const AiMetricsPanel = lazy(() => import('@/components/platform/system-health/ai-metrics-panel').then((module) => ({ default: module.AiMetricsPanel })));
 
-const LlmStackPanel = dynamic(
-  () =>
-    import('@/components/platform/system-health/llm-stack-panel').then(
-      (module) => module.LlmStackPanel
-    ),
-  { loading: () => <Skeleton className="h-48 w-full" /> }
-);
+const LlmStackPanel = lazy(() => import('@/components/platform/system-health/llm-stack-panel').then((module) => ({ default: module.LlmStackPanel })));
 
-const SystemAutopilotPanel = dynamic(
-  () =>
-    import('@/components/platform/system-health/system-autopilot-panel').then(
-      (module) => module.SystemAutopilotPanel
-    ),
-  { loading: () => <Skeleton className="h-48 w-full" /> }
-);
+const SystemAutopilotPanel = lazy(() => import('@/components/platform/system-health/system-autopilot-panel').then((module) => ({ default: module.SystemAutopilotPanel })));
 
 const VIEWS = ['overview', 'incidents', 'processing', 'configuration'] as const;
 
@@ -338,12 +313,14 @@ function SystemHealthWorkspace() {
         </TabsContent>
 
         <TabsContent value="incidents" className="mt-5">
-          <SystemAutopilotPanel
-            initialEpisodeId={search.get('incident')}
-            onIncidentChange={(id) =>
-              navigate({ tab: 'incidents', incident: id })
-            }
-          />
+          <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+            <SystemAutopilotPanel
+              initialEpisodeId={search.get('incident')}
+              onIncidentChange={(id) =>
+                navigate({ tab: 'incidents', incident: id })
+              }
+            />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="processing" className="mt-5 space-y-4">
@@ -360,12 +337,12 @@ function SystemHealthWorkspace() {
                   Worker readings require a service snapshot.
                 </p>
               )}
-              <AggregationHealthPanel />
+              <Suspense fallback={<Skeleton className="h-48 w-full" />}><AggregationHealthPanel /></Suspense>
             </TabsContent>
             <TabsContent value="ai" className="mt-4 space-y-4">
               {data && <ModelLoadPanel services={data.services} />}
-              <AiMetricsPanel />
-              <LlmStackPanel />
+              <Suspense fallback={<Skeleton className="h-48 w-full" />}><AiMetricsPanel /></Suspense>
+              <Suspense fallback={<Skeleton className="h-48 w-full" />}><LlmStackPanel /></Suspense>
             </TabsContent>
           </Tabs>
         </TabsContent>

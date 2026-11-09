@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, type FormEvent } from 'react';
+import { useRouter } from '@/lib/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,7 +22,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-export function LoginForm() {
+export function LoginForm({ id }: { id: string }) {
     const router = useRouter();
     const login = useAuthStore((state) => state.login);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,6 +30,7 @@ export function LoginForm() {
     const {
         register,
         handleSubmit,
+        setValue,
         formState: { errors },
     } = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
@@ -62,15 +63,23 @@ export function LoginForm() {
         }
     };
 
+    const submit = (event: FormEvent<HTMLFormElement>) => {
+        // Password managers can populate inputs without React input events.
+        const data = new FormData(event.currentTarget);
+        setValue('email', String(data.get('email') ?? ''));
+        setValue('password', String(data.get('password') ?? ''));
+        void handleSubmit(onSubmit)(event);
+    };
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form id={id} onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                     id="email"
                     type="email"
                     placeholder="admin@example.com"
-                    autoComplete="email"
+                    autoComplete="username"
                     {...register('email')}
                     disabled={isSubmitting}
                 />

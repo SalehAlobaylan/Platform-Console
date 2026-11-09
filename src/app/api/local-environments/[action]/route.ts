@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { readCookie } from '@/lib/server/session-cookies';
 import { z } from 'zod';
 import {
   overviewSchema,
@@ -13,7 +12,6 @@ import {
   sameOrigin,
 } from '@/lib/server/runtime-session';
 
-export const dynamic = 'force-dynamic';
 const environment = z.string().regex(/^[a-z][a-z0-9-]{0,47}$/);
 const schemas = {
   selection: z
@@ -44,7 +42,7 @@ const responseSchemas = {
   'upgrade-job': upgradeJobSchema,
 };
 async function proxy(
-  request: NextRequest,
+  request: Request,
   context: { params: Promise<{ action: string }> }
 ) {
   const { action } = await context.params;
@@ -54,20 +52,19 @@ async function proxy(
       ? ['overview', 'history', 'upgrade-job'].includes(action)
       : Object.hasOwn(schemas, action))
   )
-    return NextResponse.json(
+    return Response.json(
       { message: 'Unsupported environment action' },
       { status: 404 }
     );
-  const store = await cookies();
-  const access = store.get('console_access_token')?.value;
-  if (!access || !hasCurrentRuntimeSession(store))
-    return NextResponse.json(
+  const access = readCookie(request, 'console_access_token');
+  if (!access || !hasCurrentRuntimeSession(request))
+    return Response.json(
       { message: 'Sign in again for this runtime' },
       { status: 401 }
     );
   const runtime = currentRuntimeID();
   if (!runtime)
-    return NextResponse.json(
+    return Response.json(
       {
         message:
           'Local environments are available only in a managed start.sh runtime',
@@ -79,14 +76,14 @@ async function proxy(
     (!sameOrigin(request) ||
       request.headers.get('x-wahb-runtime-id') !== runtime)
   )
-    return NextResponse.json(
+    return Response.json(
       { message: 'Refresh this tab before continuing' },
       { status: 409 }
     );
   const base = process.env.MIGRATION_COORDINATOR_URL;
   const token = process.env.MIGRATION_COORDINATOR_READ_TOKEN;
   if (!base || !token)
-    return NextResponse.json(
+    return Response.json(
       {
         message:
           'Coordinator is unavailable. Use scripts/env.sh while the stack is stopped.',
@@ -97,10 +94,10 @@ async function proxy(
   let query = '';
   if (reading && action === 'history') {
     const id = environment.safeParse(
-      request.nextUrl.searchParams.get('environment')
+      new URL(request.url).searchParams.get('environment')
     );
     if (!id.success)
-      return NextResponse.json(
+      return Response.json(
         { message: 'Registered environment ID required' },
         { status: 400 }
       );
@@ -110,9 +107,9 @@ async function proxy(
     const id = z
       .string()
       .uuid()
-      .safeParse(request.nextUrl.searchParams.get('id'));
+      .safeParse(new URL(request.url).searchParams.get('id'));
     if (!id.success)
-      return NextResponse.json(
+      return Response.json(
         { message: 'Upgrade job ID required' },
         { status: 400 }
       );
@@ -123,7 +120,7 @@ async function proxy(
       await request.json().catch(() => null)
     );
     if (!parsed.success)
-      return NextResponse.json(
+      return Response.json(
         { message: 'Invalid request fields' },
         { status: 400 }
       );
@@ -152,19 +149,19 @@ async function proxy(
       // arrays. Keep their evidence IDs/digests and retained files unchanged.
       const parsed = responseSchema.safeParse(await response.json());
       if (!parsed.success)
-        return NextResponse.json(
+        return Response.json(
           {
             message:
               'The coordinator returned invalid environment evidence. Use scripts/env.sh doctor for details.',
           },
           { status: 502, headers: { 'cache-control': 'no-store' } }
         );
-      return NextResponse.json(parsed.data, {
+      return Response.json(parsed.data, {
         status: response.status,
         headers: { 'cache-control': 'no-store' },
       });
     }
-    return new NextResponse(await response.text(), {
+    return new Response(await response.text(), {
       status: response.status,
       headers: {
         'content-type': 'application/json',
@@ -172,7 +169,7 @@ async function proxy(
       },
     });
   } catch {
-    return NextResponse.json(
+    return Response.json(
       {
         message:
           'Coordinator check did not complete. Use the offline command if the stack cannot run.',

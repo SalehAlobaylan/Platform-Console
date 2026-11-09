@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { readCookie } from '@/lib/server/session-cookies';
 import type {
     AiMetricsSnapshot,
     CountByStatus,
@@ -7,9 +6,6 @@ import type {
     LlmMetrics,
     MediaMetrics,
 } from '@/types/platform/ai-metrics';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 const ACCESS_COOKIE = 'console_access_token';
 const PROBE_TIMEOUT_MS = 3000;
@@ -188,12 +184,12 @@ async function scrape(
     }
 }
 
-export async function GET(): Promise<NextResponse<AiMetricsSnapshot | { message: string }>> {
+export async function GET(request: Request): Promise<Response> {
     // Require an authenticated console session — these are internal operational
     // metrics, not public data, matching the other admin API routes.
-    const accessToken = (await cookies()).get(ACCESS_COOKIE)?.value;
+    const accessToken = readCookie(request, ACCESS_COOKIE);
     if (!accessToken) {
-        return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
+        return Response.json({ message: 'Not authenticated' }, { status: 401 });
     }
 
     const [mediaRes, enrichRes] = await Promise.all([
@@ -217,7 +213,7 @@ export async function GET(): Promise<NextResponse<AiMetricsSnapshot | { message:
         errors.enrichment = enrichRes.error;
     }
 
-    return NextResponse.json({
+    return Response.json({
         timestamp: new Date().toISOString(),
         media,
         enrichment,

@@ -57,7 +57,6 @@ export function StepSettings({ state, dispatch }: StepSettingsProps) {
                 <div className="flex items-start gap-3">
                     <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
                         {state.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={state.imageUrl}
                                 alt=""

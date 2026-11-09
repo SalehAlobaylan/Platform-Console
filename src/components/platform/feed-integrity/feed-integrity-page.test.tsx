@@ -3,7 +3,7 @@ import FeedIntegrityPage from '@/app/(dashboard)/platform/feed-integrity/page';
 import * as hooks from '@/hooks/use-feed-integrity';
 let mockParams = '';
 const mockReplace = jest.fn();
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockParams),
   useRouter: () => ({ replace: mockReplace }),
 }));

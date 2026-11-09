@@ -1,3 +1,4 @@
+import { consoleRuntime } from '@/lib/runtime-config';
 import { z } from 'zod';
 const profile = z
   .object({
@@ -316,7 +317,7 @@ async function request<T>(
     cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
-      'X-Wahb-Runtime-ID': process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID || '',
+      'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '',
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });

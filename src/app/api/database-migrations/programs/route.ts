@@ -1,1 +1,1 @@
-export { GET, dynamic } from '../actions/route';
+export { GET } from '../actions/route';

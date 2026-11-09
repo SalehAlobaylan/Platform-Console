@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import {
     ArchiveRestore,
     Clock3,
@@ -197,7 +197,7 @@ export default function RetentionPage() {
         const url = new URL(window.location.href); url.searchParams.set('run', runId);
         if (actionId) url.searchParams.set('action', actionId); else url.searchParams.delete('action');
         url.hash = '';
-        window.history.replaceState(null, '', url);
+        window.history.replaceState(window.history.state, '', url);
         document.getElementById('cleanup-workflow')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
     };
     const sample = status.data?.latest_sample;

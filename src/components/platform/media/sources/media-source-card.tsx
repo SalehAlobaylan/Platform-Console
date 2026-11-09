@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, Play } from 'lucide-react';
 import { useState } from 'react';

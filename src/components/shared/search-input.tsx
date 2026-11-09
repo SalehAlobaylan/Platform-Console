@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/lib/hooks/use-debounce';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface SearchInputProps {
   value: string;
@@ -31,19 +31,18 @@ export function SearchInput({
   const [inputValue, setInputValue] = useState(value);
   const debouncedValue = useDebounce(inputValue, debounceMs);
 
-  // Update parent when debounced value changes
+  const lastValue = useRef(value);
+
   useEffect(() => {
-    if (debouncedValue !== value) {
+    if (lastValue.current !== value) {
+      lastValue.current = value;
+      setInputValue(value);
+      return;
+    }
+    if (debouncedValue === inputValue && debouncedValue !== value) {
       onChange(debouncedValue);
     }
-  }, [debouncedValue, onChange, value]);
-
-  // Sync with external value changes
-  useEffect(() => {
-    if (value !== inputValue) {
-      setInputValue(value);
-    }
-  }, [value]);
+  }, [debouncedValue, inputValue, onChange, value]);
 
   const handleClear = () => {
     setInputValue('');

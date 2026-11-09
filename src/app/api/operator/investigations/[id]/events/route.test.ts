@@ -1,6 +1,5 @@
 /** @jest-environment node */
 
-import { NextRequest } from 'next/server';
 
 import { GET } from './route';
 
@@ -8,9 +7,9 @@ const originalFetch = global.fetch;
 const originalCmsUrl = process.env.CMS_BASE_URL;
 const validID = '2b4da8db-8491-48b9-b5f9-667a097ddc79';
 
-function request(path = `/api/operator/investigations/${validID}/events?after=4`, token?: string): NextRequest {
-  const value = new NextRequest(`http://console.test${path}`, { headers: { 'x-request-id': 'request-1' } });
-  if (token) value.cookies.set('console_access_token', token);
+function request(path = `/api/operator/investigations/${validID}/events?after=4`, token?: string): Request {
+  const value = new Request(`http://console.test${path}`, { headers: { 'x-request-id': 'request-1' } });
+  if (token) value.headers.set('cookie', `console_access_token=${token}`);
   return value;
 }
 

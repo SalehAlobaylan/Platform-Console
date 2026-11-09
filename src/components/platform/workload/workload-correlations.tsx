@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import type { WorkloadQualification } from '@/types/platform/workload';
 import type { WorkloadQuery } from './workload-evidence';
 import {

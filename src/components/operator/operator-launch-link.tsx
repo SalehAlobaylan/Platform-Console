@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import type { MouseEventHandler } from 'react';
 import { Bot } from 'lucide-react';
 import { Button, type ButtonProps } from '@/components/ui/button';

@@ -1,9 +1,10 @@
 'use client';
 
-import { guardEditorHistory } from '@/lib/studio/history-guard';
+import { useBlocker } from '@tanstack/react-router';
+import { leavesStudioDraft } from '@/lib/studio/history-guard';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { AlertTriangle, Clock3, GitCompare, HardDrive, Loader2, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -192,50 +193,14 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
         }
     }, [data, id]);
 
-    useEffect(() => {
-        const onBeforeUnload = (event: BeforeUnloadEvent) => {
-            if (!chaptersDirty && !transcriptDirty) return;
-            event.preventDefault();
-            event.returnValue = '';
-        };
-        window.addEventListener('beforeunload', onBeforeUnload);
-        return () => window.removeEventListener('beforeunload', onBeforeUnload);
-    }, [chaptersDirty, transcriptDirty]);
-
-    useEffect(() => {
-        const guard = (event: Event) => {
-            if ((chaptersDirty || transcriptDirty) && !window.confirm('Leave Media Studio and discard unsaved changes?')) event.preventDefault();
-        };
-        window.addEventListener('media-studio:navigate', guard);
-        return () => window.removeEventListener('media-studio:navigate', guard);
-    }, [chaptersDirty, transcriptDirty]);
-
-    useEffect(() => {
-        if (!chaptersDirty && !transcriptDirty) return;
-        return guardEditorHistory(() => window.confirm('Leave Media Studio and discard unsaved changes?'));
-    }, [chaptersDirty, transcriptDirty]);
-
-    useEffect(() => {
-        const onDocumentClick = (event: globalThis.MouseEvent) => {
-            if (!chaptersDirty && !transcriptDirty) return;
-            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            const target = event.target as Element | null;
-            const anchor = target?.closest('a[href]') as HTMLAnchorElement | null;
-            if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
-            const href = anchor.getAttribute('href') || '';
-            if (!href || href.startsWith('#')) return;
-            const next = new URL(anchor.href, window.location.href);
-            if (next.origin !== window.location.origin || next.href === window.location.href) return;
-            const current = new URL(window.location.href);
-            if (next.pathname === current.pathname && next.searchParams.get('item') === current.searchParams.get('item') && next.searchParams.get('tab') === current.searchParams.get('tab')) return;
-            if (!window.confirm('Leave Media Studio and discard unsaved changes?')) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-        };
-        document.addEventListener('click', onDocumentClick, true);
-        return () => document.removeEventListener('click', onDocumentClick, true);
-    }, [chaptersDirty, transcriptDirty]);
+    const dirty = chaptersDirty || transcriptDirty;
+    useBlocker({
+        disabled: !dirty,
+        enableBeforeUnload: dirty,
+        shouldBlockFn: ({ current, next }) =>
+            leavesStudioDraft(current, next) &&
+            !window.confirm('Leave Media Studio and discard unsaved changes?'),
+    });
 
     const seek = useCallback((ms: number) => {
         if (mediaRef.current) mediaRef.current.currentTime = ms / 1000;

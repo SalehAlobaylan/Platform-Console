@@ -1,8 +1,4 @@
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+import { readCookie } from '@/lib/server/session-cookies';
 
 const ACCESS_COOKIE = 'console_access_token';
 const PROBE_TIMEOUT_MS = 10_000;
@@ -28,17 +24,17 @@ interface IAMAccess {
     is_admin?: boolean;
 }
 
-async function requireAdmin(request: NextRequest): Promise<
+async function requireAdmin(request: Request): Promise<
     | { access: IAMAccess }
-    | { response: NextResponse }
+    | { response: Response }
 > {
-    const token = request.cookies.get(ACCESS_COOKIE)?.value;
+    const token = readCookie(request, ACCESS_COOKIE);
     if (!token) {
-        return { response: NextResponse.json({ message: 'Not authenticated' }, { status: 401 }) };
+        return { response: Response.json({ message: 'Not authenticated' }, { status: 401 }) };
     }
     const iamBaseUrl = process.env.IAM_BASE_URL;
     if (!iamBaseUrl) {
-        return { response: NextResponse.json({ message: 'IAM_BASE_URL is not configured' }, { status: 500 }) };
+        return { response: Response.json({ message: 'IAM_BASE_URL is not configured' }, { status: 500 }) };
     }
     let upstream: Response;
     try {
@@ -48,20 +44,20 @@ async function requireAdmin(request: NextRequest): Promise<
             signal: AbortSignal.timeout(IAM_AUTH_TIMEOUT_MS),
         });
     } catch {
-        return { response: NextResponse.json({ message: 'Authorization service unavailable' }, { status: 503 }) };
+        return { response: Response.json({ message: 'Authorization service unavailable' }, { status: 503 }) };
     }
     if (upstream.status === 401 || upstream.status === 403) {
-        return { response: NextResponse.json({ message: 'Not authenticated' }, { status: 401 }) };
+        return { response: Response.json({ message: 'Not authenticated' }, { status: 401 }) };
     }
     if (!upstream.ok) {
-        return { response: NextResponse.json({ message: 'Authorization service unavailable' }, { status: 503 }) };
+        return { response: Response.json({ message: 'Authorization service unavailable' }, { status: 503 }) };
     }
     const access = (await upstream.json()) as IAMAccess;
     const hasAdminRole = Boolean(access.is_admin) || (access.roles ?? []).some(
         (role) => role.toLowerCase() === 'admin'
     );
     if (!hasAdminRole) {
-        return { response: NextResponse.json({ message: 'Admin role required' }, { status: 403 }) };
+        return { response: Response.json({ message: 'Admin role required' }, { status: 403 }) };
     }
     return { access };
 }
@@ -88,7 +84,7 @@ const TARGETS: Record<RestartTarget, TargetConfig> = {
     },
 };
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: Request): Promise<Response> {
 	const authorization = await requireAdmin(request);
 	if ('response' in authorization) return authorization.response;
 
@@ -96,12 +92,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         body = (await request.json()) as RestartBody;
     } catch {
-        return NextResponse.json({ message: 'Invalid JSON body' }, { status: 400 });
+        return Response.json({ message: 'Invalid JSON body' }, { status: 400 });
     }
 
     const service = body.service;
     if (!service || !TARGETS[service]) {
-        return NextResponse.json(
+        return Response.json(
             { message: `service must be one of: ${Object.keys(TARGETS).join(', ')}` },
             { status: 400 }
         );
@@ -110,7 +106,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const target = TARGETS[service];
     const baseUrl = process.env[target.envKey];
     if (!baseUrl) {
-        return NextResponse.json(
+        return Response.json(
             { message: `${target.envKey} is not configured` },
             { status: 500 }
         );
@@ -119,10 +115,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const headers = new Headers({ 'Content-Type': 'application/json' });
 
     if (target.auth === 'cookie-jwt') {
-        const cookieStore = await cookies();
-        const token = cookieStore.get(ACCESS_COOKIE)?.value;
+        const token = readCookie(request, ACCESS_COOKIE);
         if (!token) {
-            return NextResponse.json(
+            return Response.json(
                 { message: 'Not authenticated' },
                 { status: 401 }
             );
@@ -131,7 +126,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } else {
         const serviceToken = process.env.ENRICHMENT_RESTART_TOKEN;
         if (!serviceToken) {
-            return NextResponse.json(
+            return Response.json(
                 { message: 'ENRICHMENT_RESTART_TOKEN is not configured' },
                 { status: 500 }
             );
@@ -159,12 +154,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             parsed = text;
         }
 
-        return NextResponse.json(
+        return Response.json(
             { service, upstreamStatus: upstream.status, upstreamBody: parsed },
             { status: upstream.ok ? 202 : upstream.status }
         );
     } catch (err) {
-        return NextResponse.json(
+        return Response.json(
             {
                 service,
                 message: 'Restart request failed',

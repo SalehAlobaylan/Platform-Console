@@ -1,11 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import type { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { useEffect, useRef, type ReactNode } from 'react';
 import {
   useWorkspaceSession,
-  OPERATOR_PATH,
   rememberConsoleLocation,
 } from '@/lib/stores/workspace-session';
 import { cn } from '@/lib/utils';
@@ -14,18 +12,27 @@ import { WorkspaceAccountMenu } from './workspace-account-menu';
 
 export function WorkspaceHeader({
   children,
+  workspace,
   locale = 'en',
   className,
   actions,
 }: {
   children: ReactNode;
+  workspace: 'console' | 'operator';
   locale?: 'en' | 'ar';
   className?: string;
   actions?: ReactNode;
 }) {
-  const operator = usePathname() === OPERATOR_PATH;
+  const operator = workspace === 'operator';
   const consoleHref = useWorkspaceSession((state) => state.consoleHref);
   const operatorHref = useWorkspaceSession((state) => state.operatorHref);
+  const activeLink = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    if (useWorkspaceSession.getState().focusAfterSwitch === workspace && activeLink.current) {
+      activeLink.current.focus({ preventScroll: true });
+      useWorkspaceSession.setState({ focusAfterSwitch: undefined });
+    }
+  }, [workspace]);
   return (
     <header
       role="banner"
@@ -61,6 +68,7 @@ export function WorkspaceHeader({
         ).map(([mode, href, label, active]) => (
           <Link
             key={mode}
+            ref={active ? activeLink : undefined}
             href={href}
             scroll={false}
             data-workspace={mode}

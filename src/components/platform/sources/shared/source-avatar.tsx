@@ -37,7 +37,6 @@ export function SourceAvatar({ source, className, ring = false }: SourceAvatarPr
             )}
         >
             {showImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                     src={source.image_url}
                     alt=""

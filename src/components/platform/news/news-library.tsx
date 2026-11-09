@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from '@/lib/navigation';
+import Link from '@/lib/console-link';
 import { formatDistanceToNow } from 'date-fns';
 import {
     ArrowUpDown,
@@ -652,7 +652,6 @@ function NewsRow({
                 className="relative h-16 w-24 shrink-0 overflow-hidden rounded-sm border bg-muted"
             >
                 {item.thumbnail_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={item.thumbnail_url}
                         alt=""

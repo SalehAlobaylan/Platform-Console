@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname } from '@/lib/navigation';
 
 import { useOperatorPageContext } from '@/components/operator/operator-context-provider';
 import { createRouteVisibleContext, type OperatorContextContribution } from '@/lib/operator/route-manifest';

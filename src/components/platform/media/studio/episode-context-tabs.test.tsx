@@ -3,7 +3,7 @@ import { EpisodeContextTab } from './episode-context-tabs';
 import { useEpisodeJourney } from './media-journey';
 import type { MediaJourney } from '@/lib/api/cms/media-journey';
 
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
     usePathname: () => '/platform/media/atomization',
     useSearchParams: () => new URLSearchParams('tab=policy&item=selected&chapter=child'),
 }));

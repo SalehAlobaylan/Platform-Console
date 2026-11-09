@@ -70,7 +70,6 @@ function Avatar({ src, name, size = 40 }: { src?: string | null; name?: string; 
     const initial = (name?.trim()?.replace(/^@/, '')?.[0] ?? '@').toUpperCase();
     if (src && !err) {
         return (
-            // eslint-disable-next-line @next/next/no-img-element -- external Twitter CDN avatar; next/image would need pbs.twimg.com allowlisted
             <img
                 src={src} alt="" width={size} height={size} loading="lazy"
                 onError={() => setErr(true)}

@@ -1,24 +1,16 @@
-import { guardEditorHistory } from './history-guard';
+import { leavesStudioDraft } from './history-guard';
 
-describe('dirty editor history', () => {
-    beforeEach(() => { Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: () => 'guard-test' }); });
-    it('preserves Next state and restores a cancelled Back without pushing', () => {
-        history.replaceState({ __NA: true, tree: ['studio'] }, '', '/?tab=studio');
-        const go = jest.spyOn(history, 'go').mockImplementation(() => undefined);
-        const cleanup = guardEditorHistory(() => false);
-        expect(history.state.__NA).toBe(true);
-        const event = new PopStateEvent('popstate', { state: null });
-        window.dispatchEvent(event);
-        expect(go).toHaveBeenCalledWith(1);
-        expect(history.state.tree).toEqual(['studio']);
-        cleanup(); go.mockRestore();
-    });
-    it('allows confirmed Back and restores history methods on unmount', () => {
-        const push = history.pushState;
-        const go = jest.spyOn(history, 'go').mockImplementation(() => undefined);
-        const cleanup = guardEditorHistory(() => true);
-        window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
-        expect(go).not.toHaveBeenCalled();
-        cleanup(); expect(history.pushState).toBe(push); go.mockRestore();
-    });
+const studio = {
+    pathname: '/platform/media/atomization',
+    search: { tab: 'studio', item: 'episode' },
+};
+
+test('preserves the draft for same-item chapter and filter changes', () => {
+    expect(leavesStudioDraft(studio, { ...studio, search: { ...studio.search, chapter: '2', q: 'term' } })).toBe(false);
+});
+
+test('guards departures, item changes, and tab changes', () => {
+    expect(leavesStudioDraft(studio, { pathname: '/platform/news', search: {} })).toBe(true);
+    expect(leavesStudioDraft(studio, { ...studio, search: { ...studio.search, item: 'other' } })).toBe(true);
+    expect(leavesStudioDraft(studio, { ...studio, search: { ...studio.search, tab: 'workflow' } })).toBe(true);
 });

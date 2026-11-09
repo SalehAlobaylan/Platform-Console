@@ -1,20 +1,17 @@
+import { readCookie } from '@/lib/server/session-cookies';
 import { hasCurrentRuntimeSession } from '@/lib/server/runtime-session';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 
-const IAM_URL = process.env.IAM_BASE_URL;
-
-export async function GET() {
+export async function GET(request: Request) {
+    const IAM_URL = process.env.IAM_BASE_URL;
     if (!IAM_URL) {
-        return NextResponse.json({ message: 'IAM_BASE_URL is not configured' }, { status: 500 });
+        return Response.json({ message: 'IAM_BASE_URL is not configured' }, { status: 500 });
     }
 
-    const cookieStore = await cookies();
-    if (!hasCurrentRuntimeSession(cookieStore)) return NextResponse.json({ message: 'Sign in again for this runtime' }, { status: 401 });
-    const accessToken = cookieStore.get('console_access_token')?.value;
+    if (!hasCurrentRuntimeSession(request)) return Response.json({ message: 'Sign in again for this runtime' }, { status: 401 });
+    const accessToken = readCookie(request, 'console_access_token');
 
     if (!accessToken) {
-        return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
+        return Response.json({ message: 'Not authenticated' }, { status: 401 });
     }
 
     const res = await fetch(`${IAM_URL.replace(/\/$/, '')}/api/v1/roles/me`, {
@@ -29,5 +26,5 @@ export async function GET() {
         parsed = text;
     }
 
-    return NextResponse.json(parsed, { status: res.status });
+    return Response.json(parsed, { status: res.status });
 }

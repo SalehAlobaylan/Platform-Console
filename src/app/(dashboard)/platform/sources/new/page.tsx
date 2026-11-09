@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter, useSearchParams } from '@/lib/navigation';
+import Link from '@/lib/console-link';
 import { ArrowLeft } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';

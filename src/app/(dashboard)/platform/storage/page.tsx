@@ -1,7 +1,7 @@
 'use client';
 
 import { type ElementType, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import {
     HardDrive,
     AlertTriangle,
@@ -83,7 +83,7 @@ import type {
 import { useQualityProfiles } from '@/hooks/use-quality';
 import { useDeliveryInventory, useDeliveryPolicies, useDeliveryRepairStatus, useDeliveryRoutePreview, useRequestDeliveryRepair, useRollbackDeliveryGeneration, useSetDeliveryPolicyActive, useUpdateDeliveryPolicy } from '@/hooks/use-media-delivery';
 import { getPreset } from '@/lib/constants/ingest-presets';
-import EmbeddedQualityPage from '@/app/(dashboard)/platform/quality/page';
+import EmbeddedQualityPage from '@/components/platform/quality/quality-workspace';
 import type {
     ReconcileResponse,
     StoragePolicy,

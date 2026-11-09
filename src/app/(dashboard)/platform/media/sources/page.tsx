@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import {
     AlertCircle,
     AudioLines,

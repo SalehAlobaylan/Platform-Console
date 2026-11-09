@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { AlertTriangle } from 'lucide-react';
 import { useEnrichmentAutopilot } from '@/hooks/use-enrichment';
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Clock3, ExternalLink, Search, List, Columns3, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';

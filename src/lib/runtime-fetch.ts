@@ -1,10 +1,13 @@
 'use client';
-// Captured in the browser bundle, so a tab opened before a restart keeps the
-// old value even if another tab signs in with new cookies.
-const runtime = process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID;
-if (runtime && typeof window !== 'undefined') {
+// Captured from the current document, so a tab opened before a restart keeps
+// the old value even if another tab signs in with new cookies.
+import { consoleRuntime } from './runtime-config';
+
+if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
   const original = window.fetch.bind(window);
   window.fetch = async (input, init) => {
+    const runtime = consoleRuntime().runtimeId;
+    if (!runtime) return original(input, init);
     const target = new URL(
       typeof input === 'string'
         ? input

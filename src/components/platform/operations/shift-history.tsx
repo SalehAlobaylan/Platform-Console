@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { useState } from 'react';
 import {
   useMarkOpsBriefingSeen,

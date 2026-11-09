@@ -1,5 +1,7 @@
 {
-    "extends": [
-        "next/core-web-vitals"
-    ]
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["react-hooks"],
+  "extends": ["plugin:react-hooks/recommended"],
+  "ignorePatterns": ["src/routeTree.gen.ts"]
 }

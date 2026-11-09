@@ -2,8 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import {
     Plus, Play, Trash2, Loader2, Radar, Check, X, Youtube, Podcast,
     Captions, Scissors, Settings2, Radio, Eye, AudioLines, Upload,
@@ -116,7 +116,6 @@ function MediaSuggestionCard({ suggestion, relationship, onApprove, onReject, on
             <CardContent className="flex flex-1 flex-col gap-4 p-5">
                 <div className="flex items-start gap-4">
                     {suggestion.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={suggestion.image_url} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
                     ) : (
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted">

@@ -1,7 +1,6 @@
 'use client';
 
-import { use } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import {
     ArrowLeft,
     ExternalLink,
@@ -29,11 +28,10 @@ import { FailedBanner } from '@/components/platform/content/detail/failed-banner
 import { EnrichmentCard } from '@/components/platform/content/detail/enrichment-card';
 
 interface ContentDetailPageProps {
-    params: Promise<{ id: string }>;
+    id: string;
 }
 
-export default function ContentDetailPage({ params }: ContentDetailPageProps) {
-    const { id } = use(params);
+export default function ContentDetailPage({ id }: ContentDetailPageProps) {
     const { data: item, isLoading, error } = useContentItem(id);
     const news = extractNewsMetadata(item?.metadata);
 
@@ -182,7 +180,6 @@ export default function ContentDetailPage({ params }: ContentDetailPageProps) {
                                     </div>
                                 ) : item.thumbnail_url ? (
                                     <div className="aspect-video overflow-hidden rounded-lg bg-muted">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             src={item.thumbnail_url}
                                             alt={item.title}

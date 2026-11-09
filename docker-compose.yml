@@ -3,7 +3,6 @@ services:
     container_name: platform-console
     build: .
     ports:
-      - "3005:3005"
+      - "3005:3000"
     env_file:
       - .env
-    command: npm run dev

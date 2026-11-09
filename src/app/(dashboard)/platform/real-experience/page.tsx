@@ -1,7 +1,7 @@
 'use client';
 import { Suspense, useState } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { usePathname, useSearchParams } from '@/lib/navigation';
+import Link from '@/lib/console-link';
 import {
   ArrowRight,
   ChevronRight,
@@ -120,7 +120,7 @@ function RealExperienceWorkspace() {
   const navigate = (key: string, value: string) => {
     const params = new URLSearchParams(window.location.search);
     params.set(key, value);
-    window.history.replaceState(null, '', `${pathname}?${params.toString()}`);
+    window.history.replaceState(window.history.state, '', `${pathname}?${params.toString()}`);
   };
   const status = hooks.useExperienceStatus();
   const metrics = hooks.useExperienceMetrics(client);

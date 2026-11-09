@@ -5,9 +5,6 @@ import type {
   SystemHealthSnapshot,
 } from '@/types/platform/system-health';
 
-jest.mock('next/headers', () => ({
-  cookies: async () => ({ get: () => ({ value: 'test-session' }) }),
-}));
 const keys = [
   'CMS_BASE_URL',
   'IAM_BASE_URL',
@@ -97,7 +94,7 @@ function stubFetch(overrides: Record<string, StubResponse> = {}) {
 }
 
 async function snapshot() {
-  const response = await GET(new Request('http://console.test/api/system-health'));
+  const response = await GET(new Request('http://console.test/api/system-health', { headers: { Cookie: 'console_access_token=test-session' } }));
   expect(response.status).toBe(200);
   const result = (await response.json()) as SystemHealthSnapshot;
   const aggregation = result.services.find(
@@ -435,7 +432,7 @@ test('passes caller cancellation to every outgoing probe', async () => {
     return fetchStub(input, init);
   });
   controller.abort();
-  await GET(new Request('http://console.test/api/system-health', { signal: controller.signal }));
+  await GET(new Request('http://console.test/api/system-health', { signal: controller.signal, headers: { Cookie: 'console_access_token=test-session' } }));
   expect(observedSignals).toHaveLength(11);
   expect(observedSignals.every((signal) => signal.aborted)).toBe(true);
 });

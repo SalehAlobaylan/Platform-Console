@@ -82,7 +82,6 @@ export function ConnectPodcast({ value, onChange, onPick }: ConnectPodcastProps)
                                 >
                                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-muted">
                                         {p.image_url ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
                                             <img
                                                 src={p.image_url}
                                                 alt=""

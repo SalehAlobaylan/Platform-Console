@@ -81,7 +81,6 @@ export function NewsCard({
                         className="mt-1"
                     />
                     {item.thumbnail_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                             src={item.thumbnail_url}
                             alt=""

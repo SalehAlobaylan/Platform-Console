@@ -18,15 +18,11 @@ export default defineConfig({
   /* Opt out of parallel tests on CI */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use */
-  reporter: 'html',
+  reporter: [['html', { outputFolder: '.playwright-report' }]],
   /* Shared settings for all the projects below */
   use: {
     /* Base URL to use in actions like `await page.goto('/')` */
-    baseURL:
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.PLAYWRIGHT_EXTERNAL_STACK === '1'
-        ? 'http://localhost:3005'
-        : 'http://localhost:3000'),
+    baseURL: process.env.CONSOLE_TEST_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3005',
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
@@ -59,14 +55,4 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] },
     },
   ],
-
-  /* Run local dev server before starting the tests */
-  webServer:
-    process.env.PLAYWRIGHT_EXTERNAL_STACK === '1'
-      ? undefined
-      : {
-          command: 'npm run dev',
-          url: 'http://localhost:3000',
-          reuseExistingServer: !process.env.CI,
-        },
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import {
   OPERATOR_PATH,
   rememberConsoleLocation,
@@ -25,15 +25,6 @@ export function WorkspaceNavigation() {
     const owner = useWorkspaceSession.getState().owner;
     const href = pathname + (search ? `?${search}` : '') + window.location.hash;
     useWorkspaceSession.getState().visit(href);
-    const focus = useWorkspaceSession.getState().focusAfterSwitch;
-    if (focus === (operator ? 'operator' : 'console')) {
-      useWorkspaceSession.setState({ focusAfterSwitch: undefined });
-      requestAnimationFrame(() =>
-        document
-          .querySelector<HTMLElement>(`[data-workspace="${focus}"]`)
-          ?.focus()
-      );
-    }
     if (operator) return;
     const el = document.getElementById('console-scroll-region');
     if (!el) return;
@@ -91,12 +82,6 @@ export function WorkspaceNavigation() {
       )
         return;
       event.preventDefault();
-      if (
-        !window.dispatchEvent(
-          new Event('media-studio:navigate', { cancelable: true })
-        )
-      )
-        return;
       if (!operator) rememberConsoleLocation();
       const state = useWorkspaceSession.getState();
       useWorkspaceSession.setState({

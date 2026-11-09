@@ -1,8 +1,8 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { useRouter } from '@/lib/navigation';
 import {
     Loader2, Sparkles, Search, MoreHorizontal, SlidersHorizontal, RefreshCw,
     Clapperboard, Trash2, Copy, ExternalLink, ArrowUpDown, Rss, Layers, ChevronRight, ChevronDown,
@@ -490,7 +490,6 @@ export function MediaList({ type }: { type: ContentType }) {
                 <div className="relative aspect-video w-full overflow-hidden bg-muted">
                     <Link href={`/platform/media/atomization?tab=studio&item=${item.id}`} className="absolute inset-0">
                         {item.thumbnail_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={item.thumbnail_url}
                                 alt=""
@@ -614,7 +613,6 @@ export function MediaList({ type }: { type: ContentType }) {
                     <div className="flex items-center gap-3">
                         <Link href={`/platform/media/atomization?tab=studio&item=${item.id}`} className="relative h-10 w-16 shrink-0 overflow-hidden rounded bg-muted">
                             {item.thumbnail_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
                                 <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                             ) : (
                                 <Clapperboard className="absolute inset-0 m-auto h-4 w-4 text-muted-foreground" />

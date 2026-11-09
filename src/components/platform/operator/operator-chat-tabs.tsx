@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import {
   Check,
   ChevronDown,
@@ -156,10 +156,10 @@ export function OperatorTabsWorkspace({
       tab.threadID &&
       new URLSearchParams(tab.href.split('?')[1]).get('thread')
     ) {
-      router.replace(tab.href, { scroll: false });
+      router.replace(tab.href, { scroll: false, fromPath: OPERATOR_PATH });
     } else if (!threadID && !draftID) {
       params.set('draft', tab.id);
-      router.replace(`${OPERATOR_PATH}?${params}`, { scroll: false });
+      router.replace(`${OPERATOR_PATH}?${params}`, { scroll: false, fromPath: OPERATOR_PATH });
     } else
       state.updateOperatorTab(tab.id, {
         href: `${OPERATOR_PATH}?${searchKey}`,
@@ -182,7 +182,7 @@ export function OperatorTabsWorkspace({
 
   const select = (tab: OperatorTab, keyboard = false) => {
     if (keyboard) focusTabRef.current = tab.id;
-    router.replace(tab.href, { scroll: false });
+    router.replace(tab.href, { scroll: false, fromPath: OPERATOR_PATH });
   };
   const newChat = () => {
     const scope =

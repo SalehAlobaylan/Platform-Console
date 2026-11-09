@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { Eye, Heart, Share2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';

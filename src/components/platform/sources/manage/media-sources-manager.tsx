@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { CheckSquare, Plus, Zap } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';

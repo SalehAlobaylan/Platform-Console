@@ -30,18 +30,14 @@ let mockHealth: {
   refetch: jest.Mock;
 };
 
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockQuery),
   usePathname: () => '/platform/system-health',
   useRouter: () => ({ replace: mockReplace }),
 }));
-jest.mock(
-  'next/dynamic',
-  () => () =>
-    function DeferredPanel() {
-      return <div data-testid="deep-diagnostic">Detailed diagnostics</div>;
-    }
-);
+jest.mock('@/components/platform/system-health/system-autopilot-panel', () => ({
+  SystemAutopilotPanel: () => <div data-testid="deep-diagnostic">Detailed diagnostics</div>,
+}));
 jest.mock('@/hooks/use-system-health', () => ({
   useSystemHealth: () => mockHealth,
 }));
@@ -109,13 +105,13 @@ test('a failed refresh preserves inspectable evidence with a stale warning', () 
   ).toBeInTheDocument();
 });
 
-test('a saved incident tab mounts diagnostics on demand', () => {
+test('a saved incident tab mounts diagnostics on demand', async () => {
   mockQuery = 'tab=incidents';
   render(<SystemHealthPage />);
   expect(
-    screen.getByRole('tab', { name: 'Incidents & automation' })
+    await screen.findByRole('tab', { name: 'Incidents & automation' })
   ).toHaveAttribute('aria-selected', 'true');
-  expect(screen.getByTestId('deep-diagnostic')).toBeInTheDocument();
+  expect(await screen.findByTestId('deep-diagnostic')).toBeInTheDocument();
 });
 
 test('a saved service selection restores its named inspector', () => {

@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { useSearchParams } from '@/lib/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -416,8 +415,8 @@ function Evidence({
         min · {bytes(item.file_size_bytes)}
       </p>
       {item.thumbnail_url && (
-        <Image
-          unoptimized
+        <img
+          loading="lazy"
           width={480}
           height={128}
           src={item.thumbnail_url}

@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, X } from 'lucide-react';
 
@@ -49,6 +49,7 @@ import {
 } from '@/hooks/use-operator';
 import { consumeOperatorLaunchContext } from '@/lib/operator/launch-context';
 import {
+  OPERATOR_PATH,
   useWorkspaceSession,
   type OperatorDraftSnapshot,
   type OperatorTab,
@@ -266,7 +267,10 @@ function OperatorChatWorkspace({
   const readInvestigationsRef = useRef(new Set<string>());
 
   useEffect(() => {
-    mountedRef.current = true;
+    // A pending navigation can briefly mount the outgoing route again. Only
+    // a workspace mounted at its own URL can own the draft on cleanup.
+    mountedRef.current = window.location.pathname === OPERATOR_PATH;
+    if (!mountedRef.current) return;
     const save = () => {
       if (sessionOwner.current !== useWorkspaceSession.getState().owner) return;
       if (draftSnapshot.current) {
@@ -344,6 +348,7 @@ function OperatorChatWorkspace({
       );
       router.replace(`/platform/operator?${params.toString()}`, {
         scroll: false,
+        fromPath: OPERATOR_PATH,
       });
     },
     [router, search, visibleContext.domain, visibleContext.view]
@@ -462,6 +467,7 @@ function OperatorChatWorkspace({
     if (changed)
       router.replace(`/platform/operator?${params.toString()}`, {
         scroll: false,
+        fromPath: OPERATOR_PATH,
       });
   }, [initialDraft, routeContext.domain, routeContext.view, router, searchKey]);
 
@@ -1292,7 +1298,7 @@ function OperatorChatWorkspace({
       params.set('focus', task.investigation_id);
     }
     setSidebarVisible(false);
-    router.replace(`/platform/operator?${params}`, { scroll: false });
+    router.replace(`/platform/operator?${params}`, { scroll: false, fromPath: OPERATOR_PATH });
   };
   const sidebar = (
     <OperatorConversationSidebar

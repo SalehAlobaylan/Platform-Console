@@ -2,9 +2,9 @@
 
 import { PodsPipelineControl } from '@/components/platform/media/pods-pipeline-control';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import {
     AlertTriangle,
     Check,
@@ -1354,14 +1354,12 @@ export function MediaAtomizationDashboard() {
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     };
     const setTab = (tab: MissionTab) => {
-        if (!window.dispatchEvent(new Event('media-studio:navigate', { cancelable: true }))) return;
         const params = new URLSearchParams(Array.from(searchParams.entries()));
         params.set('tab', tab);
         const qs = params.toString();
         router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     };
     const openStudio = (id: string, chapterId?: string) => {
-        if (!window.dispatchEvent(new Event('media-studio:navigate', { cancelable: true }))) return;
         const params = new URLSearchParams(Array.from(searchParams.entries()));
         params.set('tab', 'studio');
         params.set('item', id);

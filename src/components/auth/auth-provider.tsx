@@ -1,5 +1,6 @@
 'use client';
 
+import { consoleRuntime } from '@/lib/runtime-config';
 import '@/lib/runtime-fetch';
 
 import { useEffect } from 'react';
@@ -20,7 +21,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (state.isLoading) return;
       const owner =
         state.isAuthenticated && state.user
-          ? `${process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID || 'console'}:${state.user.tenant_id || ''}:${state.user.id}`
+          ? `${consoleRuntime().runtimeId || 'console'}:${state.user.tenant_id || ''}:${state.user.id}`
           : undefined;
       useWorkspaceSession.getState().setOwner(owner);
     };

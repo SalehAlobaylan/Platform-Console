@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { fetchPublishedJourney, type PublishedUnit } from '@/lib/api/cms/media-journey';

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { ExternalLink, Loader2, MoreHorizontal, RefreshCw, SlidersHorizontal } from 'lucide-react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,

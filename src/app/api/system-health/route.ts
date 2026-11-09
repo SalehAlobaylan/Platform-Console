@@ -1,10 +1,9 @@
+import { readCookie } from '@/lib/server/session-cookies';
 import {
     aggregationDependencies,
     parseQueueStats,
     queueWarnings,
 } from '@/lib/system-health/aggregation';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 import type {
     DependencyHealth,
     EnvAuditEntry,
@@ -17,9 +16,6 @@ import type {
     SystemIssue,
     WorkerHealth,
 } from '@/types/platform/system-health';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 const ACCESS_COOKIE = 'console_access_token';
 const PROBE_TIMEOUT_MS = 3000;
@@ -43,18 +39,10 @@ interface ProbeResult {
 
 async function probe(
     url: string,
-    init?: { authorize?: boolean; expectJson?: boolean; signal?: AbortSignal }
+    init?: { accessToken?: string; expectJson?: boolean; signal?: AbortSignal }
 ): Promise<ProbeResult> {
     const headers = new Headers();
-    if (init?.authorize) {
-        try {
-            const cookieStore = await cookies();
-            const token = cookieStore.get(ACCESS_COOKIE)?.value;
-            if (token) headers.set('Authorization', `Bearer ${token}`);
-        } catch {
-            // ignore — cookie access is best-effort
-        }
-    }
+    if (init?.accessToken) headers.set('Authorization', `Bearer ${init.accessToken}`);
 
     const start = performance.now();
     try {
@@ -208,7 +196,8 @@ async function checkIam(baseUrl: string | undefined, signal?: AbortSignal): Prom
 async function checkAggregation(
     baseUrl: string | undefined,
     cmsCheck: Promise<ServiceHealth>,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    accessToken?: string,
 ): Promise<ServiceHealth> {
     const display = { name: 'aggregation' as ServiceName, displayName: 'Aggregation' };
     if (!baseUrl) return missing(display, 'AGGREGATION_BASE_URL');
@@ -218,7 +207,7 @@ async function checkAggregation(
     const [health, ready, queues, cms] = await Promise.all([
         probe(healthUrl, { signal }),
         probe(readyUrl, { signal }),
-        probe(queuesUrl, { authorize: true, signal }),
+        probe(queuesUrl, { accessToken, signal }),
         cmsCheck.catch(() => null),
     ]);
 
@@ -544,14 +533,14 @@ function collectIssues(
     return issues;
 }
 
-export async function GET(request: Request): Promise<NextResponse<SystemHealthSnapshot | { message: string }>> {
+export async function GET(request: Request): Promise<Response> {
     // Require an authenticated console session. This snapshot exposes internal
     // service URLs, versions, model inventory and env-var presence — admin-only
     // recon data — so anonymous callers are rejected, matching the sibling
     // restart/migrations routes.
-    const accessToken = (await cookies()).get(ACCESS_COOKIE)?.value;
+    const accessToken = readCookie(request, ACCESS_COOKIE);
     if (!accessToken) {
-        return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
+        return Response.json({ message: 'Not authenticated' }, { status: 401 });
     }
     const start = performance.now();
 
@@ -572,7 +561,7 @@ export async function GET(request: Request): Promise<NextResponse<SystemHealthSn
     const settled = await Promise.allSettled([
         cmsCheck,
         checkIam(env.IAM_BASE_URL, request.signal),
-        checkAggregation(env.AGGREGATION_BASE_URL, cmsCheck, request.signal),
+        checkAggregation(env.AGGREGATION_BASE_URL, cmsCheck, request.signal, accessToken),
         checkEnrichment(env.ENRICHMENT_BASE_URL, request.signal),
         checkMedia(env.MEDIA_BASE_URL, request.signal),
         checkPlatform(env.PLATFORM_BASE_URL, request.signal),
@@ -609,5 +598,5 @@ export async function GET(request: Request): Promise<NextResponse<SystemHealthSn
         issues: collectIssues(services, envAudit),
     };
 
-    return NextResponse.json(snapshot);
+    return Response.json(snapshot);
 }

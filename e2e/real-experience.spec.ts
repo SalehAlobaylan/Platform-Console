@@ -588,6 +588,7 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
   test('optional journeys and dark mode keep measurement meaning and readable detail', async ({
     page,
   }, info) => {
+    await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/platform/real-experience');
     const pods = page.getByRole('region', { name: 'Pods journeys' });
     await expect(pods.getByText('Rebuffer time', { exact: true })).toBeHidden();
@@ -597,7 +598,8 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
       pods.getByText(/listening outcomes; duration alone does not qualify/)
     ).toBeVisible();
     await expect(pods.getByText('1.00%', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+    await page.getByRole('button', { name: 'Account options' }).click();
+    await page.getByRole('menuitem', { name: 'Dark appearance' }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
     await expect(pods.getByText('Outside target')).toBeVisible();
     await pods.locator('summary').filter({ hasText: 'Other journeys' }).click();

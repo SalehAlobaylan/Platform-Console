@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { Boxes, Compass, ExternalLink, Loader2, MoreHorizontal, RefreshCw, SlidersHorizontal, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

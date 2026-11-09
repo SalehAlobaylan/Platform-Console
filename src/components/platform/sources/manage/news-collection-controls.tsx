@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ChevronDown, Loader2, MoreHorizontal, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import type { AccountTypeFilter } from './account-helpers';
 
 export type UserSortField = 'email' | 'role' | 'created_at' | 'permissions';

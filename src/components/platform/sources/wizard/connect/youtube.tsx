@@ -55,7 +55,6 @@ export function ConnectYoutube({ value, onChange, onResolved }: ConnectYoutubePr
                 >
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted">
                         {channel.thumbnail ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={channel.thumbnail} alt="" className="h-full w-full object-cover" />
                         ) : null}
                     </div>

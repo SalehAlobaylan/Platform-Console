@@ -1,8 +1,7 @@
 'use client';
 
-import { use } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter, useSearchParams } from '@/lib/navigation';
+import Link from '@/lib/console-link';
 import { ArrowLeft, Play, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -16,11 +15,10 @@ import { SOURCE_TYPE_LABELS } from '@/types/platform/source';
 import type { CreateSourceRequest, SourceType } from '@/types/platform/source';
 
 interface SourceDetailPageProps {
-    params: Promise<{ id: string }>;
+    id: string;
 }
 
-export default function SourceDetailPage({ params }: SourceDetailPageProps) {
-    const { id } = use(params);
+export default function SourceDetailPage({ id }: SourceDetailPageProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -103,7 +101,6 @@ export default function SourceDetailPage({ params }: SourceDetailPageProps) {
                     </Button>
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
                         {source.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={source.image_url}
                                 alt=""

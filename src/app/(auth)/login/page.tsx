@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useState, type MouseEvent } from 'react';
 import {
     Card,
     CardContent,
@@ -10,7 +10,22 @@ import {
 } from '@/components/ui/card';
 import { LoginForm } from '@/components/auth';
 import { useAuthStore } from '@/lib/stores/auth';
-import { toast } from '@/components/ui/toast';
+
+const loginFormId = 'console-login';
+
+async function savedPassword() {
+    // Some browsers expose navigator.credentials only for passkeys.
+    if (!('PasswordCredential' in window) || !navigator.credentials) return null;
+    const options = { password: true, mediation: 'optional' } as const;
+    try {
+        const credential = await navigator.credentials.get(options);
+        return credential?.type === 'password' && 'password' in credential && typeof credential.password === 'string'
+            ? { email: credential.id, password: credential.password }
+            : null;
+    } catch {
+        return null;
+    }
+}
 
 function WahbLoginMark() {
     return (
@@ -31,37 +46,49 @@ function WahbLoginMark() {
 }
 
 export default function LoginPage() {
-    const router = useRouter();
-    const login = useAuthStore((state) => state.login);
+    const isLoading = useAuthStore((state) => state.isLoading);
+    const [isCheckingSavedLogin, setIsCheckingSavedLogin] = useState(false);
+    const [quickSignInHint, setQuickSignInHint] = useState('');
 
-    const handleQuickLogin = async () => {
-        try {
-            await login('admin@gmail.com', 'admin');
-            toast({
-                title: 'Welcome back!',
-                description: 'Quick sign-in successful.',
-                variant: 'success',
-            });
-            router.push('/');
-        } catch (err) {
-            console.error('[quick-login] failed:', err);
-            const e = err as { message?: string; status?: number; code?: string };
-            toast({
-                title: 'Quick login failed',
-                description: e?.message || 'Could not sign in with default credentials.',
-                variant: 'destructive',
-            });
+    async function quickSignIn(event: MouseEvent<HTMLButtonElement>) {
+        const form = event.currentTarget.form;
+        const email = form?.elements.namedItem('email');
+        const password = form?.elements.namedItem('password');
+        if (!form || !(email instanceof HTMLInputElement) || !(password instanceof HTMLInputElement)) return;
+
+        setQuickSignInHint('');
+        if (!email.value && !password.value) {
+            setIsCheckingSavedLogin(true);
+            const saved = await savedPassword();
+            setIsCheckingSavedLogin(false);
+            const auth = useAuthStore.getState();
+            if (!form.isConnected || auth.isLoading || auth.isAuthenticated) return;
+            if (saved && !email.value && !password.value) {
+                email.value = saved.email;
+                if (email.value && email.validity.valid) password.value = saved.password;
+            }
         }
-    };
+
+        if (email.value && email.validity.valid && password.value) {
+            form.requestSubmit();
+            return;
+        }
+
+        setQuickSignInHint('Enter your Console credentials, or select a saved login from your password manager.');
+        (!email.value || !email.validity.valid ? email : password).focus();
+    }
 
     return (
         <div className="w-full max-w-sm px-4">
             <div className="mb-8 flex flex-col items-center gap-3">
                 <button
                     type="button"
-                    onClick={handleQuickLogin}
-                    className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shadow-sm transition-transform hover:scale-110 active:scale-95 cursor-pointer"
-                    title="Quick sign in"
+                    form={loginFormId}
+                    aria-label="Quick sign in"
+                    title="Sign in with a saved login or the credentials in the form"
+                    disabled={isLoading || isCheckingSavedLogin}
+                    onClick={quickSignIn}
+                    className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shadow-sm transition-transform enabled:cursor-pointer enabled:hover:scale-110 enabled:active:scale-95 disabled:opacity-60"
                 >
                     <WahbLoginMark />
                 </button>
@@ -77,9 +104,12 @@ export default function LoginPage() {
                     <CardDescription className="text-center text-xs">
                         Enter your credentials to continue
                     </CardDescription>
+                    <p role="status" className={quickSignInHint ? 'text-center text-xs text-muted-foreground' : 'sr-only'}>
+                        {quickSignInHint}
+                    </p>
                 </CardHeader>
                 <CardContent>
-                    <LoginForm />
+                    <LoginForm id={loginFormId} />
                 </CardContent>
             </Card>
         </div>

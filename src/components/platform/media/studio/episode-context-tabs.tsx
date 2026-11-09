@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { useState } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from '@/lib/navigation';
 import { Button } from '@/components/ui/button';
 import { JourneyActions } from './journey-actions';
 import { MediaJourneyGuide, PageEvidence, useEpisodeJourney, useJourneyLocale } from './media-journey';

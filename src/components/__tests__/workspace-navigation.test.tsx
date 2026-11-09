@@ -16,7 +16,7 @@ import { consumeOperatorLaunchContext } from '@/lib/operator/launch-context';
 let mockPath = '/platform/storage',
   mockSearch = 'tab=quality';
 const push = jest.fn();
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
   usePathname: () => mockPath,
   useSearchParams: () => new URLSearchParams(mockSearch),
   useRouter: () => ({ push }),
@@ -61,7 +61,7 @@ function Workspace() {
   return (
     <>
       <WorkspaceNavigation />
-      <WorkspaceHeader>
+      <WorkspaceHeader workspace={mockPath === '/platform/operator' ? 'operator' : 'console'}>
         <span>Current page</span>
       </WorkspaceHeader>
       <main id="console-scroll-region">
@@ -147,13 +147,10 @@ it('restores Console scrolling after a round trip and keeps the shortcut consist
   await waitFor(() => expect(main.scrollTop).toBe(450));
 });
 
-it('respects the Media Studio leave guard for keyboard navigation', () => {
+it('delegates keyboard navigation to the router without changing scroll', () => {
   render(<Workspace />);
-  const guard = (event: Event) => event.preventDefault();
-  window.addEventListener('media-studio:navigate', guard);
   fireEvent.keyDown(window, { key: 'j', metaKey: true });
-  expect(push).not.toHaveBeenCalled();
-  window.removeEventListener('media-studio:navigate', guard);
+  expect(push).toHaveBeenCalledWith(resume, { scroll: false });
 });
 
 it('does not override a native Console section change with a scroll reset', async () => {

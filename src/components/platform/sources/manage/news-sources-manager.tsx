@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Loader2, MoreHorizontal, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';

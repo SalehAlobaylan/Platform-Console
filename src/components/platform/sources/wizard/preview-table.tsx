@@ -69,7 +69,6 @@ export function PreviewTable({ items }: PreviewTableProps) {
                                         {hasThumbs && (
                                             <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded bg-muted">
                                                 {item.thumbnailUrl && (
-                                                    // eslint-disable-next-line @next/next/no-img-element
                                                     <img
                                                         src={item.thumbnailUrl}
                                                         alt=""

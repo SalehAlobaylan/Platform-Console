@@ -12,7 +12,7 @@ import {
     Newspaper,
     Video,
 } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from '@/lib/navigation';
 
 import { Button } from '@/components/ui/button';
 import {

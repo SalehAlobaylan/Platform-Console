@@ -16,7 +16,7 @@ export function Header({ className }: HeaderProps) {
   const openNavigation = useUIStore((state) => state.setMobileSidebarOpen);
 
   return (
-    <WorkspaceHeader locale={locale} className={className}>
+    <WorkspaceHeader workspace="console" locale={locale} className={className}>
       <Button
         variant="ghost"
         size="icon"

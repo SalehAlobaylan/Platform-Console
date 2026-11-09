@@ -1,5 +1,5 @@
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
-![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
+![TanStack Start](https://img.shields.io/badge/TanStack_Start-111827?style=for-the-badge)
 ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
 # Platform-Console
@@ -8,7 +8,7 @@ The internal admin / operations console for the Wahb platform. Operators manage 
 
 It is a thin **backend-for-frontend (BFF)**: it holds **no business logic and no direct DB or queue access**. Its own `/api/*` routes attach the operator's token server-side and forward to the right backend, so the browser never holds the token and never calls the backends directly.
 
-**Port:** 3005 · **Production:** https://wahb-console.salehspace.dev · **Stack:** Next.js 15 (App Router), React 19, TypeScript, shadcn/ui, TanStack Query, Zustand, Recharts
+**Port:** 3005 · **Production:** https://wahb-console.salehspace.dev · **Stack:** TanStack Start and Router, Vite, React 19, TypeScript, shadcn/ui, TanStack Query, Zustand, Recharts
 
 > Full feature + architecture reference: [`../docs/platform-console.md`](../docs/platform-console.md). System overview: [`../docs/index.md`](../docs/index.md).
 >
@@ -74,7 +74,7 @@ Media Studio is the command center for long-media chaptering. It consumes CMS `/
 
 ## Authentication
 
-Auth is delegated to **IAM**. `POST /api/auth/login` proxies to IAM, which returns an HS256 JWT; the access + refresh tokens are stored in httpOnly cookies (`console_access_token`, `console_refresh_token`). `middleware.ts` redirects any unauthenticated request (except `/login`) to the login page. Every BFF proxy reads the access cookie and attaches `Authorization: Bearer` server-side. `GET /api/auth/me` resolves the operator via IAM `/api/v1/roles/me`.
+Auth is delegated to **IAM**. `POST /api/auth/login` proxies to IAM, which returns an HS256 JWT; the access + refresh tokens are stored in httpOnly cookies (`console_access_token`, `console_refresh_token`). The protected dashboard layout redirects unauthenticated operators to login. The server request middleware checks managed launch identity and exact-origin mutations. Every BFF proxy reads the access cookie and attaches `Authorization: Bearer` server-side. `GET /api/auth/me` resolves the operator via IAM `/api/v1/roles/me`.
 
 ## Configuration
 
@@ -89,7 +89,7 @@ All backend URLs are server-side (the BFF reads them; they're never exposed to t
 | `MEDIA_BASE_URL` | for AI metrics | http://localhost:5051 | Media `/metrics` scrape |
 | `ENRICHMENT_RESTART_TOKEN` | for Enrichment restart | — | Dedicated control-plane capability; never reuse the normal service token |
 | `PLATFORM_BASE_URL` | no | http://localhost:3000 | Wahb-Platform origin (cross-links) |
-| `NEXT_PUBLIC_GRAFANA_URL` | no | — | Optional Grafana embed on system-health |
+| `GRAFANA_URL` | no | — | Optional Grafana embed on system-health |
 
 ## Dev Commands
 
@@ -97,11 +97,11 @@ All backend URLs are server-side (the BFF reads them; they're never exposed to t
 |---------|---------|
 | `npm run dev` | Start dev server on :3005 |
 | `npm run build` | Production build |
-| `npm run start` | Serve the production build |
+| `npm run start` | Serve Nitro’s standalone Node output from `.output` |
 | `npm run lint` | ESLint |
 | `npm run type-check` | `tsc --noEmit` |
 
-Jest (`jest.config.js`) and Playwright (`playwright.config.ts`, `e2e/`) configs are present for unit and end-to-end tests.
+Use the root launcher for the full application. Run `npm run build && npm run test:qualification` for fixture-backed checks on the production artifact, and `npm run test:managed-env` to verify managed dotenv isolation.
 
 ---
 

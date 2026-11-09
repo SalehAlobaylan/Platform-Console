@@ -12,6 +12,10 @@ npx playwright install
 
 ## Running Tests
 
+Start the disposable managed stack with the repository launcher before live checks. The production fixture suite runs separately with `npm run build && npm run test:qualification`.
+
+Run `npm run test:qualification -- workflows chromium` to exercise the isolated Media Studio, Economics, Real Experience, and AI Spend workflows against the built Console.
+
 ```bash
 # Run all E2E tests
 npx playwright test
@@ -36,13 +40,10 @@ npx playwright test --project=chromium
 
 ## Environment Variables
 
-Create a `.env.local` file for test configuration:
-
-```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-TEST_USER_EMAIL=admin@example.com
-TEST_USER_PASSWORD=password
-```
+Set `CONSOLE_TEST_ORIGIN` explicitly when the managed Console is hosted away from
+`http://localhost:3005`. Supply `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` in the
+test process for the live sign-in check. The fixture suite supplies its own
+loopback origin and test identity.
 
 ## Writing New Tests
 

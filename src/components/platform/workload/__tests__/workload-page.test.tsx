@@ -22,7 +22,7 @@ import {
 let mockParams = '';
 const mockReplace = jest.fn();
 const mockRefresh = jest.fn();
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockParams),
   useRouter: () => ({ replace: mockReplace }),
 }));

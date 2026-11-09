@@ -1,8 +1,8 @@
 'use client';
 
 import { Suspense } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';

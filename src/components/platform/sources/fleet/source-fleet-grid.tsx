@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { formatDistanceToNow } from 'date-fns';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';

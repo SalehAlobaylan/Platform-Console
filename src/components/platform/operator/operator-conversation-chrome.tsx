@@ -111,6 +111,7 @@ export function OperatorConversationHeader({
   );
   return (
     <WorkspaceHeader
+      workspace="operator"
       locale={locale}
       actions={
         <DropdownMenu dir={locale === 'ar' ? 'rtl' : 'ltr'}>

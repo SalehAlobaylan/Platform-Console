@@ -26,7 +26,7 @@ const replace = jest.fn((href: string) => {
 const invalidate = jest.fn().mockResolvedValue(undefined);
 const caseID = '00000000-0000-4000-8000-000000000001';
 const investigationID = '00000000-0000-4000-8000-000000000002';
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
   usePathname: () => '/platform/operator',
   useRouter: () => ({ replace }),
   useSearchParams: () => new URLSearchParams(mockSearch),
@@ -133,6 +133,7 @@ beforeEach(() => {
     operatorHref: '/platform/operator',
   });
   localStorage.clear();
+  window.history.replaceState(null, '', '/platform/operator');
   window.matchMedia = jest.fn().mockImplementation((query: string) => ({
     matches: query === '(min-width: 1024px)',
     addEventListener: jest.fn(),

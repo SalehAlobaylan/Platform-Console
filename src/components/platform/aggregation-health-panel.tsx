@@ -1,5 +1,6 @@
 'use client';
 
+import { consoleRuntime } from '@/lib/runtime-config';
 import { FormEvent, useMemo, useState } from 'react';
 import {
     Activity,
@@ -75,7 +76,7 @@ export function AggregationHealthPanel() {
     const [sourceName, setSourceName] = useState('');
     const [formError, setFormError] = useState<string | null>(null);
 
-    const grafanaUrl = process.env.NEXT_PUBLIC_GRAFANA_URL || DEFAULT_GRAFANA_URL;
+    const grafanaUrl = consoleRuntime().grafanaUrl || DEFAULT_GRAFANA_URL;
     const rollup = useMemo(() => queueRollup(summary), [summary]);
 
     const handleTriggerSubmit = async (event: FormEvent<HTMLFormElement>) => {

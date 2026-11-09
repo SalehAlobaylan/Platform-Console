@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import {
   AlertCircle,
   ArrowRight,
@@ -690,7 +690,7 @@ export default function EmbeddingLifecyclePage() {
   const selectTab = (section: string) => {
     setTab(section);
     window.history.replaceState(
-      null,
+      window.history.state,
       '',
       `${window.location.pathname}${window.location.search}#${section}`
     );

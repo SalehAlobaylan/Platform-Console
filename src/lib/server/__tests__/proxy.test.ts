@@ -3,10 +3,8 @@
 import axios from 'axios';
 import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
-import { NextRequest } from 'next/server';
 import { createProxyHandlers } from '../proxy';
 
-jest.mock('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'test-session' }) }) }));
 
 const originalFetch = global.fetch;
 const originalCmsURL = process.env.CMS_BASE_URL;
@@ -15,8 +13,8 @@ const payload = JSON.stringify({ content_ids: [id], selection_reason: 'fresh sta
 const cms = createProxyHandlers('CMS_BASE_URL');
 const responseData = { data: { run: { id, state: 'preview' }, counts: { selected_ids: 163 } } };
 const context = (path: string) => ({ params: Promise.resolve({ path: path.split('/') }) });
-const request = (path: string, method = 'POST') => new NextRequest(`http://console.test/api/cms/${path}`, {
-  method, headers: { 'content-type': 'application/json', cookie: 'private-cookie=test', host: 'console.test' },
+const request = (path: string, method = 'POST') => new Request(`http://console.test/api/cms/${path}`, {
+  method, headers: { 'content-type': 'application/json', cookie: 'private-cookie=test; console_access_token=test-session', host: 'console.test' },
   ...(method !== 'GET' && { body: payload }),
 });
 const upstream = (status = 201) => ({

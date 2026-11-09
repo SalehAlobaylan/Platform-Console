@@ -1,7 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { AlertCircle, ArrowUpRight, Eye, Heart, RefreshCw, Share2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';

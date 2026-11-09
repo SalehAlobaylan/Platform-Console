@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { readCookie } from '@/lib/server/session-cookies';
 import axios from 'axios';
 
 const HOP_BY_HOP_RESPONSE_HEADERS = [
@@ -14,23 +13,27 @@ const HOP_BY_HOP_RESPONSE_HEADERS = [
 const ACCESS_COOKIE = 'console_access_token';
 const PODS_RESET_REQUEST_TIMEOUT_MS = 15 * 60_000;
 
+export function proxySegments(request: Request): string[] {
+    return new URL(request.url).pathname.split('/').slice(3);
+}
+
 interface ProxyHandlers {
-    GET: (req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) => Promise<NextResponse>;
-    POST: (req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) => Promise<NextResponse>;
-    PUT: (req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) => Promise<NextResponse>;
-    PATCH: (req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) => Promise<NextResponse>;
-    DELETE: (req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) => Promise<NextResponse>;
-    OPTIONS: (req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) => Promise<NextResponse>;
+    GET: (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
+    POST: (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
+    PUT: (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
+    PATCH: (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
+    DELETE: (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
+    OPTIONS: (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
 }
 
 export function createProxyHandlers(envVarName: string): ProxyHandlers {
     async function proxy(
-        request: NextRequest,
+        request: Request,
         context: { params: Promise<{ path: string[] }> }
-    ): Promise<NextResponse> {
+    ): Promise<Response> {
         const baseUrl = process.env[envVarName];
         if (!baseUrl) {
-            return NextResponse.json(
+            return Response.json(
                 { message: `${envVarName} is not configured` },
                 { status: 500 }
             );
@@ -39,6 +42,7 @@ export function createProxyHandlers(envVarName: string): ProxyHandlers {
         let resetRequest = false;
         try {
             const { path } = await context.params;
+            if (!path[0]) return Response.json({ message: 'Not found' }, { status: 404 });
             const incomingUrl = new URL(request.url);
             const targetPath = path.join('/');
             const targetUrl = `${baseUrl.replace(/\/$/, '')}/${targetPath}${incomingUrl.search}`;
@@ -51,8 +55,7 @@ export function createProxyHandlers(envVarName: string): ProxyHandlers {
             headers.delete('content-length');
 
             if (!headers.has('authorization')) {
-                const cookieStore = await cookies();
-                const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
+                const accessToken = readCookie(request, ACCESS_COOKIE);
                 if (accessToken) {
                     headers.set('Authorization', `Bearer ${accessToken}`);
                 }
@@ -101,11 +104,11 @@ export function createProxyHandlers(envVarName: string): ProxyHandlers {
             }
 
             // Fetch exposes a zero-length ArrayBuffer even when an upstream
-            // correctly returns 204. Passing that buffer to NextResponse still
+            // correctly returns 204. Passing that buffer to Response still
             // counts as a response body, which is invalid for 204/205/304 and
             // turns successful DELETEs into a proxy 502.
             if ([204, 205, 304].includes(upstream.status)) {
-                return new NextResponse(null, {
+                return new Response(null, {
                     status: upstream.status,
                     headers: responseHeaders,
                 });
@@ -113,21 +116,21 @@ export function createProxyHandlers(envVarName: string): ProxyHandlers {
 
             const responseBody = await upstream.arrayBuffer();
 
-            return new NextResponse(responseBody, {
+            return new Response(responseBody, {
                 status: upstream.status,
                 headers: responseHeaders,
             });
         } catch (error) {
             if (resetRequest) {
                 const timedOut = axios.isAxiosError(error) && ['ECONNABORTED', 'ETIMEDOUT'].includes(error.code ?? '');
-                return NextResponse.json({
+                return Response.json({
                     message: timedOut
                         ? 'CMS did not finish the reset request within 15 minutes. Check Run history and continue the saved run if present.'
                         : 'The Console lost its CMS connection during the reset request. Check Run history before retrying.',
                     code: timedOut ? 'pods_reset_proxy_timeout' : 'pods_reset_proxy_unavailable',
                 }, { status: timedOut ? 504 : 502 });
             }
-            return NextResponse.json(
+            return Response.json(
                 {
                     message: 'Proxy request failed',
                     error: error instanceof Error ? error.message : 'Unknown error',

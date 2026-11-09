@@ -1,8 +1,4 @@
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+import { readCookie } from '@/lib/server/session-cookies';
 
 const ACCESS_COOKIE = 'console_access_token';
 const MIGRATE_TIMEOUT_MS = 60_000;
@@ -11,17 +7,17 @@ interface MigrateBody {
     service?: 'iam';
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-    if (process.env.WAHB_MANAGED_ENV === '1') return NextResponse.json({ message: 'Stop the stack, then use scripts/env.sh prepare for the selected environment.', cockpit: '/platform/database-migrations' }, { status: 409 });
+export async function POST(request: Request): Promise<Response> {
+    if (process.env.WAHB_MANAGED_ENV === '1') return Response.json({ message: 'Stop the stack, then use scripts/env.sh prepare for the selected environment.', cockpit: '/platform/database-migrations' }, { status: 409 });
     let body: MigrateBody;
     try {
         body = (await request.json()) as MigrateBody;
     } catch {
-        return NextResponse.json({ message: 'Invalid JSON body' }, { status: 400 });
+        return Response.json({ message: 'Invalid JSON body' }, { status: 400 });
     }
 
     if (body.service !== 'iam') {
-        return NextResponse.json(
+        return Response.json(
             { message: 'Only service="iam" is currently supported' },
             { status: 400 }
         );
@@ -29,16 +25,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const baseUrl = process.env.IAM_BASE_URL;
     if (!baseUrl) {
-        return NextResponse.json(
+        return Response.json(
             { message: 'IAM_BASE_URL is not configured' },
             { status: 500 }
         );
     }
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get(ACCESS_COOKIE)?.value;
+    const token = readCookie(request, ACCESS_COOKIE);
     if (!token) {
-        return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
+        return Response.json({ message: 'Not authenticated' }, { status: 401 });
     }
 
     const url = `${baseUrl.replace(/\/$/, '')}/api/v1/admin/migrations/up`;
@@ -62,12 +57,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             parsed = text;
         }
 
-        return NextResponse.json(
+        return Response.json(
             { service: 'iam', upstreamStatus: upstream.status, upstreamBody: parsed },
             { status: upstream.ok ? 200 : upstream.status }
         );
     } catch (err) {
-        return NextResponse.json(
+        return Response.json(
             {
                 service: 'iam',
                 message: 'Migration request failed',

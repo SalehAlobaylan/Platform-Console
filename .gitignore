@@ -15,3 +15,11 @@ dist/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+.output/
+.nitro/
+.vite/
+
+/test-results/
+/.playwright-report/
+/.env.console-env-sentinel-*.local

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { useSearchParams } from '@/lib/navigation';
 import { Video, Mic, Clapperboard } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';

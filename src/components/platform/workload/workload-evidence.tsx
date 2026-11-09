@@ -7,7 +7,7 @@ import type {
   WorkloadSnapshot,
 } from '@/types/platform/workload';
 import { ChevronDown, Circle } from 'lucide-react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WorkloadCorrelations } from './workload-correlations';

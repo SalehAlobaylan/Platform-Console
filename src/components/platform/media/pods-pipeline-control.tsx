@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { ArrowRight, ChevronDown, Loader2, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {

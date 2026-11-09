@@ -1,6 +1,5 @@
 /** @jest-environment node */
 
-import { NextRequest } from 'next/server';
 
 import { POST } from './route';
 
@@ -11,13 +10,13 @@ const originalEnv = {
   ENRICHMENT_RESTART_TOKEN: process.env.ENRICHMENT_RESTART_TOKEN,
 };
 
-function restartRequest(body = { service: 'enrichment' }, token?: string): NextRequest {
-  const request = new NextRequest('http://console.test/api/system-health/restart', {
+function restartRequest(body = { service: 'enrichment' }, token?: string): Request {
+  const request = new Request('http://console.test/api/system-health/restart', {
     method: 'POST',
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json', 'x-request-id': 'request-123' },
   });
-  if (token) request.cookies.set('console_access_token', token);
+  if (token) request.headers.set('cookie', `console_access_token=${token}`);
   return request;
 }
 

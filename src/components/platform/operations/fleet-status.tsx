@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { useMemo, useState } from 'react';
 import { useOpsClock } from '@/hooks/use-operations-command-center';
 import { Button } from '@/components/ui/button';

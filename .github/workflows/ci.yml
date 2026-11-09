@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
       - name: Install
         run: npm ci
@@ -21,3 +21,13 @@ jobs:
         run: npm run type-check
       - name: Lint
         run: npm run lint
+      - name: Unit tests
+        run: npm run test -- --runInBand
+      - name: Production build
+        run: npm run build
+      - name: Managed environment isolation
+        run: npm run test:managed-env
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Production route and API parity
+        run: npm run test:qualification

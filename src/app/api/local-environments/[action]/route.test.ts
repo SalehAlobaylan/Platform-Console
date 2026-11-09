@@ -1,11 +1,8 @@
 /** @jest-environment node */
 
-import { cookies } from 'next/headers';
-import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { GET, POST } from './route';
 
-jest.mock('next/headers', () => ({ cookies: jest.fn() }));
 
 const previousFetch = global.fetch;
 const envKeys = [
@@ -64,7 +61,7 @@ const overview = {
 };
 
 function request(action: string, method = 'GET') {
-  return new NextRequest(
+  return new Request(
     `http://localhost:3005/api/local-environments/${action}`,
     {
       method,
@@ -72,6 +69,7 @@ function request(action: string, method = 'GET') {
         Origin: 'http://localhost:3005',
         'X-Wahb-Runtime-ID': 'launch',
         'Content-Type': 'application/json',
+        Cookie: 'console_runtime_id=launch; console_access_token=operator-token',
       },
       ...(method === 'POST'
         ? { body: JSON.stringify({ environment: 'stable' }) }
@@ -89,11 +87,6 @@ beforeEach(() => {
   process.env.WAHB_RUNTIME_ID = 'launch';
   process.env.MIGRATION_COORDINATOR_URL = 'http://coordinator.test';
   process.env.MIGRATION_COORDINATOR_READ_TOKEN = 'machine-token';
-  jest.mocked(cookies).mockResolvedValue({
-    get: (name: string) => ({
-      value: name === 'console_runtime_id' ? 'launch' : 'operator-token',
-    }),
-  } as never);
 });
 afterEach(() => {
   global.fetch = previousFetch;
@@ -182,11 +175,10 @@ it('preserves upstream authorization failures', async () => {
 });
 
 it('rejects an old runtime session before fetching any evidence', async () => {
-  jest
-    .mocked(cookies)
-    .mockResolvedValue({ get: () => ({ value: 'old-launch' }) } as never);
   global.fetch = jest.fn();
-  const response = await GET(request('overview'), {
+  const stale = request('overview');
+  stale.headers.set('cookie', 'console_runtime_id=old-launch; console_access_token=operator-token');
+  const response = await GET(stale, {
     params: Promise.resolve({ action: 'overview' }),
   });
   expect(response.status).toBe(401);

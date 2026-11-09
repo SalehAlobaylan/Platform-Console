@@ -15,14 +15,14 @@ test.describe('Authentication', () => {
     // Check for login form elements
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
     // Fill in invalid credentials
     await page.getByLabel(/email/i).fill('invalid@example.com');
     await page.getByLabel(/password/i).fill('wrongpassword');
-    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
     // Should show error message
     await expect(
@@ -33,14 +33,12 @@ test.describe('Authentication', () => {
   test('should redirect to dashboard after successful login', async ({
     page,
   }) => {
-    // Fill in valid credentials (requires test environment setup)
-    await page
-      .getByLabel(/email/i)
-      .fill(process.env.TEST_USER_EMAIL || 'admin@example.com');
-    await page
-      .getByLabel(/password/i)
-      .fill(process.env.TEST_USER_PASSWORD || 'password');
-    await page.getByRole('button', { name: /sign in/i }).click();
+    const email = process.env.TEST_USER_EMAIL;
+    const password = process.env.TEST_USER_PASSWORD;
+    test.skip(!email || !password, 'Provide credentials for the disposable Console environment');
+    await page.getByPlaceholder('admin@example.com').fill(email!);
+    await page.getByPlaceholder(/password/i).fill(password!);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
     // Should redirect to dashboard
     await expect(page).toHaveURL('/');

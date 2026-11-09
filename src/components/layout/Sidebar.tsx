@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from '@/lib/console-link';
+import { usePathname } from '@/lib/navigation';
 import { X, PanelLeftClose, PanelLeft } from 'lucide-react';
 
 import { cn } from '@/lib/utils';

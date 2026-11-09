@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import OperationsPage from '@/app/(dashboard)/platform/operations/page';
 import * as hooks from '@/hooks/use-operations-command-center';
 jest.mock('@/hooks/use-operations-command-center');
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ replace: jest.fn() }),
 }));

@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePodsPipelineActivity } from '@/hooks/use-pods-automation';

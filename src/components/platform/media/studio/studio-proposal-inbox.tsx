@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { Check, ExternalLink, RefreshCw, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';

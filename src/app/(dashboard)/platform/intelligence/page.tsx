@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 import { ControlRoomView } from '@/components/platform/intelligence/control-room/control-room-view';
 import { ObservatoryView } from '@/components/platform/intelligence/observatory/observatory-view';

@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/console-link';
 import { useSystemHealth } from '@/hooks/use-system-health';
 import { useFeedIntegrityStatus } from '@/hooks/use-feed-integrity';
 

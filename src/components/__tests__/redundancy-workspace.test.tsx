@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RedundancyWorkspace from '@/components/platform/media/redundancy/workspace';
 import * as api from '@/lib/api/cms/redundancy';
 
-jest.mock('next/navigation', () => ({
+jest.mock('@/lib/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 jest.mock('@/lib/api/cms/redundancy');

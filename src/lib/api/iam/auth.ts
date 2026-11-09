@@ -1,3 +1,4 @@
+import { consoleRuntime } from '@/lib/runtime-config';
 import type {
     LoginRequest,
     RegisterRequest,
@@ -23,7 +24,7 @@ async function parseError(res: Response): Promise<IamError> {
 export async function login(request: LoginRequest): Promise<void> {
     const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Wahb-Runtime-ID': process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID || '' },
+        headers: { 'Content-Type': 'application/json', 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' },
         body: JSON.stringify(request),
     });
     if (!res.ok) {
@@ -32,11 +33,11 @@ export async function login(request: LoginRequest): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
-    await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-Wahb-Runtime-ID': process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID || '' } });
+    await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' } });
 }
 
 export async function refresh(): Promise<void> {
-    const res = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'X-Wahb-Runtime-ID': process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID || '' } });
+    const res = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' } });
     if (!res.ok) {
         throw await parseError(res);
     }
@@ -53,7 +54,7 @@ export async function getMe(): Promise<MeResponse> {
 export async function register(request: RegisterRequest): Promise<RegisterResponse> {
     const res = await fetch('/api/iam/api/v1/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Wahb-Runtime-ID': process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID || '' },
+        headers: { 'Content-Type': 'application/json', 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' },
         body: JSON.stringify(request),
     });
     if (!res.ok) {

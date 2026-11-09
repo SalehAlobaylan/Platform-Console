@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { DashboardShell } from '@/components/layout/DashboardShell';
 
 let mockPath = '/platform/operator';
-jest.mock('next/navigation', () => ({ usePathname: () => mockPath }));
+jest.mock('@/lib/navigation', () => ({ usePathname: () => mockPath }));
 jest.mock('@/components/layout/Sidebar', () => ({
   Sidebar: () => <nav>Console navigation</nav>,
 }));
