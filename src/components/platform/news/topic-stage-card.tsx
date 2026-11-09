@@ -110,11 +110,9 @@ export function TopicStageCard({
                         {p.label} {count.toLocaleString()}
                     </Button>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Story actions">
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Story actions">
                                 <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                            </Button>} />
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={onManage}>
                                 <ArrowRight className="mr-2 h-4 w-4" />
@@ -126,12 +124,10 @@ export function TopicStageCard({
                                         <Rss className="mr-2 h-4 w-4" />
                                         Copy RSS feed
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <a href={rssUrl} target="_blank" rel="noreferrer">
+                                    <DropdownMenuItem render={<a href={rssUrl} target="_blank" rel="noreferrer">
                                             <ExternalLink className="mr-2 h-4 w-4" />
                                             Open feed
-                                        </a>
-                                    </DropdownMenuItem>
+                                        </a>} nativeButton={false} />
                                 </>
                             )}
                             {!isUncategorized && onRename && (

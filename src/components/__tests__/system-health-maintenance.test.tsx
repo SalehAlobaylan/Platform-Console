@@ -73,3 +73,18 @@ test('separates health response time from readiness endpoint timing', () => {
   expect(screen.getByText('Readiness')).toBeInTheDocument();
   expect(screen.getByText('630 ms · HTTP 200')).toBeInTheDocument();
 });
+
+test('keeps failed reviewed maintenance visible and sends no request when cancelled', async () => {
+  mockRun.mockRejectedValueOnce(new Error('Maintenance request expired'));
+  render(<ServiceCard service={service} />);
+  const trigger = screen.getByRole('button', { name: 'Restart service' });
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(mockRun).not.toHaveBeenCalled();
+
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole('button', { name: 'Restart' }));
+  expect(await screen.findByText('Maintenance request expired')).toBeVisible();
+  expect(screen.getByRole('alertdialog', { name: 'Restart CMS?' })).toBeVisible();
+  expect(mockRun).toHaveBeenCalledTimes(1);
+});

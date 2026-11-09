@@ -11,7 +11,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/toast';
 import { TopicBoard } from '@/components/platform/news/topic-board';
 import { NewsBoard } from '@/components/platform/news/news-board';
@@ -100,7 +100,7 @@ export default function NewsPage() {
     return (
         <div className="space-y-5">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                     {drilledIn ? (
                         <>
@@ -126,7 +126,7 @@ export default function NewsPage() {
                     )}
                 </div>
 
-                <div className="flex flex-shrink-0 items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
                     <Button variant="outline" onClick={() => setFeedsOpen(true)}>
                         <Rss className="mr-2 h-4 w-4" />
                         Feeds
@@ -137,12 +137,10 @@ export default function NewsPage() {
                         Add news
                     </Button>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline">
+                        <DropdownMenuTrigger render={<Button variant="outline">
                                 Auto-stories
                                 <ChevronDown className="ml-1 h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                            </Button>} />
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={runClassify} disabled={classifying}>
                                 {classifying ? (
@@ -166,30 +164,30 @@ export default function NewsPage() {
 
             {/* View switcher */}
             <Tabs value={view} onValueChange={(v) => setView(v as NewsViewTab)}>
-                <TabsList>
+                <TabsList aria-label="News views">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="topics">Stories</TabsTrigger>
                     <TabsTrigger value="library">Library</TabsTrigger>
                 </TabsList>
+                <TabsContent value="overview" className="mt-5">
+                    <NewsOverview
+                        onOpenLibrary={(preset) =>
+                            setView('library', preset?.status ? { status: preset.status } : undefined)
+                        }
+                        onOpenTopics={() => setView('topics')}
+                    />
+                </TabsContent>
+                <TabsContent value="topics" className="mt-5">
+                    {active ? <NewsBoard topic={active} /> : <TopicBoard onOpenTopic={setActive} />}
+                </TabsContent>
+                <TabsContent value="library" className="mt-5">
+                    <NewsLibrary
+                        key={`${initialType}-${initialStatus}`}
+                        initialType={initialType}
+                        initialStatus={initialStatus}
+                    />
+                </TabsContent>
             </Tabs>
-
-            {view === 'overview' && (
-                <NewsOverview
-                    onOpenLibrary={(preset) =>
-                        setView('library', preset?.status ? { status: preset.status } : undefined)
-                    }
-                    onOpenTopics={() => setView('topics')}
-                />
-            )}
-            {view === 'topics' &&
-                (active ? <NewsBoard topic={active} /> : <TopicBoard onOpenTopic={setActive} />)}
-            {view === 'library' && (
-                <NewsLibrary
-                    key={`${initialType}-${initialStatus}`}
-                    initialType={initialType}
-                    initialStatus={initialStatus}
-                />
-            )}
 
             <AddNewsSheet open={addOpen} onClose={() => setAddOpen(false)} />
             <RecclusterDialog open={reclusterOpen} onClose={() => setReclusterOpen(false)} />

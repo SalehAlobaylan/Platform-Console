@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { useCreateCatalogTopic } from '@/hooks/use-topics';
 import { CategorySelect } from './category-select';
 
-export function CreateTopicDialog({ trigger }: { trigger: React.ReactNode }) {
+export function CreateTopicDialog({ trigger }: { trigger: React.ReactElement }) {
     const create = useCreateCatalogTopic();
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState({ slug: '', label_en: '', label_ar: '', category_slug: '', featured: true });
@@ -36,7 +36,7 @@ export function CreateTopicDialog({ trigger }: { trigger: React.ReactNode }) {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{trigger}</DialogTrigger>
+            <DialogTrigger render={trigger} />
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create topic</DialogTitle>

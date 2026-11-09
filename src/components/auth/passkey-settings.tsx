@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type RefObject } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -11,7 +11,11 @@ import { Label } from '@/components/ui/label';
 import { addPasskey, canUsePasskeys, listPasskeys, removePasskey } from '@/lib/console-passkeys';
 import { useAuthStore } from '@/lib/stores/auth';
 
-export function PasskeySettings({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function PasskeySettings({ open, onOpenChange, returnFocus }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    returnFocus?: RefObject<HTMLButtonElement | null>;
+}) {
     const client = useQueryClient();
     const userId = useAuthStore((state) => state.user?.id);
     const key = ['console-passkeys', userId];
@@ -53,7 +57,7 @@ export function PasskeySettings({ open, onOpenChange }: { open: boolean; onOpenC
             if (!value) select(null);
             onOpenChange(value);
         }}>
-            <DialogContent>
+            <DialogContent finalFocus={returnFocus} showClose={!pending}>
                 <DialogHeader>
                     <DialogTitle>Passkeys</DialogTitle>
                     <DialogDescription>Sign in with your device or a security key.</DialogDescription>

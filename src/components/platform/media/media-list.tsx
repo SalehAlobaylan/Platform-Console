@@ -431,11 +431,9 @@ export function MediaList({ type }: { type: ContentType }) {
         const isReT = state === 'stt_done' || state === 'youtube_human';
         return (
             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className={cn('h-8 w-8', triggerClassName)} aria-label="Item actions">
+                <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn('h-8 w-8', triggerClassName)} aria-label="Item actions">
                         <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
+                    </Button>} />
                 <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuItem onClick={() => router.push(`/platform/media/atomization?tab=studio&item=${item.id}`)}>
                         <Clapperboard className="mr-2 h-4 w-4" /> Open in Media Studio
@@ -454,11 +452,9 @@ export function MediaList({ type }: { type: ContentType }) {
                         <Copy className="mr-2 h-4 w-4" /> Copy ID
                     </DropdownMenuItem>
                     {item.original_url && (
-                        <DropdownMenuItem asChild>
-                            <a href={item.original_url} target="_blank" rel="noreferrer">
+                        <DropdownMenuItem render={<a href={item.original_url} target="_blank" rel="noreferrer">
                                 <ExternalLink className="mr-2 h-4 w-4" /> Open original
-                            </a>
-                        </DropdownMenuItem>
+                            </a>} nativeButton={false} />
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteConfirm([item])}>
@@ -743,9 +739,7 @@ export function MediaList({ type }: { type: ContentType }) {
                             <div className="text-xs text-muted-foreground">Untracked items</div>
                         </div>
                     </div>
-                    <Button size="sm" variant="outline" asChild>
-                        <Link href="/platform/storage?section=candidates">Storage candidates</Link>
-                    </Button>
+                    <Button size="sm" variant="outline" render={<Link href="/platform/storage?section=candidates">Storage candidates</Link>} />
                 </div>
             </div>
 

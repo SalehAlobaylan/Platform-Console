@@ -124,11 +124,9 @@ export function AutopilotStrip({ autopilot, policy, savingPolicy, onSavePolicy }
                                 {paused ? 'Resume' : 'Pause 6h'}
                             </Button>
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" disabled={elevate.isPending || savingPolicy}>
+                                <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={elevate.isPending || savingPolicy}>
                                         More
-                                    </Button>
-                                </DropdownMenuTrigger>
+                                    </Button>} />
                                 <DropdownMenuContent align="end" className="w-64">
                                     <DropdownMenuLabel>Elevated modes (time-boxed 2h)</DropdownMenuLabel>
                                     {ELEVATED_MODES.map((m) => (

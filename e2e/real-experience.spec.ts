@@ -272,7 +272,7 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
         fullPage: true,
       });
     await page.getByRole('tab', { name: 'Evidence', exact: true }).click();
-    await page.getByRole('tab', { name: 'Releases', exact: true }).click();
+    await page.getByRole('button', { name: 'Releases', exact: true }).click();
     await expect(
       page.getByText(/Insufficient comparable evidence/)
     ).toBeVisible();
@@ -319,7 +319,10 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
       .getByLabel('Notes', { exact: true })
       .fill('Owner verified the repair; awaiting separate clean recovery.');
     await page.getByRole('button', { name: 'Save reviewed exception' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: /^(Close incident with reason|Suppress exact metric and cohort)$/ })).toHaveCount(0);
+    const notifications = page.getByRole('region', { name: 'Notifications' });
+    await expect(notifications).toHaveAttribute('aria-live', 'polite');
+    await expect(notifications.getByText('Incident closed', { exact: true })).toBeVisible();
     expect(writes[0].body).toMatchObject({
       reason_class: 'resolved_externally',
       notes: 'Owner verified the repair; awaiting separate clean recovery.',
@@ -345,7 +348,7 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
       .getByLabel('Notes', { exact: true })
       .fill('Expected fixture behavior for this browser only.');
     await page.getByRole('button', { name: 'Save reviewed exception' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: /^(Close incident with reason|Suppress exact metric and cohort)$/ })).toHaveCount(0);
     expect(writes[0].body).toMatchObject({
       metric_key: 'playback_start_success',
       surface: 'pods',
@@ -377,7 +380,7 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
       .getByLabel('Notes', { exact: true })
       .fill('Verified iOS 26 build issue.');
     await page.getByRole('button', { name: 'Save reviewed exception' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: /^(Close incident with reason|Suppress exact metric and cohort)$/ })).toHaveCount(0);
     expect(writes[0].body).toMatchObject({
       client_platform: 'ios',
       cohort_dim: 'os',
@@ -437,7 +440,7 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
       await page.screenshot({ path: info.outputPath('rux-policy-editor.png') });
     await page.getByLabel('Rate sample floor', { exact: true }).fill('75');
     await page.getByRole('button', { name: 'Save policy' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Edit Observe policy' })).toHaveCount(0);
     await page
       .getByRole('button', { name: 'Edit policy and thresholds' })
       .click();

@@ -110,11 +110,9 @@ export function FleetStatus({
               <div className="flex items-center gap-2">
                 <OpsBadge value={fresh ? row.state : 'unknown'} />
                 {row.member_key === 'pods_pipeline' && (
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href={row.cockpit_path}>
+                  <Button size="sm" variant="outline" render={<Link href={row.cockpit_path}>
                       {t('Pipeline controls', 'التحكم بالمسار')}
-                    </Link>
-                  </Button>
+                    </Link>} />
                 )}
                 {row.pausable && (
                   <Button

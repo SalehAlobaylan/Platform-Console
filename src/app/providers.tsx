@@ -1,6 +1,9 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useRouterState } from '@tanstack/react-router';
+import { DirectionProvider } from '@base-ui/react/direction-provider';
+import { useWorkspaceSession } from '@/lib/stores/workspace-session';
 import { useState } from 'react';
 import { Toaster } from '@/components/ui/toast';
 import { AuthProvider } from '@/components/auth';
@@ -32,6 +35,9 @@ const CACHE_CONFIG = {
 export { CACHE_CONFIG };
 
 export function Providers({ children }: ProvidersProps) {
+  const locale = useWorkspaceSession((state) => state.locale);
+  const operator = useRouterState({ select: (state) => state.location.pathname === '/platform/operator' });
+  const direction = operator && locale === 'ar' ? 'rtl' : 'ltr';
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -54,8 +60,10 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider queryClient={queryClient}>
-        {children}
-        <Toaster />
+        <DirectionProvider direction={direction}>
+          {children}
+          <Toaster />
+        </DirectionProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

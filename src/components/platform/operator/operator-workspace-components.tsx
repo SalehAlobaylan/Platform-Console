@@ -248,6 +248,13 @@ export function OperatorCaseRail({
   const [renameThread, setRenameThread] = useState<OperatorThread>();
   const [name, setName] = useState('');
   const [deleteThread, setDeleteThread] = useState<OperatorThread>();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const menuTrigger = useRef<HTMLElement | null>(null);
+  const returnToChatMenu = () =>
+    menuTrigger.current?.isConnected ? menuTrigger.current : searchRef.current;
+  const captureChatMenu = (id: string) => {
+    menuTrigger.current = document.getElementById(`operator-chat-menu-${id}`);
+  };
   return (
     <>
       <Card
@@ -265,6 +272,7 @@ export function OperatorCaseRail({
           <div className="relative">
             <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={searchRef}
               value={query}
               onChange={(event) => onQuery(event.target.value)}
               className="ps-9"
@@ -275,8 +283,7 @@ export function OperatorCaseRail({
         </CardHeader>
         <div className="px-3 pb-2">
           <DropdownMenu dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-            <DropdownMenuTrigger asChild>
-              <Button
+            <DropdownMenuTrigger render={<Button
                 variant="ghost"
                 size="sm"
                 className="h-8 gap-2 px-1 text-xs text-muted-foreground"
@@ -284,13 +291,12 @@ export function OperatorCaseRail({
               >
                 {t[mode]}
                 <ChevronDown className="size-3" />
-              </Button>
-            </DropdownMenuTrigger>
+              </Button>} />
             <DropdownMenuContent align="start">
               {(['recent', 'pinned', 'archived'] as const).map((value) => (
                 <DropdownMenuItem
                   key={value}
-                  onSelect={() => onMode(value)}
+                  onClick={() => onMode(value)}
                   className="gap-2"
                 >
                   <span className="flex-1">{t[value]}</span>
@@ -353,19 +359,19 @@ export function OperatorCaseRail({
                   </span>
                 </button>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
+                  <DropdownMenuTrigger render={<Button
                       variant="ghost"
                       size="icon"
                       className="size-8 shrink-0"
+                      id={`operator-chat-menu-${thread.id}`}
                       aria-label={`${t.chatMenu}: ${thread.title}`}
                     >
                       <MoreHorizontal className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
+                    </Button>} />
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       onClick={() => {
+                        captureChatMenu(thread.id);
                         setRenameThread(thread);
                         setName(thread.title);
                       }}
@@ -391,7 +397,10 @@ export function OperatorCaseRail({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteThread(thread)}
+                      onClick={() => {
+                        captureChatMenu(thread.id);
+                        setDeleteThread(thread);
+                      }}
                     >
                       <Trash2 className="me-2 size-4" />
                       {t.deleteCase}
@@ -428,7 +437,7 @@ export function OperatorCaseRail({
           if (!open) setRenameThread(undefined);
         }}
       >
-        <DialogContent dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+        <DialogContent dir={locale === 'ar' ? 'rtl' : 'ltr'} closeLabel={t.close} finalFocus={returnToChatMenu}>
           <DialogHeader>
             <DialogTitle>{d.rename}</DialogTitle>
             <DialogDescription>{d.name}</DialogDescription>
@@ -466,7 +475,7 @@ export function OperatorCaseRail({
           if (!open) setDeleteThread(undefined);
         }}
       >
-        <DialogContent>
+        <DialogContent dir={locale === 'ar' ? 'rtl' : 'ltr'} closeLabel={t.close} finalFocus={returnToChatMenu}>
           <DialogHeader>
             <DialogTitle>{t.deleteTitle}</DialogTitle>
             <DialogDescription>{t.deleteDescription}</DialogDescription>
@@ -586,16 +595,11 @@ export function OperatorBriefingPanel({
                 </p>
               </div>
               {item.deep_link ? (
-                <Button
-                  asChild
-                  variant="ghost"
+                <Button variant="ghost"
                   size="icon"
-                  className="size-9 shrink-0"
-                >
-                  <Link href={item.deep_link} aria-label={t.openRecord}>
+                  className="size-9 shrink-0" render={<Link href={item.deep_link} aria-label={t.openRecord}>
                     <ExternalLink className="size-4" />
-                  </Link>
-                </Button>
+                  </Link>} />
               ) : null}
             </div>
           ))}
@@ -1017,13 +1021,20 @@ export function OperatorPlanPanel({
   events: Array<{ sequence: number; event_type: string; created_at: string }>;
   stale: boolean;
   approving: boolean;
-  onApprove: (phrase: string) => void;
+  onApprove: (phrase: string) => void | Promise<boolean | string>;
   onCancel: () => void;
   onRefresh?: () => void;
 }) {
   const t = operatorCopy(locale);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reviewedPlan, setReviewedPlan] = useState<string>();
+  const approvalTrigger = useRef<HTMLButtonElement>(null);
+  const approvalInFlight = useRef(false);
+  const [approvalError, setApprovalError] = useState('');
   const [phrase, setPhrase] = useState('');
+  const reviewKey = plan ? `${plan.id}:${plan.digest}:${locale}` : undefined;
+  useEffect(() => {
+    setReviewedPlan(undefined);
+  }, [reviewKey]);
   if (!plan) return <EmptyPanel icon={ShieldCheck} text={t.emptyPlan} />;
   const label = plan.localized_action_key
     ? actionLabel(plan.localized_action_key, locale)
@@ -1037,6 +1048,8 @@ export function OperatorPlanPanel({
     plan.state === 'awaiting_approval' &&
     Date.parse(plan.expires_at) <= Date.now();
   const previewStale = stale || expired;
+  const confirmOpen = Boolean(reviewedPlan) && reviewedPlan === reviewKey &&
+    plan.state === 'awaiting_approval' && !previewStale;
   const effectKeys = (['before', 'after', 'verified'] as const).filter(
     (key) =>
       plan.verified_effects?.[key] !== null &&
@@ -1223,22 +1236,24 @@ export function OperatorPlanPanel({
             </div>
           </details>
           {plan.verified_effects?.deep_links?.map((href) => (
-            <Button asChild key={href} variant="outline" size="sm">
-              <Link href={href}>
+            <Button key={href} variant="outline" size="sm" render={<Link href={href}>
                 {t.openRecord}
                 <ExternalLink className="size-3.5" />
-              </Link>
-            </Button>
+              </Link>} />
           ))}
         </section>
       ) : null}
       <div className="flex flex-wrap gap-2">
         {plan.state === 'awaiting_approval' && !previewStale && label ? (
           <Button
+            ref={approvalTrigger}
             size="sm"
+            disabled={approving}
             onClick={() => {
+              if (approvalInFlight.current) return;
               setPhrase(high ? '' : expected);
-              setConfirmOpen(true);
+              setApprovalError('');
+              setReviewedPlan(reviewKey);
             }}
           >
             {high ? t.approveHigh : t.approve}
@@ -1250,10 +1265,14 @@ export function OperatorPlanPanel({
           </Button>
         ) : null}
       </div>
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Dialog open={confirmOpen} onOpenChange={(open) => {
+        if (!open && !approvalInFlight.current) setReviewedPlan(undefined);
+      }}>
         <DialogContent
           dir={locale === 'ar' ? 'rtl' : 'ltr'}
           closeLabel={t.close}
+          showClose={!approving}
+          finalFocus={approvalTrigger}
         >
           <DialogHeader className="text-start sm:text-start">
             <DialogTitle>{high ? t.approveHigh : t.approve}</DialogTitle>
@@ -1282,16 +1301,31 @@ export function OperatorPlanPanel({
               />
             </div>
           ) : null}
+          {approvalError && <p role="alert" className="break-words text-sm text-destructive">{approvalError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+            <Button variant="outline" disabled={approving} onClick={() => setReviewedPlan(undefined)}>
               {t.cancel}
             </Button>
             <Button
               disabled={approving || phrase !== expected || previewStale}
-              onClick={() => {
-                if (previewStale) return;
-                onApprove(phrase);
-                setConfirmOpen(false);
+              onClick={async () => {
+                if (!confirmOpen || approvalInFlight.current || phrase !== expected) return;
+                if (Date.parse(plan.expires_at) <= Date.now()) {
+                  setReviewedPlan(undefined);
+                  return;
+                }
+                approvalInFlight.current = true;
+                setApprovalError('');
+                try {
+                  const result = await onApprove(phrase);
+                  if (typeof result === 'string') {
+                    setApprovalError(result);
+                  } else if (result !== false) {
+                    setReviewedPlan((current) => current === reviewKey ? undefined : current);
+                  }
+                } finally {
+                  approvalInFlight.current = false;
+                }
               }}
             >
               {approving ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -1394,7 +1428,7 @@ export function OperatorWorkspacePanel({
   onTaskGroup: (group: OperatorTaskGroup) => void;
   onTaskKind: (kind: OperatorTaskKind) => void;
   onCancelTask: (task: OperatorTask) => void;
-  onApprove: (phrase: string) => void;
+  onApprove: (phrase: string) => void | Promise<boolean | string>;
   onCancelPlan: () => void;
   onRefreshPlan?: () => void;
 }) {
@@ -1460,17 +1494,12 @@ export function OperatorWorkspacePanel({
                     </Detail>
                   </dl>
                   <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-                    <Button
-                      asChild
-                      variant="outline"
+                    <Button variant="outline"
                       size="sm"
-                      className="gap-1.5"
-                    >
-                      <Link href={item.deep_link}>
+                      className="gap-1.5" render={<Link href={item.deep_link}>
                         {t.openRecord}
                         <ExternalLink className="size-3.5" />
-                      </Link>
-                    </Button>
+                      </Link>} />
                     <details className="w-full text-xs text-muted-foreground">
                       <summary className="cursor-pointer hover:text-foreground">
                         {t.sourceDetails}

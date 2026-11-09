@@ -38,11 +38,9 @@ export default function MediaPage() {
                         use STT batches for weak or missing transcripts.
                     </p>
                 </div>
-                <Button variant="outline" asChild>
-                    <Link href="/platform/media/atomization?tab=studio">
+                <Button variant="outline" render={<Link href="/platform/media/atomization?tab=studio">
                         <Clapperboard className="mr-2 h-4 w-4" /> Open Studio
-                    </Link>
-                </Button>
+                    </Link>} />
             </div>
 
             <PodsPipelineControl compact />

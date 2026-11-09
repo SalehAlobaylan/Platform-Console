@@ -34,12 +34,10 @@ export function PullFreshButton({ busy = false }: { busy?: boolean }) {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm" variant="ghost" disabled={busy}>
+            <DialogTrigger render={<Button size="sm" variant="ghost" disabled={busy}>
                     <DownloadCloud className="mr-1.5 h-4 w-4" />
                     Pull fresh
-                </Button>
-            </DialogTrigger>
+                </Button>} />
             <DialogContent className="max-h-[80vh] overflow-hidden">
                 <DialogHeader>
                     <DialogTitle>Pull fresh content</DialogTitle>

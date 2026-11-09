@@ -86,10 +86,7 @@ function setHook(name: keyof typeof hooks, value: unknown) {
 }
 
 function openCampaigns() {
-  fireEvent.mouseDown(screen.getByRole('tab', { name: /Campaigns/ }), {
-    button: 0,
-    ctrlKey: false,
-  });
+  fireEvent.click(screen.getByRole('tab', { name: /Campaigns/ }));
 }
 
 beforeEach(() => {
@@ -380,10 +377,7 @@ it('prioritizes audit issues while keeping passing evidence reachable', () => {
     })
   );
   render(<EmbeddingLifecyclePage />);
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Audit history' }), {
-    button: 0,
-    ctrlKey: false,
-  });
+  fireEvent.click(screen.getByRole('tab', { name: 'Audit history' }));
   expect(
     screen.getByText(/Content text · Stale inventory · Violation/)
   ).toBeVisible();

@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -282,7 +282,7 @@ export function FindingPage() {
 
                         {/* Tabs */}
                         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-                            <TabsList>
+                            <TabsList aria-label="Source finding views">
                                 <TabsTrigger value="review">
                                     Review
                                     {scopedSuggestions.length > 0 && <CountBadge className="ml-2">{scopedSuggestions.length}</CountBadge>}
@@ -293,10 +293,7 @@ export function FindingPage() {
                                 </TabsTrigger>
                                 <TabsTrigger value="network">Network</TabsTrigger>
                             </TabsList>
-                        </Tabs>
-
-                        {tab === 'review' && (
-                            <div className="space-y-3">
+                        <TabsContent value="review" className="mt-5 space-y-3">
                                 {scopedBase.length > 0 && (
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="flex flex-wrap items-center gap-2">
@@ -352,11 +349,8 @@ export function FindingPage() {
                                         />
                                     ))}
                                 </div>
-                            </div>
-                        )}
-
-                        {tab === 'sources' && (
-                            <div className="rounded-md border">
+                            </TabsContent>
+                            <TabsContent value="sources" className="mt-5 rounded-md border">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -380,15 +374,12 @@ export function FindingPage() {
                                         ))}
                                     </TableBody>
                                 </Table>
-                            </div>
-                        )}
-
-                        {tab === 'network' && (
-                            <div className="space-y-4">
+                            </TabsContent>
+                            <TabsContent value="network" className="mt-5 space-y-4">
                                 <NetworkAuthorities />
                                 <TwitterCard />
-                            </div>
-                        )}
+                            </TabsContent>
+                        </Tabs>
                     </div>
                 </div>
             )}

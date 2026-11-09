@@ -59,15 +59,13 @@ export function SourceRowActions({ source, onDelete }: SourceRowActionsProps) {
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Row actions">
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Row actions">
                     {isRunning ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                         <MoreHorizontal className="h-4 w-4" />
                     )}
-                </Button>
-            </DropdownMenuTrigger>
+                </Button>} />
             <DropdownMenuContent align="end">
                 <DropdownMenuItem
                     onClick={() => runMutation.mutate(source.id)}

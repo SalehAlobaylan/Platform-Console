@@ -50,22 +50,36 @@ test.describe('Media episode journey', () => {
 
     test('application confirms the exact draft and reports queued rather than started', async ({ page }) => {
         const plan = [{ title: 'First', start_ms: 0, end_ms: 1500000, source: 'manual' }, { title: 'Second', start_ms: 1500000, end_ms: 3000000, source: 'manual' }];
-        await page.route('**/chapter-plans', route => route.fulfill({ json: { data: { items: [{ id: draftID, revision: 2, input_fingerprint: 'fixture-input', plan, validation: [], provenance: 'manual' }], input_fingerprint: 'fixture-input', worker_supported: true, apply_action: { code: 'apply_chapter_plan', step: 'planning', enabled: true } } } }));
-        let submitted = false;
+        const requestID = 'fixture-apply-request';
+        const submissions: unknown[] = [];
+        await page.route('**/chapter-plans', route => route.fulfill({ json: { data: {
+            items: [{
+                id: draftID, revision: 2, input_fingerprint: 'fixture-input', plan, validation: [], provenance: 'manual',
+                ...(submissions.length ? { applied_request_id: requestID } : {}),
+            }],
+            input_fingerprint: 'fixture-input', worker_supported: true,
+            apply_action: { code: 'apply_chapter_plan', step: 'planning', enabled: true },
+        } } }));
         await page.route(`**/chapter-plans/${draftID}/apply`, async route => {
             const body = route.request().postDataJSON();
             expect(body.revision).toBe(2);
             expect(body.input_fingerprint).toBe('fixture-input');
             expect(body.idempotency_key).toBe(draftID);
-            submitted = true;
-            await route.fulfill({ status: 202, json: { data: { request_id: 'request', state: 'queued' } } });
+            submissions.push(body);
+            await route.fulfill({ status: 202, json: { data: { request_id: requestID, state: 'queued' } } });
         });
         await page.goto(`/platform/media/atomization?tab=studio&item=${episode}`);
         await page.getByRole('button', { name: 'Apply plan and process' }).click();
         await expect(page.getByText(/Cost and storage size are unknown/)).toBeVisible();
-        expect(submitted).toBe(false);
-        await page.getByRole('button', { name: 'Confirm and submit request' }).click();
+        const review = page.getByRole('region', { name: 'Confirm plan application' });
+        await review.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await expect(review).toBeHidden();
+        expect(submissions).toHaveLength(0);
+        await page.getByRole('button', { name: 'Apply plan and process' }).click();
+        await review.getByRole('button', { name: 'Confirm and submit request' }).click();
         await expect(page.getByText(/Request state: queued/)).toBeVisible();
-        expect(submitted).toBe(true);
+        await page.reload();
+        await expect(page.getByText(`Applied draft 2 · ${requestID}`)).toBeVisible();
+        expect(submissions).toHaveLength(1);
     });
 });

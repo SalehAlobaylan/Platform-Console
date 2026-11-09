@@ -45,11 +45,9 @@ export default function NewSourcePage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href={from}>
+                <Button variant="ghost" size="icon" render={<Link href={from}>
                         <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                </Button>
+                    </Link>} />
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
                         {isMedia ? 'Add Media Source' : 'Create Source'}

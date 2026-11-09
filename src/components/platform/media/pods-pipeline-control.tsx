@@ -179,11 +179,9 @@ export function PodsPipelineControl({
       {t('Refresh status', 'تحديث الحالة')}
     </Button>
   ) : data?.paused && !data.ready ? (
-    <Button size="sm" variant="outline" asChild>
-      <Link href="/platform/system-health">
+    <Button size="sm" variant="outline" render={<Link href="/platform/system-health">
         {t('Review setup', 'مراجعة الإعداد')}
-      </Link>
-    </Button>
+      </Link>} />
   ) : (
     <Button
       ref={actionRef}
@@ -490,10 +488,7 @@ export function PodsPipelineControl({
           dir={locale === 'ar' ? 'rtl' : 'ltr'}
           closeLabel={t('Close pipeline review', 'إغلاق مراجعة المسار')}
           className="max-h-[90dvh] overflow-y-auto sm:max-w-[460px] [&>button:last-child]:rtl:left-4 [&>button:last-child]:rtl:right-auto"
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            actionRef.current?.focus();
-          }}
+          finalFocus={actionRef}
         >
           <DialogHeader className="text-start sm:text-start">
             <DialogTitle>
@@ -596,11 +591,9 @@ export function PodsPipelineControl({
               {t('Cancel', 'إلغاء')}
             </Button>
             {data && !unavailable && !data.ready ? (
-              <Button variant="outline" asChild>
-                <Link href="/platform/system-health">
+              <Button variant="outline" render={<Link href="/platform/system-health">
                   {t('Review setup', 'مراجعة الإعداد')}
-                </Link>
-              </Button>
+                </Link>} />
             ) : staleReview || unavailable ? (
               <Button
                 disabled={

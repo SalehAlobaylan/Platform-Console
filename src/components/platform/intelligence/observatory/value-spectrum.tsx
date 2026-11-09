@@ -93,21 +93,17 @@ export function ValueSpectrum({ snapshot, fetching, refreshing, onRefresh, onTun
                             Tune
                         </Button>
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white">
+                            <DropdownMenuTrigger render={<Button variant="outline" size="icon" className="border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white">
                                     <MoreHorizontal className="h-4 w-4" />
                                     <span className="sr-only">Related surfaces</span>
-                                </Button>
-                            </DropdownMenuTrigger>
+                                </Button>} />
                             <DropdownMenuContent align="end" className="w-56">
                                 <DropdownMenuLabel className="text-xs text-muted-foreground">Related surfaces</DropdownMenuLabel>
                                 {RELATED.map((r) => (
-                                    <DropdownMenuItem key={r.href} asChild>
-                                        <Link href={r.href}>
+                                    <DropdownMenuItem key={r.href} render={<Link href={r.href}>
                                             <ExternalLink className="mr-2 h-4 w-4" />
                                             {r.label}
-                                        </Link>
-                                    </DropdownMenuItem>
+                                        </Link>} nativeButton={false} />
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>

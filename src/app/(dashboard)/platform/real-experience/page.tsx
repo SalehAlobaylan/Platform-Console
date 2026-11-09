@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Circle,
 } from 'lucide-react';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -351,7 +352,7 @@ function RealExperienceWorkspace() {
             <TabsTrigger
               key={value}
               value={value}
-              className="relative rounded-none border-b-2 border-transparent px-3 py-2.5 capitalize shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none sm:px-4"
+              className="relative rounded-none border-b-2 border-transparent px-3 py-2.5 capitalize shadow-none data-[active]:border-primary data-[active]:bg-transparent data-[active]:shadow-none sm:px-4"
             >
               {value[0].toUpperCase() + value.slice(1)}
             </TabsTrigger>
@@ -568,21 +569,19 @@ function RealExperienceWorkspace() {
         </TabsContent>
         <TabsContent value="evidence" className="mt-0 space-y-5">
           <Panel title="Cohorts, releases and history">
-            <Tabs
+            <SegmentedControl
+              label="Evidence type"
               value={tab}
+              options={[
+                { value: 'cohorts', label: 'Cohorts' },
+                { value: 'releases', label: 'Releases' },
+                { value: 'history', label: 'History' },
+              ]}
               onValueChange={(value) => {
-                setTab(value as typeof tab);
+                setTab(value);
                 setCursor('');
               }}
-            >
-              <TabsList aria-label="Evidence type">
-                {(['cohorts', 'releases', 'history'] as const).map((kind) => (
-                  <TabsTrigger key={kind} value={kind} className="capitalize">
-                    {kind[0].toUpperCase() + kind.slice(1)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            />
             <QueryNotice
               loading={evidence.isLoading}
               error={evidence.isError}
@@ -963,7 +962,6 @@ function RealExperienceWorkspace() {
         onOpenChange={(open) => !open && setSelected(null)}
       >
         <SheetContent
-          hasAccessibleHeader
           className="w-full overflow-y-auto sm:max-w-xl"
         >
           <SheetHeader className="pr-6 text-left">

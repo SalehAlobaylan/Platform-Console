@@ -18,6 +18,7 @@ export function Header({ className }: HeaderProps) {
   return (
     <WorkspaceHeader workspace="console" locale={locale} className={className}>
       <Button
+        id="console-navigation-trigger"
         variant="ghost"
         size="icon"
         className="size-10 shrink-0 lg:hidden"

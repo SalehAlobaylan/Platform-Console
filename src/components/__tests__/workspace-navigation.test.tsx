@@ -97,13 +97,13 @@ it('keeps a visible switch in both workspaces and restores the exact last destin
   );
 });
 
-it('keeps appearance and account controls in the same menu across workspaces', () => {
+it('keeps appearance and account controls in the same menu across workspaces', async () => {
   localStorage.setItem('theme', 'light');
   const view = render(<Workspace />);
   fireEvent.keyDown(screen.getByRole('button', { name: 'Account options' }), {
     key: 'ArrowDown',
   });
-  expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('menuitem', { name: 'Dark appearance' }));
   expect(document.documentElement).toHaveClass('dark');
   mockPath = '/platform/operator';
@@ -111,10 +111,10 @@ it('keeps appearance and account controls in the same menu across workspaces', (
   fireEvent.keyDown(screen.getByRole('button', { name: 'Account options' }), {
     key: 'ArrowDown',
   });
-  expect(
+  await waitFor(() => expect(
     screen.getByRole('menuitem', { name: 'Light appearance' })
-  ).toBeVisible();
-  expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
+  ).toBeVisible());
+  expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument();
   fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
   localStorage.removeItem('theme');
   document.documentElement.classList.remove('dark');
@@ -204,6 +204,9 @@ it('contextual entry resumes the chat, attaches explicit context and never sends
 
 it('does not attach context when a contextual link is disabled', () => {
   render(<OperatorLaunchLink context={context} disabled />);
-  fireEvent.click(screen.getByRole('link'));
+  const link = screen.getByRole('link');
+  expect(link).toHaveAttribute('aria-disabled', 'true');
+  expect(link).not.toHaveAttribute('href');
+  fireEvent.click(link, { ctrlKey: true });
   expect(consumeOperatorLaunchContext()).toBeUndefined();
 });

@@ -174,6 +174,16 @@ detailed proof inspector.
 - Use shared `Card`, `Button`, `Badge`, `Input`, `Select`, `Tabs`, `Sheet`,
   `Dialog`, `DropdownMenu`, `Skeleton`, `Checkbox`, `Switch`, and table
   primitives before creating custom equivalents.
+- Keep Base UI component imports in `src/components/ui` and set the workspace
+  direction in the app provider. Add shadcn Base UI component source to the
+  wrappers and adapt it to Tailwind 3 and the Console tokens. Features supply
+  labels, state and effects through the local wrappers.
+- Compose interactive elements with Base UI's `render` prop. Set
+  `type="button"` for form-local commands and `type="submit"` for submission.
+  Use logical offsets and the section direction for portaled surfaces.
+- Style keyboard highlight and selection using the primitive's state
+  attributes. Use the shared opacity transition on popups and overlays
+  with `motion-safe`.
 - Standard control heights:
   - small buttons and dense rows: `h-8` or shared `size="sm"` (`h-9`);
   - normal inputs/buttons/selects: `h-10`;

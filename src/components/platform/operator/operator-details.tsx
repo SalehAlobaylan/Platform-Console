@@ -447,17 +447,12 @@ export function OperatorSourcesDetails({
                     {t.expires}: {formatOperatorTime(item.expires_at)}
                   </p>
                 </div>
-                <Button
-                  asChild
-                  variant="outline"
+                <Button variant="outline"
                   size="sm"
-                  className="w-full justify-between"
-                >
-                  <Link href={item.deep_link}>
+                  className="w-full justify-between" render={<Link href={item.deep_link}>
                     {t.currentRecord}
                     <ExternalLink className="size-3.5" />
-                  </Link>
-                </Button>
+                  </Link>} />
                 <details className="text-[11px] text-muted-foreground">
                   <summary className="cursor-pointer">
                     {copy.sourceDetails}
@@ -932,17 +927,12 @@ export function OperatorStatusDetails({
           ) : null}
         </section>
       ) : null}
-      <Button
-        asChild
-        size="sm"
+      <Button size="sm"
         variant="outline"
-        className="w-full justify-between"
-      >
-        <Link href="/platform/economics">
+        className="w-full justify-between" render={<Link href="/platform/economics">
           {t.economics}
           <ExternalLink className="size-3.5" />
-        </Link>
-      </Button>
+        </Link>} />
     </div>
   );
 }

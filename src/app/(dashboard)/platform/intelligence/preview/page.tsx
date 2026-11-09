@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import Link from '@/lib/console-link';
 import { ArrowLeft, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/toast';
 import {
     WeightSliders,
@@ -136,12 +136,12 @@ export default function PreviewPage() {
             </div>
 
             {/* Feed Type Toggle */}
-            <Tabs value={feedType} onValueChange={(v) => setFeedType(v as 'pods' | 'news')}>
-                <TabsList>
-                    <TabsTrigger value="pods">Pods Feed</TabsTrigger>
-                    <TabsTrigger value="news">News Feed</TabsTrigger>
-                </TabsList>
-            </Tabs>
+            <SegmentedControl
+                label="Feed type"
+                value={feedType}
+                options={[{ value: 'pods', label: 'Pods Feed' }, { value: 'news', label: 'News Feed' }]}
+                onValueChange={setFeedType}
+            />
 
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Weight Overrides Panel */}

@@ -409,12 +409,9 @@ function SystemHealthWorkspace() {
               ? `${selected.displayName} diagnostics`
               : 'Service diagnostics'
           }
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            const target = inspectorTrigger.current;
-            if (target?.isConnected) target.focus();
-            else document.getElementById('system-health-title')?.focus();
-          }}
+          finalFocus={() => inspectorTrigger.current?.isConnected
+            ? inspectorTrigger.current
+            : document.getElementById('system-health-title')}
           className="w-full overflow-y-auto p-5 sm:max-w-xl"
         >
           {selected && (

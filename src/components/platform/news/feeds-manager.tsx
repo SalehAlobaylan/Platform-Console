@@ -148,13 +148,11 @@ export function FeedsManager({ open, onClose }: { open: boolean; onClose: () => 
                                             </TableCell>
                                             <TableCell>
                                                 <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button size="sm" variant="outline">
+                                                    <DropdownMenuTrigger render={<Button size="sm" variant="outline">
                                                             <Copy className="mr-1.5 h-3.5 w-3.5" />
                                                             Copy
                                                             <ChevronDown className="ml-1 h-3.5 w-3.5" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
+                                                        </Button>} />
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem onClick={() => copyText(f.rss_url)}>
                                                             RSS
@@ -166,22 +164,18 @@ export function FeedsManager({ open, onClose }: { open: boolean; onClose: () => 
                                                             JSON Feed
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem asChild>
-                                                            <a href={f.rss_url} target="_blank" rel="noreferrer">
+                                                        <DropdownMenuItem render={<a href={f.rss_url} target="_blank" rel="noreferrer">
                                                                 <ExternalLink className="mr-2 h-4 w-4" />
                                                                 Open
-                                                            </a>
-                                                        </DropdownMenuItem>
+                                                            </a>} nativeButton={false} />
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" aria-label="Feed actions">
+                                                    <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Feed actions">
                                                             <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
+                                                        </Button>} />
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem
                                                             onClick={() => {

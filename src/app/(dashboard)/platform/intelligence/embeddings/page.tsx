@@ -796,7 +796,7 @@ export default function EmbeddingLifecyclePage() {
             <TabsTrigger
               key={key}
               value={key}
-              className="rounded-none border-b-2 border-transparent px-0 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+              className="rounded-none border-b-2 border-transparent px-0 py-3 data-[active]:border-primary data-[active]:bg-transparent data-[active]:text-primary data-[active]:shadow-none"
             >
               {key === 'audit' ? 'Audit history' : readable(key)}
               {key === 'campaigns' && activeCampaigns.length > 0 && (
@@ -1409,7 +1409,6 @@ export default function EmbeddingLifecyclePage() {
         }}
       >
         <SheetContent
-          hasAccessibleHeader
           className="w-full overflow-y-auto sm:max-w-xl"
         >
           <SheetTitle>

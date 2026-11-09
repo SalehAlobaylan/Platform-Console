@@ -50,14 +50,11 @@ export function ActivityRail({
     <>
       <div className="flex justify-end xl:hidden">
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm">
+          <SheetTrigger render={<Button variant="outline" size="sm">
               <History aria-hidden="true" className="me-2 size-4" />
               {triggerLabel}
-            </Button>
-          </SheetTrigger>
+            </Button>} />
           <SheetContent
-            hasAccessibleHeader
             dir={dir}
             side={dir === 'rtl' ? 'left' : 'right'}
             closeLabel={closeLabel}

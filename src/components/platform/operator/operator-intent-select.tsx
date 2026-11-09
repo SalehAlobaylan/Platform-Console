@@ -1,7 +1,6 @@
 'use client';
 
 import { useId } from 'react';
-import * as SelectPrimitive from '@radix-ui/react-select';
 import {
   Check,
   GitCompare,
@@ -16,6 +15,9 @@ import {
   SelectContent,
   SelectGroup,
   SelectLabel,
+  SelectOption,
+  SelectOptionText,
+  SelectOptionIndicator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -91,7 +93,7 @@ export function OperatorIntentSelect({
         sideOffset={6}
         collisionPadding={16}
         dir={locale === 'ar' ? 'rtl' : 'ltr'}
-        className="max-h-[min(28rem,var(--radix-select-content-available-height))] w-[min(340px,calc(100vw-2rem))]"
+        className="max-h-[min(28rem,var(--available-height))] w-[min(340px,calc(100vw-2rem))]"
       >
         <SelectGroup>
           <SelectLabel className="px-3 pb-2 pt-2 text-xs font-medium text-muted-foreground">
@@ -100,12 +102,12 @@ export function OperatorIntentSelect({
           {allowed.map((intent) => {
             const OptionIcon = intentIcons[intent];
             return (
-              <SelectPrimitive.Item
+              <SelectOption
                 key={intent}
                 value={intent}
-                textValue={labels[intent]}
+                label={labels[intent]}
                 aria-describedby={`${id}-${intent}-description`}
-                className="relative flex cursor-pointer select-none items-start gap-3 rounded-md px-3 py-2.5 outline-none data-[highlighted]:bg-accent data-[state=checked]:bg-primary/5 data-[highlighted]:text-accent-foreground"
+                className="relative flex cursor-pointer select-none items-start gap-3 rounded-md px-3 py-2.5 outline-none data-[highlighted]:bg-accent data-[selected]:bg-primary/5 data-[highlighted]:text-accent-foreground"
               >
                 <OptionIcon
                   className={cn(
@@ -115,9 +117,9 @@ export function OperatorIntentSelect({
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1 text-start">
-                  <SelectPrimitive.ItemText className="text-sm font-medium">
+                  <SelectOptionText className="text-sm font-medium">
                     {labels[intent]}
-                  </SelectPrimitive.ItemText>
+                  </SelectOptionText>
                   <p
                     id={`${id}-${intent}-description`}
                     className="mt-0.5 text-xs leading-5 text-muted-foreground"
@@ -129,11 +131,11 @@ export function OperatorIntentSelect({
                   className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-primary"
                   aria-hidden="true"
                 >
-                  <SelectPrimitive.ItemIndicator>
+                  <SelectOptionIndicator>
                     <Check className="size-4" />
-                  </SelectPrimitive.ItemIndicator>
+                  </SelectOptionIndicator>
                 </span>
-              </SelectPrimitive.Item>
+              </SelectOption>
             );
           })}
         </SelectGroup>

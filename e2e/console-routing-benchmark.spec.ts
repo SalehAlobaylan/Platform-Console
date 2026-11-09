@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { fixtureLogin, fixtureOrigin, studioUrl } from './fixtures/qualification';
 
-test.skip(!process.env.CONSOLE_BASELINE_ORIGIN, 'Requires the archived Next.js artifact and the Start candidate');
+test.skip(!process.env.CONSOLE_QUALIFICATION_ORIGIN, 'Requires the production fixture runner');
 test.setTimeout(20 * 60_000);
 
 type Milestones = {
@@ -10,6 +10,10 @@ type Milestones = {
     apiRequests: number;
     documents: number;
     assetBytes: number;
+    lastScript: number;
+    lastApi: number;
+    apiWindow: number;
+    frameTail: number;
 };
 
 type Journey = {
@@ -19,12 +23,13 @@ type Journey = {
     control?: { role: 'link' | 'tab'; name: string };
     heading: string;
     ready: string;
+    criticalApi?: string;
 };
 
 const journeys: Journey[] = [
     {
         name: 'news-to-media', from: '/platform/news', to: '/platform/media/atomization',
-        control: { role: 'link', name: 'Media Studio' }, heading: 'Atomization workflow', ready: 'Fixture Studio episode',
+        control: { role: 'link', name: 'Media Studio' }, heading: 'Atomization workflow', ready: 'Fixture Studio episode', criticalApi: '/pipeline',
     },
     {
         name: 'media-to-news', from: '/platform/media/atomization', to: '/platform/news',
@@ -37,12 +42,18 @@ const journeys: Journey[] = [
     { name: 'studio-direct', to: studioUrl, heading: 'Media Studio', ready: 'Fixture chapter' },
 ];
 
+const operatorJourney: Journey = {
+    name: 'console-to-operator', from: '/platform/news', to: '/platform/operator',
+    control: { role: 'link', name: 'Operator' }, heading: 'Wahb Operator',
+    ready: 'Execution is disabled. Read workflows remain available.', criticalApi: '/operator/status',
+};
+
 function percentile(values: number[], p: number) {
     const sorted = [...values].sort((a, b) => a - b);
     return Math.round(sorted[Math.ceil(sorted.length * p) - 1] * 10) / 10;
 }
 
-type BrowserTiming = { destination?: number; usable?: number };
+type BrowserTiming = { start?: number; destination?: number; usable?: number };
 type BenchmarkWindow = Window & { consoleQualificationTiming?: BrowserTiming };
 
 function captureFrames({ journey, onInput }: { journey: Journey; onInput: boolean }) {
@@ -54,6 +65,7 @@ function captureFrames({ journey, onInput }: { journey: Journey; onInput: boolea
         Array.from(document.querySelectorAll(selector)).some((element) =>
             element.textContent?.trim() === text && visible(element));
     const start = (time: number) => {
+        state.start = time;
         const frame = () => {
             const now = performance.now() - time;
             if (state.destination === undefined) {
@@ -81,6 +93,9 @@ function captureFrames({ journey, onInput }: { journey: Journey; onInput: boolea
 }
 
 async function measure(page: Page, origin: string, journey: Journey, warm: boolean): Promise<Milestones> {
+    const destinationURL = journey === operatorJourney
+        ? (url: URL) => url.origin === origin && url.pathname === journey.to
+        : origin + journey.to;
     let documents = 0;
     let apiRequests = 0;
     let counting = false;
@@ -95,7 +110,7 @@ async function measure(page: Page, origin: string, journey: Journey, warm: boole
         await expect(control).toBeVisible();
         if (warm) {
             await control.click({ timeout: 5_000 });
-            await expect(page).toHaveURL(origin + journey.to);
+            await expect(page).toHaveURL(destinationURL);
             await expect(page.getByText(journey.ready, { exact: true }).first()).toBeVisible();
             if (journey.control.role === 'tab') {
                 await page.getByRole('tab', { name: 'Overview' }).click({ timeout: 5_000 });
@@ -119,29 +134,42 @@ async function measure(page: Page, origin: string, journey: Journey, warm: boole
         if (warm) await page.reload({ waitUntil: 'commit' });
         else await page.goto(origin + journey.to, { waitUntil: 'commit' });
     }
-    await expect(page).toHaveURL(origin + journey.to);
+    await expect(page).toHaveURL(destinationURL);
     await page.waitForFunction(() => (window as BenchmarkWindow).consoleQualificationTiming?.usable !== undefined, null, { timeout: 10_000 });
-    const { destination, usable, assetBytes } = await page.evaluate(() => {
+    const { destination, usable, assetBytes, lastScript, lastApi, apiWindow, frameTail } = await page.evaluate((criticalApi) => {
         const marks = (window as BenchmarkWindow).consoleQualificationTiming!;
-        const assetBytes = performance.getEntriesByType('resource')
-            .filter((entry) => entry.name.includes('/assets/') || entry.name.includes('/_next/static/'))
-            .reduce((bytes, entry) => bytes + (entry as PerformanceResourceTiming).transferSize, 0);
-        return { ...marks, assetBytes };
-    });
+        const start = marks.start ?? 0;
+        const end = start + (marks.usable ?? 0);
+        const resources = (performance.getEntriesByType('resource') as PerformanceResourceTiming[])
+            .filter((entry) => entry.responseEnd >= start && entry.responseEnd <= end);
+        const assets = resources.filter((entry) => /\/(assets|_next\/static)\//.test(new URL(entry.name).pathname));
+        const scripts = assets.filter((entry) => /\.m?js$/.test(new URL(entry.name).pathname));
+        const api = resources.filter((entry) => {
+            const path = new URL(entry.name).pathname;
+            return path.startsWith('/api/') && (!criticalApi || path.endsWith(criticalApi));
+        });
+        const lastScript = Math.max(0, ...scripts.map((entry) => entry.responseEnd - start));
+        const lastApi = Math.max(0, ...api.map((entry) => entry.responseEnd - start));
+        const apiWindow = api.length ? lastApi - Math.min(...api.map((entry) => Math.max(0, entry.startTime - start))) : 0;
+        const frameTail = Math.max(0, (marks.usable ?? 0) - Math.max(lastApi, lastScript));
+        return { ...marks, lastScript, lastApi, apiWindow, frameTail, assetBytes: assets.reduce((sum, entry) => sum + entry.transferSize, 0) };
+    }, journey.criticalApi);
     if (destination === undefined || usable === undefined) throw new Error('Incomplete frame timing');
-    return { destination, usable, apiRequests, documents, assetBytes };
+    return { destination, usable, apiRequests, documents, assetBytes, lastScript, lastApi, apiWindow, frameTail };
 }
 
-test('records matched production measurements for both routers', async ({ browser }, testInfo) => {
-    const samples = Number(process.env.CONSOLE_BENCH_RUNS ?? 50);
+test('records production fixture navigation milestones', async ({ browser }, testInfo) => {
+    const comparing = Boolean(process.env.CONSOLE_BASELINE_ORIGIN);
+    const samples = Number(process.env.CONSOLE_BENCH_RUNS ?? (comparing ? 50 : 15));
     if (!Number.isSafeInteger(samples) || samples < 1) throw new Error('Invalid benchmark repetition count');
-    const origins = { next: fixtureOrigin(process.env.CONSOLE_BASELINE_ORIGIN), start: fixtureOrigin() };
+    const origins = { next: comparing ? fixtureOrigin(process.env.CONSOLE_BASELINE_ORIGIN) : '', start: fixtureOrigin() };
+    const variants = comparing ? ['next', 'start'] as const : ['start'] as const;
     const rows = [];
-    for (const journey of journeys) {
+    for (const journey of comparing ? journeys : [journeys[0], operatorJourney]) {
         for (const warm of [false, true]) {
             const results: Record<keyof typeof origins, Milestones[]> = { next: [], start: [] };
             for (let iteration = 0; iteration < samples; iteration++) {
-                const order = iteration % 2 ? ['start', 'next'] as const : ['next', 'start'] as const;
+                const order = iteration % 2 ? [...variants].reverse() : variants;
                 for (const variant of order) {
                     const origin = origins[variant];
                     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -154,7 +182,7 @@ test('records matched production measurements for both routers', async ({ browse
                     }
                 }
             }
-            for (const variant of ['next', 'start'] as const) {
+            for (const variant of variants) {
                 const entries = results[variant];
                 rows.push({
                     journey: journey.name, warm, variant, samples,
@@ -164,10 +192,14 @@ test('records matched production measurements for both routers', async ({ browse
                     usableP95: percentile(entries.map((entry) => entry.usable), 0.95),
                     apiRequestsP50: percentile(entries.map((entry) => entry.apiRequests), 0.5),
                     documentRequestsP95: percentile(entries.map((entry) => entry.documents), 0.95),
+                    lastScriptP50: percentile(entries.map((entry) => entry.lastScript), 0.5),
+                    lastApiP50: percentile(entries.map((entry) => entry.lastApi), 0.5),
+                    apiWindowP50: percentile(entries.map((entry) => entry.apiWindow), 0.5),
+                    frameTailP50: percentile(entries.map((entry) => entry.frameTail), 0.5),
                     assetBytesP50: percentile(entries.map((entry) => entry.assetBytes), 0.5),
                 });
             }
-            console.log(JSON.stringify(rows.slice(-2)));
+            console.log(JSON.stringify(rows.slice(-variants.length)));
         }
     }
     await testInfo.attach('console-routing-timings', { body: JSON.stringify(rows), contentType: 'application/json' });

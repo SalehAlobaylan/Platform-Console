@@ -440,9 +440,9 @@ it('changes only next-question scope while preserving the current chat and draft
   fireEvent.keyDown(screen.getByRole('combobox', { name: 'Working in' }), {
     key: 'ArrowDown',
   });
-  fireEvent.keyDown(screen.getByRole('option', { name: 'Storage & Quality' }), {
-    key: 'Enter',
-  });
+  const option = screen.getByRole('option', { name: 'Storage & Quality' });
+  fireEvent.pointerDown(option);
+  fireEvent.click(option);
   view.rerender(<OperatorWorkspace />);
   expect(new URLSearchParams(mockSearch).get('domain')).toBe('storage_quality');
   expect(new URLSearchParams(mockSearch).get('thread')).toBe(caseID);
@@ -739,7 +739,7 @@ it('keeps the reading position when new events arrive until the reader requests 
   ).not.toBeInTheDocument();
 });
 
-it('keeps an unexecuted plan distinct from verified results and requires the approval confirmation', () => {
+it('keeps an unexecuted plan distinct from verified results and requires the approval confirmation', async () => {
   const approve = jest.fn();
   render(
     <OperatorPlanPanel
@@ -778,10 +778,58 @@ it('keeps an unexecuted plan distinct from verified results and requires the app
   fireEvent.click(screen.getByRole('button', { name: 'Approve plan' }));
   expect(approve).not.toHaveBeenCalled();
   const confirmation = screen.getByRole('dialog');
-  fireEvent.click(
-    within(confirmation).getByRole('button', { name: 'Approve plan' })
-  );
+  await act(async () => {
+    fireEvent.click(
+      within(confirmation).getByRole('button', { name: 'Approve plan' })
+    );
+  });
   expect(approve).toHaveBeenCalledWith('APPROVE');
+});
+
+it('requires a fresh confirmation when a signed plan changes during review', () => {
+  const approve = jest.fn();
+  const plan: NonNullable<Parameters<typeof OperatorPlanPanel>[0]['plan']> = {
+    id: caseID,
+    state: 'awaiting_approval',
+    tool_key: 'media_sources.pause',
+    risk_tier: 'routine',
+    expires_at: '2099-01-01T00:00:00Z',
+    localized_action_key: 'operator.action.media_sources_pause',
+    digest: 'a'.repeat(64),
+    canonical_plan: {
+      schema_version: 'wahb-operator/v1',
+      plan_id: caseID,
+      tenant_id: 'fixture-tenant',
+      actor_id: 'fixture-operator',
+      tool_key: 'media_sources.pause',
+      tool_version: '1',
+      target_ids: ['source-1'],
+      normalized_arguments: {},
+      evidence_ids: ['fixture-evidence'],
+      evidence_fingerprint: 'fixture-fingerprint',
+      access_version: '1',
+      risk_tier: 'routine',
+      cancellation: 'before_start_only',
+      rollback: 'media_sources.resume',
+      contingencies: ['Recheck source health'],
+    },
+  };
+  const panel = (candidate: typeof plan) => (
+    <OperatorPlanPanel locale="en" plan={candidate} events={[]} stale={false}
+      approving={false} onApprove={approve} onCancel={jest.fn()} />
+  );
+  const view = render(panel(plan));
+  fireEvent.click(screen.getByRole('button', { name: 'Approve plan' }));
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  view.rerender(panel({
+    ...plan,
+    digest: 'b'.repeat(64),
+    canonical_plan: { ...plan.canonical_plan, target_ids: ['source-2'] },
+  }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  view.rerender(panel(plan));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(approve).not.toHaveBeenCalled();
 });
 
 it('labels expired evidence as stale while preserving its collected status', () => {

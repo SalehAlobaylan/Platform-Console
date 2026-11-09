@@ -1,7 +1,8 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useRef, useState } from 'react';
 import {
+  AlertDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,12 +14,12 @@ import {
 import { Button } from '@/components/ui/button';
 
 interface ConfirmDialogProps {
-  trigger: ReactNode;
+  trigger: React.ReactElement;
   title: string;
   description: ReactNode;
   confirmLabel?: string;
   confirmVariant?: 'default' | 'destructive';
-  onConfirm: () => void | Promise<void>;
+  onConfirm: () => void | false | Promise<void | false>;
   disabledReason?: string;
 }
 
@@ -34,27 +35,44 @@ export function ConfirmDialog({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const [error, setError] = useState('');
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const destructive = confirmVariant === 'destructive';
+  const Root = destructive ? AlertDialog : Dialog;
+
   async function handleConfirm() {
     if (disabledReason || busy) return;
     setBusy(true);
+    setError('');
     try {
-      await onConfirm();
-      setOpen(false);
+      if ((await onConfirm()) !== false) setOpen(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The request failed.');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+    <Root
+      open={open}
+      onOpenChange={(nextOpen: boolean) => {
+        if (busy) return;
+        if (nextOpen) setError('');
+        setOpen(nextOpen);
+      }}
+    >
+      <DialogTrigger render={trigger} />
+      <DialogContent initialFocus={cancelRef} showClose={!destructive && !busy}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription asChild>
-            <div>{description}</div>
-          </DialogDescription>
+          <DialogDescription render={<div />}>{description}</DialogDescription>
         </DialogHeader>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
         <DialogFooter>
           {disabledReason && (
             <p role="alert" className="text-sm text-destructive">
@@ -62,6 +80,7 @@ export function ConfirmDialog({
             </p>
           )}
           <Button
+            ref={cancelRef}
             variant="outline"
             onClick={() => setOpen(false)}
             disabled={busy}
@@ -77,6 +96,6 @@ export function ConfirmDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Root>
   );
 }

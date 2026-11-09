@@ -189,11 +189,9 @@ function MediaSuggestionCard({ suggestion, relationship, onApprove, onReject, on
 
                 <div className="mt-auto flex flex-wrap items-center gap-2 border-t pt-4" onClick={(e) => e.stopPropagation()}>
                     {relationship?.matched_source_id && approveBlocked ? (
-                        <Button size="sm" className="min-w-32 flex-1" asChild>
-                            <Link href={`/platform/media/sources?tab=sources&source=${relationship.matched_source_id}`}>
+                        <Button size="sm" className="min-w-32 flex-1" render={<Link href={`/platform/media/sources?tab=sources&source=${relationship.matched_source_id}`}>
                                 Open source
-                            </Link>
-                        </Button>
+                            </Link>} />
                     ) : (
                         <Button size="sm" className="min-w-32 flex-1" onClick={onApprove} disabled={busy || approveBlocked}>
                             <Check className="mr-1 h-4 w-4" /> {approveLabel}
@@ -655,12 +653,10 @@ export function MediaFindingPage({ embedded = false, relationships, intelligence
                             </div>
                             <div className="flex items-center gap-2">
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button size="sm" variant="outline" disabled={bulkReject.isPending}>
+                                    <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={bulkReject.isPending}>
                                             {bulkReject.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                                             Clear <ChevronDown className="ml-1 h-3.5 w-3.5" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
+                                        </Button>} />
                                     <DropdownMenuContent align="end" className="w-60">
                                         <DropdownMenuLabel>Clear from this view</DropdownMenuLabel>
                                         <DropdownMenuSeparator />

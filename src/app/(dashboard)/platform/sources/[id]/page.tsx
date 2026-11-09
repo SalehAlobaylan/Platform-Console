@@ -72,19 +72,15 @@ export default function SourceDetailPage({ id }: SourceDetailPageProps) {
         return (
             <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href={from}>
+                    <Button variant="ghost" size="icon" render={<Link href={from}>
                             <ArrowLeft className="h-4 w-4" />
-                        </Link>
-                    </Button>
+                        </Link>} />
                     <h1 className="text-3xl font-bold tracking-tight">Source Not Found</h1>
                 </div>
                 <p className="text-muted-foreground">
                     The source you are looking for does not exist or has been deleted.
                 </p>
-                <Button asChild>
-                    <Link href={from}>Back to Sources</Link>
-                </Button>
+                <Button render={<Link href={from}>Back to Sources</Link>} />
             </div>
         );
     }
@@ -94,11 +90,9 @@ export default function SourceDetailPage({ id }: SourceDetailPageProps) {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href={from}>
+                    <Button variant="ghost" size="icon" render={<Link href={from}>
                             <ArrowLeft className="h-4 w-4" />
-                        </Link>
-                    </Button>
+                        </Link>} />
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
                         {source.image_url ? (
                             <img

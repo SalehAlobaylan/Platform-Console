@@ -254,6 +254,7 @@ try {
     let unmanagedBaseline;
     let restartOrigin;
     const benchmark = process.argv[2] === 'benchmark';
+    const timing = process.argv[2] === 'timing';
     const workflows = process.argv[2] === 'workflows';
     if (benchmark) {
         if (!process.env.CONSOLE_NEXT_ARTIFACT) throw new Error('Set CONSOLE_NEXT_ARTIFACT to the archived Next standalone server.js');
@@ -262,7 +263,7 @@ try {
         const start = origin;
         baseline = await bind(createServer((incoming, outgoing) => forward(incoming, outgoing, next)));
         origin = await bind(createServer((incoming, outgoing) => forward(incoming, outgoing, incoming.url.startsWith('/api/') ? next : start)));
-    } else if (!workflows) {
+    } else if (!workflows && !timing) {
         unmanaged = await launch('.output/server/index.mjs', false);
         const restarted = await launch('.output/server/index.mjs', true, 'fixture-restarted');
         let active = origin;
@@ -278,12 +279,12 @@ try {
             unmanagedBaseline = await launch(process.env.CONSOLE_NEXT_ARTIFACT, false);
         }
     }
-    const projects = benchmark ? ['chromium'] : process.argv.slice(workflows ? 3 : 2);
+    const projects = benchmark || timing ? ['chromium'] : process.argv.slice(workflows ? 3 : 2);
     if (!projects.length) projects.push('chromium');
     if (projects.some((project) => !['chromium', 'firefox', 'webkit'].includes(project))) {
         throw new Error('Choose chromium, firefox, or webkit for fixture qualification');
     }
-    const specs = benchmark ? ['console-routing-benchmark.spec.ts']
+    const specs = benchmark || timing ? ['console-routing-benchmark.spec.ts']
         : workflows ? ['media-journey.spec.ts', 'platform-economics.spec.ts', 'real-experience.spec.ts', 'ai-spend.spec.ts']
         : ['console-route-parity.spec.ts', 'console-api-contract.spec.ts', 'console-operator-parity.spec.ts'];
     const runner = spawn(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', ...projects.map((project) => `--project=${project}`), '--workers=1', '--retries=0', '--reporter=list', '--output', `test-results/qualification-${process.pid}`, ...specs], {

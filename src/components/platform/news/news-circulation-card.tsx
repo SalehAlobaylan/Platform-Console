@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -1299,15 +1300,7 @@ function PreviewPanel({
                     Top Story Simulation
                     {draftPreview && <Badge variant="warning">Draft policy</Badge>}
                 </CardTitle>
-                <Tabs value={window} onValueChange={(value) => setWindow(value as NewsWindow)}>
-                    <TabsList className="h-9">
-                        {WINDOWS.map((item) => (
-                            <TabsTrigger key={item.value} value={item.value} className="h-7 text-xs">
-                                {item.label}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
+                <SegmentedControl label="Story window" value={window} options={WINDOWS} onValueChange={setWindow} size="sm" />
             </CardHeader>
             <CardContent className="space-y-2">
                 {loading ? (

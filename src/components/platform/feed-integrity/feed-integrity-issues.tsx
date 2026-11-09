@@ -283,12 +283,10 @@ function IssueInspector({
             : `${t('Investigate the exact target in', 'تحقق من الهدف الدقيق في')} ${ownerLabel(owner, locale)}.`}
         </p>
         {link ? (
-          <Button asChild className="max-w-full" size="sm">
-            <Link href={link}>
+          <Button className="max-w-full" size="sm" render={<Link href={link}>
               {t('Open', 'فتح')} {ownerLabel(owner, locale)}
               <ArrowUpRight className="ms-2 h-4 w-4 shrink-0" />
-            </Link>
-          </Button>
+            </Link>} />
         ) : (
           <p className="text-xs text-muted-foreground">
             {t(
@@ -859,7 +857,6 @@ export function FeedIntegrityIssues({
       >
         <SheetContent
           side="bottom"
-          hasAccessibleHeader
           lang={locale}
           closeLabel={t('Close inspector', 'إغلاق التفاصيل')}
           dir={locale === 'ar' ? 'rtl' : 'ltr'}

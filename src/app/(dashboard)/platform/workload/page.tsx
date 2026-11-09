@@ -303,28 +303,28 @@ function WorkloadWorkspace() {
         >
           <TabsTrigger
             value="overview"
-            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none sm:px-3 sm:text-sm"
+            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[active]:border-primary data-[active]:bg-transparent data-[active]:text-primary data-[active]:shadow-none sm:px-3 sm:text-sm"
           >
             <Gauge className="hidden h-4 w-4 sm:block" aria-hidden="true" />
             {t('Overview', 'نظرة عامة')}
           </TabsTrigger>
           <TabsTrigger
             value="evidence"
-            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none sm:px-3 sm:text-sm"
+            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[active]:border-primary data-[active]:bg-transparent data-[active]:text-primary data-[active]:shadow-none sm:px-3 sm:text-sm"
           >
             <BarChart3 className="hidden h-4 w-4 sm:block" aria-hidden="true" />
             {t('Readiness', 'الجاهزية')}
           </TabsTrigger>
           <TabsTrigger
             value="activity"
-            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none sm:px-3 sm:text-sm"
+            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[active]:border-primary data-[active]:bg-transparent data-[active]:text-primary data-[active]:shadow-none sm:px-3 sm:text-sm"
           >
             <Activity className="hidden h-4 w-4 sm:block" aria-hidden="true" />
             {t('Activity', 'النشاط')}
           </TabsTrigger>
           <TabsTrigger
             value="settings"
-            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none sm:px-3 sm:text-sm"
+            className="min-h-12 gap-2 rounded-none border-b-2 border-transparent px-2 text-xs data-[active]:border-primary data-[active]:bg-transparent data-[active]:text-primary data-[active]:shadow-none sm:px-3 sm:text-sm"
           >
             <Settings2 className="hidden h-4 w-4 sm:block" aria-hidden="true" />
             {t('Settings', 'الإعدادات')}
@@ -390,8 +390,8 @@ function WorkloadWorkspace() {
         </TabsContent>
         <TabsContent
           value="settings"
-          forceMount
-          className="mt-5 data-[state=inactive]:hidden"
+          keepMounted
+          className="mt-5 data-[hidden]:hidden"
         >
           <WorkloadSettings
             policy={data?.policy}

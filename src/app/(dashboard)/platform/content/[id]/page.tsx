@@ -69,11 +69,9 @@ export default function ContentDetailPage({ id }: ContentDetailPageProps) {
         return (
             <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href="/platform/content">
+                    <Button variant="ghost" size="icon" render={<Link href="/platform/content">
                             <ArrowLeft className="h-4 w-4" />
-                        </Link>
-                    </Button>
+                        </Link>} />
                     <h1 className="text-3xl font-bold tracking-tight">
                         Content not found
                     </h1>
@@ -81,9 +79,7 @@ export default function ContentDetailPage({ id }: ContentDetailPageProps) {
                 <p className="text-muted-foreground">
                     The content item you are looking for does not exist.
                 </p>
-                <Button asChild>
-                    <Link href="/platform/content">Back to content</Link>
-                </Button>
+                <Button render={<Link href="/platform/content">Back to content</Link>} />
             </div>
         );
     }
@@ -99,11 +95,9 @@ export default function ContentDetailPage({ id }: ContentDetailPageProps) {
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href={backHref}>
+                    <Button variant="ghost" size="icon" render={<Link href={backHref}>
                             <ArrowLeft className="h-4 w-4" />
-                        </Link>
-                    </Button>
+                        </Link>} />
                     <div className="min-w-0">
                         <h1 className="line-clamp-2 max-w-3xl text-2xl font-bold tracking-tight">
                             {item.title}
@@ -133,24 +127,20 @@ export default function ContentDetailPage({ id }: ContentDetailPageProps) {
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
                     {item.original_url && (
-                        <Button variant="outline" asChild>
-                            <a
+                        <Button variant="outline" render={<a
                                 href={item.original_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
                                 <ExternalLink className="mr-2 h-4 w-4" />
                                 Open original
-                            </a>
-                        </Button>
+                            </a>} />
                     )}
                     {isMediaItem && (
-                        <Button variant="outline" asChild>
-                            <Link href={`/platform/media/atomization?tab=studio&item=${item.id}`}>
+                        <Button variant="outline" render={<Link href={`/platform/media/atomization?tab=studio&item=${item.id}`}>
                                 <Clapperboard className="mr-2 h-4 w-4" />
                                 Open in Media Studio
-                            </Link>
-                        </Button>
+                            </Link>} />
                     )}
                     <DetailActionsMenu item={item} />
                 </div>

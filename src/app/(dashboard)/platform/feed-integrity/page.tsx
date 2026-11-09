@@ -183,15 +183,13 @@ function FeedIntegrityWorkspace() {
                 : t('Check feeds', 'فحص الخلاصات')}
             </Button>
             <DropdownMenu dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-              <DropdownMenuTrigger asChild>
-                <Button
+              <DropdownMenuTrigger render={<Button
                   className="rounded-s-none border-s border-primary-foreground/20 px-2"
                   disabled={unavailable || checking}
                   aria-label={t('Check options', 'خيارات الفحص')}
                 >
                   <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
+                </Button>} />
               <DropdownMenuContent
                 lang={locale}
                 align="end"
@@ -199,7 +197,7 @@ function FeedIntegrityWorkspace() {
               >
                 <DropdownMenuItem
                   className="block py-3"
-                  onSelect={() => run.mutate('light')}
+                  onClick={() => run.mutate('light')}
                 >
                   <span className="block font-medium">
                     {t('Quick feed check', 'فحص الخلاصة السريع')}
@@ -213,7 +211,7 @@ function FeedIntegrityWorkspace() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="block py-3"
-                  onSelect={() => run.mutate('deep')}
+                  onClick={() => run.mutate('deep')}
                 >
                   <span className="block font-medium">
                     {t('Include media URL checks', 'تضمين فحص روابط الوسائط')}

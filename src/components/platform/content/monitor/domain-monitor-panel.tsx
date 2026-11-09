@@ -83,12 +83,10 @@ export function DomainMonitorPanel({
             </div>
             <div className="flex items-center gap-3">
                 {data && data.daily.length >= 2 && <Sparkline daily={data.daily} color={accentColor} />}
-                <Button asChild variant="outline" size="sm" className="gap-1">
-                    <Link href={href}>
+                <Button variant="outline" size="sm" className="gap-1" render={<Link href={href}>
                         Manage
                         <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Link>
-                </Button>
+                    </Link>} />
             </div>
         </CardHeader>
     );

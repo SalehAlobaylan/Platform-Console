@@ -48,6 +48,7 @@ export function SystemIncidentHistorySheet({
   onSelectedChange,
   onCloseIncident,
   isClosing = false,
+  finalFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,13 +56,13 @@ export function SystemIncidentHistorySheet({
   onSelectedChange?: (id: string | null) => void;
   onCloseIncident?: (episode: SystemIncidentEpisode) => void;
   isClosing?: boolean;
+  finalFocus?: React.ComponentProps<typeof SheetContent>['finalFocus'];
 }) {
   const [selected, setSelected] = useState<string | null>(selectedId ?? null);
   useEffect(() => {
     setSelected(selectedId ?? null);
   }, [selectedId]);
   const contentRef = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (open && selected && contentRef.current)
       contentRef.current.scrollTop = 0;
@@ -81,18 +82,7 @@ export function SystemIncidentHistorySheet({
         ref={contentRef}
         side="right"
         className="w-full overflow-y-auto p-5 sm:max-w-2xl"
-        onOpenAutoFocus={() => {
-          openerRef.current =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
-        }}
-        onCloseAutoFocus={(event) => {
-          if (openerRef.current?.isConnected) {
-            event.preventDefault();
-            openerRef.current.focus();
-          }
-        }}
+        finalFocus={finalFocus}
       >
         <SheetHeader className="mb-4 text-left">
           <SheetTitle>System Health incident history</SheetTitle>

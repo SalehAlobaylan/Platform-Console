@@ -686,11 +686,9 @@ function PublicationCard({
                         </Button>
                     )}
                     {item.playback_url && (
-                        <Button size="sm" variant="outline" asChild>
-                            <a href={item.playback_url} target="_blank" rel="noreferrer">
+                        <Button size="sm" variant="outline" render={<a href={item.playback_url} target="_blank" rel="noreferrer">
                                 <Play className="mr-2 h-4 w-4" /> Preview
-                            </a>
-                        </Button>
+                            </a>} />
                     )}
                 </div>
             </div>
@@ -915,11 +913,9 @@ function ReviewQueue({
                             </div>
                             <div className="flex flex-wrap gap-2 lg:justify-end">
                                 {chapter.playback_url && (
-                                    <Button size="sm" variant="outline" asChild>
-                                        <a href={chapter.playback_url} target="_blank" rel="noreferrer">
+                                    <Button size="sm" variant="outline" render={<a href={chapter.playback_url} target="_blank" rel="noreferrer">
                                             <Play className="mr-2 h-4 w-4" /> Preview
-                                        </a>
-                                    </Button>
+                                        </a>} />
                                 )}
                                 <Button size="sm" variant="outline" onClick={() => onOpenStudio(chapter.parent_id, chapter.id)}>
                                     <ExternalLink className="mr-2 h-4 w-4" /> Studio
@@ -1462,7 +1458,7 @@ export function MediaAtomizationDashboard() {
 
             <Tabs value={activeTab} onValueChange={(value) => setTab(value as MissionTab)} className="space-y-5">
                 <div className="sticky top-0 z-20 -mx-1 overflow-x-auto border-b bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-                    <TabsList className="w-max justify-start">
+                    <TabsList aria-label="Media Studio views" className="h-auto w-full flex-wrap justify-start gap-y-1 sm:w-max sm:flex-nowrap">
                         {missionTabs.map((tab) => (
                             <TabsTrigger key={tab} value={tab}>
                                 {missionTabLabel(tab)}
@@ -1523,7 +1519,7 @@ export function MediaAtomizationDashboard() {
                             } tone="ok" />
                             <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 0} tone="bad" />
                         </SummaryStrip>
-                        <div className="grid gap-5 xl:grid-cols-[minmax(260px,0.45fr)_minmax(0,1fr)]">
+                        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,0.45fr)_minmax(0,1fr)]">
                             <section className="rounded-md border bg-card">
                                 <SectionHeader icon={<Scissors className="h-4 w-4 text-[#D7A83E]" />} title="Studio Queue" sub="Pick a parent from the atomization workspace, or open recent parent media here." />
                                 <div className="space-y-2 p-4 pt-0">
@@ -1550,7 +1546,7 @@ export function MediaAtomizationDashboard() {
                                     ))}
                                 </div>
                             </section>
-                            <section className="min-w-0 rounded-md border bg-card p-4">
+                            <section className="min-w-0 rounded-md border bg-card p-3 sm:p-4">
                                 {selectedStudioItem ? (
                                     <div className="space-y-4">
                                         <StudioContextStrip context={studioContext.data} loading={studioContext.isLoading} />

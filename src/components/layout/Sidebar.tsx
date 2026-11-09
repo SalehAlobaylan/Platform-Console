@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { navigation, NavigationSection } from '@/lib/constants/routes';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 interface SidebarProps {
   className?: string;
@@ -38,7 +38,7 @@ export function Sidebar({ className }: SidebarProps) {
     <>
       {mobile ? (
         <div className="flex h-14 items-center justify-between border-b px-4">
-          <span className="text-sm font-semibold">Console</span>
+          <SheetTitle className="text-sm font-semibold">Console navigation</SheetTitle>
           <Button
             variant="ghost"
             size="icon"
@@ -138,7 +138,12 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Mobile Sidebar - Sheet/Drawer */}
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <SheetContent side="left" className="w-60 p-0">
+        <SheetContent
+          side="left"
+          className="w-60 p-0"
+          showClose={false}
+          finalFocus={() => document.getElementById('console-navigation-trigger')}
+        >
           <div className="flex h-full flex-col">
             <NavContent mobile />
           </div>

@@ -196,12 +196,10 @@ export function AggregationHealthPanel() {
                         Trigger Job
                     </Button>
                     {grafanaUrl ? (
-                        <Button type="button" variant="secondary" asChild>
-                            <a href={grafanaUrl} target="_blank" rel="noreferrer">
+                        <Button type="button" variant="secondary" render={<a href={grafanaUrl} target="_blank" rel="noreferrer">
                                 <ExternalLink className="mr-2 h-4 w-4" />
                                 Open Grafana
-                            </a>
-                        </Button>
+                            </a>} />
                     ) : null}
                 </div>
 

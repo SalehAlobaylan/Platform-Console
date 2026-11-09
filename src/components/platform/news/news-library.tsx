@@ -436,12 +436,12 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                     </SelectContent>
                 </Select>
                 {/* Published-date range */}
-                <div className="flex items-center gap-1.5">
+                <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:w-auto">
                     <Input
                         type="date"
                         value={dateFrom}
                         onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-[150px] rounded-sm"
+                        className="min-w-0 rounded-sm sm:w-[150px]"
                         aria-label="Published from"
                         title="Published from"
                     />
@@ -450,7 +450,7 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                         type="date"
                         value={dateTo}
                         onChange={(e) => setDateTo(e.target.value)}
-                        className="w-[150px] rounded-sm"
+                        className="min-w-0 rounded-sm sm:w-[150px]"
                         aria-label="Published to"
                         title="Published to"
                     />
@@ -710,11 +710,9 @@ function NewsRow({
                     {NEWS_STATUS_LABELS[item.status]}
                 </Badge>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Row actions">
+                    <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Row actions">
                             <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
+                        </Button>} />
                     <DropdownMenuContent align="end" className="w-52">
                         <DropdownMenuItem onClick={() => router.push(`/platform/content/${item.id}`)}>
                             <PanelRight className="mr-2 h-4 w-4" /> Open detail

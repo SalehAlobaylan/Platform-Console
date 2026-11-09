@@ -39,9 +39,11 @@ export function BulkConfirmDialog({ config, onClose, onDone }: BulkConfirmDialog
     const [count, setCount] = useState<number | null>(null);
     const [previewing, setPreviewing] = useState(false);
     const [committing, setCommitting] = useState(false);
+    const [commitError, setCommitError] = useState('');
 
     useEffect(() => {
         let cancelled = false;
+        setCommitError('');
         if (!config) {
             setCount(null);
             return;
@@ -59,12 +61,15 @@ export function BulkConfirmDialog({ config, onClose, onDone }: BulkConfirmDialog
     }, [config]);
 
     const onConfirm = async () => {
-        if (!config) return;
+        if (!config || committing) return;
         setCommitting(true);
+        setCommitError('');
         try {
             await config.commit();
             onDone?.();
             onClose();
+        } catch (error) {
+            setCommitError(error instanceof Error ? error.message : 'Could not complete the action.');
         } finally {
             setCommitting(false);
         }
@@ -74,8 +79,14 @@ export function BulkConfirmDialog({ config, onClose, onDone }: BulkConfirmDialog
     const plural = count === 1 ? '' : 's';
 
     return (
-        <Dialog open={Boolean(config)} onOpenChange={(o) => !o && onClose()}>
-            <DialogContent>
+        <Dialog
+            open={Boolean(config)}
+            disablePointerDismissal={config?.destructive}
+            onOpenChange={(open) => {
+                if (!open && !committing) onClose();
+            }}
+        >
+            <DialogContent showClose={!committing}>
                 <DialogHeader>
                     <DialogTitle>{config?.title}</DialogTitle>
                     <DialogDescription>
@@ -89,6 +100,7 @@ export function BulkConfirmDialog({ config, onClose, onDone }: BulkConfirmDialog
                             : ''}
                     </DialogDescription>
                 </DialogHeader>
+                {commitError && <p role="alert" className="text-sm text-destructive">{commitError}</p>}
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose} disabled={committing}>
                         Cancel
@@ -99,7 +111,7 @@ export function BulkConfirmDialog({ config, onClose, onDone }: BulkConfirmDialog
                         disabled={previewing || committing || count === 0}
                     >
                         {committing ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="me-2 h-4 w-4 motion-safe:animate-spin" />
                         ) : null}
                         {config?.actionLabel}
                         {count ? ` ${count.toLocaleString()}` : ''}

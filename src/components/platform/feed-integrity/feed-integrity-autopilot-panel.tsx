@@ -408,12 +408,10 @@ export function FeedIntegrityAutopilotPanel({
                       )}
                 </p>
                 {ownerLink ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={ownerLink}>
+                  <Button variant="outline" size="sm" render={<Link href={ownerLink}>
                       {t('Open', 'فتح')}{' '}
                       {ownerLabel(selected.owner_system, locale)}
-                    </Link>
-                  </Button>
+                    </Link>} />
                 ) : null}
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t pt-4 text-xs">
                   <dt className="text-muted-foreground">

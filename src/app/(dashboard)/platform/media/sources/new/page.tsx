@@ -36,11 +36,9 @@ export default function NewMediaSourcePage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href={from}>
+                <Button variant="ghost" size="icon" render={<Link href={from}>
                         <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                </Button>
+                    </Link>} />
                 <div>
                     <span className="brand-overline text-gold">Pods</span>
                     <h1 className="text-3xl font-bold tracking-tight">Add Media Source</h1>

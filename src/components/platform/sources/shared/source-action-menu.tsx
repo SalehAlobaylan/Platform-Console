@@ -99,11 +99,9 @@ export function SourceActionMenu({
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Source actions" disabled={busy || disabled}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Source actions" disabled={busy || disabled}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                </Button>
-            </DropdownMenuTrigger>
+                </Button>} />
             <DropdownMenuContent align={align} className="w-48">
                 <DropdownMenuItem disabled={!source.is_active} onClick={() => run(() => runSource(source.id), 'Ingestion queued')}>
                     <Play className="mr-2 h-4 w-4" /> Run now

@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom';
 
+// jsdom does not implement PointerEvent. Base UI forwards pointer-generated clicks.
+if (typeof window !== 'undefined' && !window.PointerEvent) {
+    window.PointerEvent = MouseEvent as typeof PointerEvent;
+}
+
 jest.mock('@/lib/console-link', () => {
     const { createElement, forwardRef } = jest.requireActual<typeof import('react')>('react');
     return {

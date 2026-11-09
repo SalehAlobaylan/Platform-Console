@@ -18,7 +18,7 @@ import type {
 
 interface OperatorLaunchLinkProps extends Omit<
   ButtonProps,
-  'asChild' | 'onClick'
+  'render' | 'onClick'
 > {
   context: OperatorVisibleContext;
   intent?: OperatorIntent;
@@ -49,33 +49,51 @@ export function OperatorLaunchLink({
     createOperatorLaunchHref(context, intent).split('?')[1]
   ).forEach((value, key) => params.set(key, value));
   params.set('panel', 'conversation');
+  const content = (
+    <>
+      <Bot className="me-2 size-4" />
+      {children}
+    </>
+  );
+  if (disabled) {
+    return (
+      <Button
+        variant="outline"
+        {...buttonProps}
+        className={`cursor-not-allowed opacity-50 ${buttonProps.className ?? ''}`}
+        render={
+          <span role="link" aria-disabled="true">
+            {content}
+          </span>
+        }
+      />
+    );
+  }
   return (
-    <Button variant="outline" {...buttonProps} disabled={disabled} asChild>
-      <Link
-        href={`${OPERATOR_PATH}?${params}`}
-        scroll={false}
-        aria-disabled={disabled || undefined}
-        onClick={(event) => {
-          if (disabled) {
-            event.preventDefault();
-            return;
-          }
-          onClick?.(event);
-          if (
-            event.defaultPrevented ||
-            event.metaKey ||
-            event.ctrlKey ||
-            event.shiftKey ||
-            event.altKey
-          )
-            return;
-          rememberConsoleLocation();
-          persistOperatorLaunchContext(context);
-        }}
-      >
-        <Bot className="me-2 size-4" />
-        {children}
-      </Link>
-    </Button>
+    <Button
+      variant="outline"
+      {...buttonProps}
+      render={
+        <Link
+          href={`${OPERATOR_PATH}?${params}`}
+          scroll={false}
+          onClick={(event) => {
+            onClick?.(event);
+            if (
+              event.defaultPrevented ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            )
+              return;
+            rememberConsoleLocation();
+            persistOperatorLaunchContext(context);
+          }}
+        >
+          {content}
+        </Link>
+      }
+    />
   );
 }

@@ -795,7 +795,7 @@ function OperatorChatWorkspace({
   ) => {
     if (!sidebarVisible)
       sidebarReturnFocus.current =
-        document.activeElement instanceof HTMLElement
+        document.activeElement instanceof HTMLElement && document.activeElement !== document.body
           ? document.activeElement
           : null;
     setSidebarSection(section);
@@ -1149,17 +1149,18 @@ function OperatorChatWorkspace({
   };
 
   const approvePlan = async (confirmation: string) => {
-    if (!planID) return;
+    if (!planID) return false;
     setError('');
     try {
       await mutations.approvePlan.mutateAsync({ id: planID, confirmation });
       setPlanStale(false);
+      return true;
     } catch (cause) {
-      if ((cause as ApiError)?.status === 422) setPlanStale(true);
-      else
-        setError(
-          (cause as ApiError)?.message ?? operatorCopy(locale).unavailable
-        );
+      if ((cause as ApiError)?.status === 422) {
+        setPlanStale(true);
+        return false;
+      }
+      return (cause as ApiError)?.message ?? operatorCopy(locale).unavailable;
     }
   };
 
@@ -1198,11 +1199,16 @@ function OperatorChatWorkspace({
       }
     }
   };
+  const reportCancelError = (cause: ApiError) =>
+    setError(cause.message ?? operatorCopy(locale).unavailable);
+  const cancelPlan = (id: string) => {
+    if (!mutations.cancelPlan.isPending)
+      void mutations.cancelPlan.mutateAsync(id).catch(reportCancelError);
+  };
   const cancelTask = (task: OperatorTask) => {
-    if (task.kind === 'investigation' && task.investigation_id)
-      void mutations.cancelInvestigation.mutateAsync(task.investigation_id);
-    if (task.kind === 'plan' && task.plan_id)
-      void mutations.cancelPlan.mutateAsync(task.plan_id);
+    if (task.kind === 'investigation' && task.investigation_id && !mutations.cancelInvestigation.isPending)
+      void mutations.cancelInvestigation.mutateAsync(task.investigation_id).catch(reportCancelError);
+    if (task.kind === 'plan' && task.plan_id) cancelPlan(task.plan_id);
   };
   const refreshing =
     status.isFetching ||
@@ -1712,10 +1718,9 @@ function OperatorChatWorkspace({
                       onTaskGroup={() => {}}
                       onTaskKind={() => {}}
                       onCancelTask={cancelTask}
-                      onApprove={(phrase) => void approvePlan(phrase)}
+                      onApprove={approvePlan}
                       onCancelPlan={() => {
-                        if (planID)
-                          void mutations.cancelPlan.mutateAsync(planID);
+                        if (planID) cancelPlan(planID);
                       }}
                       onRefreshPlan={
                         selectedAction &&
@@ -1779,24 +1784,21 @@ function OperatorChatWorkspace({
           }}
         >
           <SheetContent
-            side={locale === 'ar' ? 'right' : 'left'}
-            hasAccessibleHeader
+            side="start"
             aria-describedby={undefined}
-            closeLabel={t.closeSidebar}
-            className="flex w-[min(92vw,340px)] flex-col p-0 sm:max-w-[340px] [&>button:last-child]:hidden"
+            showClose={false}
+            className="flex w-[min(92vw,340px)] flex-col p-0 sm:max-w-[340px]"
             dir={locale === 'ar' ? 'rtl' : 'ltr'}
             lang={locale}
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
+            finalFocus={() => {
               const target = sidebarReturnFocus.current;
-              (target?.isConnected
+              return target?.isConnected
                 ? target
                 : document.getElementById(
                     window.matchMedia('(min-width: 768px)').matches
                       ? 'operator-sidebar-trigger'
                       : 'operator-mobile-chat-picker'
-                  )
-              )?.focus();
+                  );
             }}
           >
             <SheetHeader className="sr-only">
@@ -1815,10 +1817,7 @@ function OperatorChatWorkspace({
         <DialogContent
           dir={locale === 'ar' ? 'rtl' : 'ltr'}
           closeLabel={t.close}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            document.getElementById('operator-composer-input')?.focus();
-          }}
+          finalFocus={() => document.getElementById('operator-composer-input')}
         >
           <DialogHeader>
             <DialogTitle>{t.paidTitle}</DialogTitle>

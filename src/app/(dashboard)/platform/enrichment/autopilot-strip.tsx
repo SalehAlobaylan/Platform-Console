@@ -160,15 +160,13 @@ export function EnrichmentAutopilotStrip() {
                 {paused ? 'Resume' : 'Pause 6h'}
               </Button>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
+                <DropdownMenuTrigger render={<Button
                     variant="outline"
                     size="sm"
                     disabled={elevate.isPending || savePolicy.isPending}
                   >
                     More
-                  </Button>
-                </DropdownMenuTrigger>
+                  </Button>} />
                 <DropdownMenuContent align="end" className="w-64">
                   <DropdownMenuLabel>Elevated mode</DropdownMenuLabel>
                   <DropdownMenuItem

@@ -32,9 +32,9 @@ export function ChapterList({
 }: ChapterListProps) {
     return (
         <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">Chapters ({chapters.length})</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {onAddAtPeaks && (
                         <Button
                             size="sm"
@@ -59,7 +59,7 @@ export function ChapterList({
                 <div className="space-y-2">
                     {chapters.map((ch, i) => (
                         <div key={ch.id ?? `c${i}`} className="space-y-2 rounded-md border p-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={() => onSeek(ch.start_ms)}

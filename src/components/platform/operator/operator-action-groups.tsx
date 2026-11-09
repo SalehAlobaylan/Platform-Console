@@ -115,12 +115,10 @@ export function OperatorActionGroups({
             {t.reviewPlan}
           </Button>
         ) : firstWorkflow ? (
-          <Button asChild size="sm" variant="outline" className="gap-2">
-            <Link href={firstWorkflow.href}>
+          <Button size="sm" variant="outline" className="gap-2" render={<Link href={firstWorkflow.href}>
               {firstWorkflow.tasks.length ? t.manualAction : t.openRecord}
               <ExternalLink className="size-3.5" />
-            </Link>
-          </Button>
+            </Link>} />
         ) : null}
         <Button
           type="button"
@@ -246,17 +244,12 @@ export function OperatorActionGroups({
                       </div>
                     ))}
                   </div>
-                  <Button
-                    asChild
-                    size="sm"
+                  <Button size="sm"
                     variant="outline"
-                    className="shrink-0"
-                  >
-                    <Link href={workflow.href}>
+                    className="shrink-0" render={<Link href={workflow.href}>
                       {workflow.tasks.length ? t.manualAction : t.openRecord}
                       <ExternalLink className="size-3.5" />
-                    </Link>
-                  </Button>
+                    </Link>} />
                 </div>
                 {workflow.tasks.length ? (
                   <details className="group text-xs">

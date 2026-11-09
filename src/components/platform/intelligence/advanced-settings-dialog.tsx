@@ -106,12 +106,10 @@ export function AdvancedSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+      <DialogTrigger render={<Button variant="outline" size="sm">
           <Settings2 className="mr-2 h-4 w-4" />
           Advanced Settings
-        </Button>
-      </DialogTrigger>
+        </Button>} />
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Advanced Ranking Configuration</DialogTitle>

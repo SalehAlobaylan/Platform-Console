@@ -14,7 +14,7 @@ const TABS = [
 export function NewsSectionNav() {
     const pathname = usePathname();
     return (
-        <nav aria-label="News sections" className="flex items-center gap-6 overflow-x-auto border-b">
+        <nav aria-label="News sections" className="flex flex-wrap items-center gap-x-5 border-b sm:gap-x-6">
             {TABS.map((tab) => {
                 const active = tab.href === '/platform/news'
                     ? pathname === tab.href

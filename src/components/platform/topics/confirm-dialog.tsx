@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +38,7 @@ export function ConfirmDialog({
     onConfirm,
     pending,
 }: ConfirmDialogProps) {
+    const phraseId = useId();
     const [typed, setTyped] = useState('');
     const locked = confirmPhrase ? typed.trim() !== confirmPhrase : false;
 
@@ -45,30 +46,32 @@ export function ConfirmDialog({
         <Dialog
             open={open}
             onOpenChange={(o) => {
+                if (pending) return;
                 if (!o) setTyped('');
                 onOpenChange(o);
             }}
         >
-            <DialogContent>
+            <DialogContent showClose={!pending}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         {destructive && <AlertTriangle className="h-4 w-4 text-destructive" />}
                         {title}
                     </DialogTitle>
-                    <DialogDescription asChild>
-                        <div className="text-sm text-muted-foreground">{description}</div>
-                    </DialogDescription>
+                    <DialogDescription render={<div className="text-sm text-muted-foreground" />}>{description}</DialogDescription>
                 </DialogHeader>
                 {confirmPhrase && (
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">
+                        <Label htmlFor={phraseId} className="text-xs text-muted-foreground">
                             Type <span className="font-mono font-semibold text-foreground">{confirmPhrase}</span> to confirm
                         </Label>
-                        <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
+                        <Input id={phraseId} value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
                     </div>
                 )}
                 <DialogFooter>
-                    <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                    <Button variant="ghost" disabled={pending} onClick={() => {
+                        setTyped('');
+                        onOpenChange(false);
+                    }}>
                         Cancel
                     </Button>
                     <Button

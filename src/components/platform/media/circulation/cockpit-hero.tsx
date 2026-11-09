@@ -111,12 +111,10 @@ export function CockpitHero({
                             Generate recommendations
                         </Button>
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white">
+                            <DropdownMenuTrigger render={<Button variant="outline" size="icon" className="border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white">
                                     <MoreHorizontal className="h-4 w-4" />
                                     <span className="sr-only">More actions</span>
-                                </Button>
-                            </DropdownMenuTrigger>
+                                </Button>} />
                             <DropdownMenuContent align="end" className="w-56">
                                 <DropdownMenuItem onClick={onOpenPolicy}>
                                     <Settings2 className="mr-2 h-4 w-4" />
@@ -125,12 +123,10 @@ export function CockpitHero({
                                 <DropdownMenuSeparator />
                                 <DropdownMenuLabel className="text-xs text-muted-foreground">Diagnostics</DropdownMenuLabel>
                                 {DIAGNOSTIC_LINKS.map((link) => (
-                                    <DropdownMenuItem key={link.href} asChild>
-                                        <Link href={link.href}>
+                                    <DropdownMenuItem key={link.href} render={<Link href={link.href}>
                                             <ExternalLink className="mr-2 h-4 w-4" />
                                             {link.label}
-                                        </Link>
-                                    </DropdownMenuItem>
+                                        </Link>} nativeButton={false} />
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>

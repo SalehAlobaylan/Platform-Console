@@ -243,8 +243,8 @@ export function ServiceCard({
                   disabledReason={disabledReason}
                   confirmVariant="default"
                   onConfirm={async () => {
-                    if (!isAdmin || evidenceExpired()) return;
-                    await migrateAction.run();
+                    if (!isAdmin || evidenceExpired()) return false;
+                    await migrateAction.run({ throwOnError: true });
                   }}
                 />
               ) : null}
@@ -276,8 +276,8 @@ export function ServiceCard({
                   disabledReason={disabledReason}
                   confirmVariant="destructive"
                   onConfirm={async () => {
-                    if (!isAdmin || evidenceExpired()) return;
-                    await restartAction.run();
+                    if (!isAdmin || evidenceExpired()) return false;
+                    await restartAction.run({ throwOnError: true });
                   }}
                 />
               ) : null}

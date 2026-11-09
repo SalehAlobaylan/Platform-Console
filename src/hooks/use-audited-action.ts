@@ -11,7 +11,7 @@ interface AuditedActionOptions {
 }
 
 interface AuditedActionResult<T> {
-    run: () => Promise<T | undefined>;
+    run: (options?: { throwOnError?: boolean }) => Promise<T | undefined>;
     isPending: boolean;
 }
 
@@ -39,7 +39,7 @@ export function useAuditedAction<T = unknown>(
         if (mounted.current) setPending(value);
     }
 
-    async function run(): Promise<T | undefined> {
+    async function run({ throwOnError = false } = {}): Promise<T | undefined> {
         safeSetPending(true);
         try {
             const result = await fn();
@@ -71,6 +71,7 @@ export function useAuditedAction<T = unknown>(
                 status: 'failure',
                 error_message: msg,
             });
+            if (throwOnError) throw new Error(msg);
             return undefined;
         } finally {
             safeSetPending(false);

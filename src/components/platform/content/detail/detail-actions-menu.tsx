@@ -102,16 +102,14 @@ export function DetailActionsMenu({ item }: DetailActionsMenuProps) {
     return (
         <>
             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" disabled={isBusy}>
+                <DropdownMenuTrigger render={<Button variant="outline" disabled={isBusy}>
                         {isBusy ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
                             <MoreHorizontal className="mr-2 h-4 w-4" />
                         )}
                         Actions
-                    </Button>
-                </DropdownMenuTrigger>
+                    </Button>} />
                 <DropdownMenuContent align="end" className="w-56">
                     {isMediaItem && (
                         <>

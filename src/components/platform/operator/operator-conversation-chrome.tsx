@@ -87,25 +87,25 @@ export function OperatorConversationHeader({
       <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
         {t.chatMenu}
       </DropdownMenuLabel>
-      <DropdownMenuItem onSelect={onActivity}>
+      <DropdownMenuItem onClick={onActivity}>
         <ListChecks className="me-2 size-4" />
         {t.activity}
       </DropdownMenuItem>
-      <DropdownMenuItem onSelect={onStatus}>
+      <DropdownMenuItem onClick={onStatus}>
         <Settings2 className="me-2 size-4" />
         {t.workspaceControls}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem onSelect={onLocale}>
+      <DropdownMenuItem onClick={onLocale}>
         <Languages className="me-2 size-4" />
         {locale === 'ar' ? 'English' : 'العربية'}
       </DropdownMenuItem>
-      <DropdownMenuItem onSelect={onRefresh} disabled={refreshing || busy}>
+      <DropdownMenuItem onClick={onRefresh} disabled={refreshing || busy}>
         <RefreshCw className="me-2 size-4" />
         {t.refresh}
       </DropdownMenuItem>
       {canReopen ? (
-        <DropdownMenuItem onSelect={onReopen}>{t.reopenTab}</DropdownMenuItem>
+        <DropdownMenuItem onClick={onReopen}>{t.reopenTab}</DropdownMenuItem>
       ) : null}
     </>
   );
@@ -115,8 +115,7 @@ export function OperatorConversationHeader({
       locale={locale}
       actions={
         <DropdownMenu dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-          <DropdownMenuTrigger asChild>
-            <Button
+          <DropdownMenuTrigger render={<Button
               variant="ghost"
               size="sm"
               className="hidden h-10 shrink-0 gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground md:inline-flex"
@@ -125,8 +124,7 @@ export function OperatorConversationHeader({
             >
               <MoreHorizontal aria-hidden="true" className="size-4" />
               {t.moreOptions}
-            </Button>
-          </DropdownMenuTrigger>
+            </Button>} />
           <DropdownMenuContent align="end" className="w-60">
             {tools}
           </DropdownMenuContent>
@@ -151,7 +149,7 @@ export function OperatorConversationHeader({
       </h1>
       {tabs(
         <>
-          <DropdownMenuItem onSelect={onSidebar}>
+          <DropdownMenuItem onClick={onSidebar}>
             <PanelLeft className="me-2 size-4" />
             {t.openSidebar}
           </DropdownMenuItem>

@@ -206,8 +206,7 @@ export function CopyDiagnostics({ snapshot }: Props) {
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={disabled}>
+            <DropdownMenuTrigger render={<Button variant="outline" disabled={disabled}>
                     {copiedLabel ? (
                         <Check className="mr-2 h-4 w-4 text-green-600" />
                     ) : (
@@ -215,12 +214,11 @@ export function CopyDiagnostics({ snapshot }: Props) {
                     )}
                     {copiedLabel ?? 'Copy diagnostics'}
                     <ChevronDown className="ml-2 h-4 w-4 opacity-70" />
-                </Button>
-            </DropdownMenuTrigger>
+                </Button>} />
             <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Copy page status</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onCopyProblems} disabled={disabled}>
+                <DropdownMenuItem onClick={onCopyProblems} disabled={disabled}>
                     <div className="flex flex-col">
                         <span>Problems only (JSON)</span>
                         <span className="text-xs text-muted-foreground">
@@ -229,7 +227,7 @@ export function CopyDiagnostics({ snapshot }: Props) {
                         </span>
                     </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onCopyFull} disabled={disabled}>
+                <DropdownMenuItem onClick={onCopyFull} disabled={disabled}>
                     <div className="flex flex-col">
                         <span>Full snapshot (JSON)</span>
                         <span className="text-xs text-muted-foreground">
@@ -237,7 +235,7 @@ export function CopyDiagnostics({ snapshot }: Props) {
                         </span>
                     </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onCopyMarkdown} disabled={disabled}>
+                <DropdownMenuItem onClick={onCopyMarkdown} disabled={disabled}>
                     <div className="flex flex-col">
                         <span>Summary (Markdown)</span>
                         <span className="text-xs text-muted-foreground">

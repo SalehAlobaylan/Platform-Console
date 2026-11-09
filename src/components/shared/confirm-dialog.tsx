@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
+  AlertDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,6 +37,10 @@ export function ConfirmDialog({
   variant = 'default',
   isLoading = false,
 }: ConfirmDialogProps) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const destructive = variant === 'destructive';
+  const Root = destructive ? AlertDialog : Dialog;
+
   const handleCancel = () => {
     onCancel?.();
     onOpenChange(false);
@@ -46,8 +51,17 @@ export function ConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Root
+      open={open}
+      onOpenChange={(nextOpen: boolean) => {
+        if (!isLoading) onOpenChange(nextOpen);
+      }}
+    >
+      <DialogContent
+        className="sm:max-w-[425px]"
+        initialFocus={cancelRef}
+        showClose={!destructive && !isLoading}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -55,6 +69,7 @@ export function ConfirmDialog({
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
             type="button"
+            ref={cancelRef}
             variant="outline"
             onClick={handleCancel}
             disabled={isLoading}
@@ -71,7 +86,7 @@ export function ConfirmDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Root>
   );
 }
 

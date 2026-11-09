@@ -53,13 +53,11 @@ export function QualificationEvidence({
       )}
       action={
         ready > 0 && !query.isError ? (
-          <Button asChild size="sm" variant="outline">
-            <Link
+          <Button size="sm" variant="outline" render={<Link
               href={`/platform/workload?tab=settings${locale === 'ar' ? '&locale=ar' : ''}`}
             >
               {t('Review settings', 'مراجعة الإعدادات')}
-            </Link>
-          </Button>
+            </Link>} />
         ) : undefined
       }
     >

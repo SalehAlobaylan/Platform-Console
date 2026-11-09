@@ -250,9 +250,7 @@ export function AttentionInbox({
                     {t('Restore to active', 'إعادة إلى النشط')}
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" asChild>
-                  <Link href={item.href}>{t('Open owner', 'افتح النظام')}</Link>
-                </Button>
+                <Button size="sm" variant="ghost" render={<Link href={item.href}>{t('Open owner', 'افتح النظام')}</Link>} />
               </div>
             </article>
           );

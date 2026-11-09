@@ -115,11 +115,9 @@ export function NewsCard({
                         </p>
                     </div>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" aria-label="Actions">
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" aria-label="Actions">
                                 <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                            </Button>} />
                         <DropdownMenuContent align="end">
                             {status === 'PENDING' && (
                                 <DropdownMenuItem onClick={() => onPublish?.(item.id)} disabled={busy}>
@@ -153,12 +151,10 @@ export function NewsCard({
                                 Move to story
                             </DropdownMenuItem>
                             {item.original_url && (
-                                <DropdownMenuItem asChild>
-                                    <a href={item.original_url} target="_blank" rel="noreferrer">
+                                <DropdownMenuItem render={<a href={item.original_url} target="_blank" rel="noreferrer">
                                         <ExternalLink className="mr-2 h-4 w-4" />
                                         Open source
-                                    </a>
-                                </DropdownMenuItem>
+                                    </a>} nativeButton={false} />
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

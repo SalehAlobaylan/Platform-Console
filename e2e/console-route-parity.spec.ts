@@ -104,6 +104,7 @@ test('navigates between News and Media Studio without replacing the document', a
     await page.getByRole('tab', { name: 'Stories' }).click();
     await expect(page).toHaveURL(origin + '/platform/news?view=topics');
     await expect(page.getByRole('tab', { name: 'Stories' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel', { name: 'Stories' })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('tab', { name: 'Stories' })).toHaveAttribute('aria-selected', 'true');
 });
@@ -140,6 +141,28 @@ test('keeps System Health navigation visible while the Incidents panel loads', a
     } finally {
         assetGate.resolve();
     }
+    const opener = page.getByRole('button', { name: 'Incident history', exact: true });
+    await opener.click();
+    const history = page.getByRole('dialog', { name: 'System Health incident history' });
+    await expect(history).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(history).toBeHidden();
+    await expect(opener).toBeFocused();
+});
+
+test('opens one named mobile navigation sheet and returns focus', async ({ context, page }) => {
+    const origin = fixtureOrigin();
+    await fixtureLogin(context, origin);
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto(origin + '/platform/news');
+    const trigger = page.getByRole('button', { name: 'Open navigation' });
+    await trigger.click();
+    const drawer = page.getByRole('dialog', { name: 'Console navigation' });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole('button', { name: /Close/ })).toHaveCount(1);
+    await drawer.getByRole('button', { name: 'Close navigation' }).click();
+    await expect(drawer).toBeHidden();
+    await expect(trigger).toBeFocused();
 });
 
 test('returns to a bookmarked page after sign-in', async ({ page, browserName }) => {
@@ -251,4 +274,77 @@ test('uses the dedicated Console reset page and removes its token from the URL',
     await page.getByLabel('Confirm new password', { exact: true }).fill('fixture-new-password');
     await page.getByRole('button', { name: 'Update password' }).click();
     await expect(page.getByRole('alert')).toContainText('invalid or expired');
+});
+
+test('renders mixed selection at full size in Users and News Sources', async ({ context, page }) => {
+    const origin = fixtureOrigin();
+    await fixtureLogin(context, origin);
+    const stamp = '2026-10-01T00:00:00Z';
+    await page.route('**/api/**/iam/{roles,permissions}', (route) => route.fulfill({ json: { data: [] } }));
+    await page.route('**/api/**/iam/users', (route) => route.fulfill({ json: {
+        data: ['alpha', 'beta'].map((id) => ({
+            id, email: `${id}@example.test`, role: 'admin', permissions: [], created_at: stamp, updated_at: stamp,
+        })),
+    } }));
+    await page.route('**/api/**/admin/discovery/profiles', (route) => route.fulfill({ json: { data: [] } }));
+    await page.route('**/api/**/admin/discovery/sources*', (route) => route.fulfill({ json: {
+        data: ['Alpha', 'Beta'].map((name) => ({
+            id: name, name, type: 'RSS', is_active: false, items_count: 0, feed_url: `https://example.test/${name}`,
+        })),
+    } }));
+    for (const surface of [
+        { path: '/admin/users', row: 'Select alpha@example.test', all: /Select all users/ },
+        { path: '/platform/news/sources', row: 'Select Alpha', all: /Select all 2/ },
+    ]) {
+        await page.goto(origin + surface.path);
+        const row = page.getByRole('checkbox', { name: surface.row, exact: true });
+        const all = page.getByRole('checkbox', { name: surface.all });
+        await expect(all).toHaveAttribute('aria-checked', 'false');
+        await row.click();
+        await expect(all).toHaveAttribute('aria-checked', 'mixed');
+        const box = await all.boundingBox();
+        expect(box?.width).toBeGreaterThanOrEqual(16);
+        expect(box?.height).toBeGreaterThanOrEqual(16);
+        await all.focus();
+        await page.keyboard.press('Space');
+        await expect(all).toBeChecked();
+    }
+});
+
+test('keeps News and Studio actions within the 320px viewport', async ({ context, page }, info) => {
+    const origin = fixtureOrigin();
+    await fixtureLogin(context, origin);
+    await page.setViewportSize({ width: 320, height: 800 });
+    const fits = async (name: string) => {
+        const button = page.getByRole('button', { name, exact: true }).first();
+        await expect(button).toBeVisible();
+        const box = await button.boundingBox();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+    };
+    const noMainOverflow = async () => {
+        const main = page.locator('#console-scroll-region');
+        const widths = await main.evaluate((node) => ({ content: node.scrollWidth, visible: node.clientWidth }));
+        expect(widths.content).toBeLessThanOrEqual(widths.visible + 1);
+    };
+    await page.goto(origin + '/platform/news?view=topics');
+    await expect(page.getByRole('heading', { name: 'News', exact: true })).toBeVisible();
+    await fits('Add news');
+    await fits('Auto-stories');
+    await noMainOverflow();
+    await page.screenshot({ path: info.outputPath('news-320.png') });
+    await page.getByRole('tab', { name: 'Library' }).click();
+    await expect(page.getByText('Fixture News article', { exact: true }).first()).toBeVisible();
+    await noMainOverflow();
+    await page.getByRole('tab', { name: 'Overview' }).click();
+    await expect(page.getByRole('tabpanel', { name: 'Overview' })).toBeVisible();
+    await noMainOverflow();
+
+    await page.goto(origin + studioUrl);
+    await expect(page.getByPlaceholder('Chapter title').first()).toHaveValue('Fixture chapter');
+    await fits('Add at playhead');
+    await fits('Save transcript');
+    await noMainOverflow();
+    await page.getByPlaceholder('Chapter title').first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath('studio-320.png') });
 });

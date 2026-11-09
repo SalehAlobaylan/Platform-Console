@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEventHandler } from 'react';
 import {
   Bot,
   Eye,
@@ -84,7 +84,7 @@ function IncidentRow({
   onInspect,
 }: {
   episode: SystemIncidentEpisode;
-  onInspect: () => void;
+  onInspect: MouseEventHandler<HTMLButtonElement>;
 }) {
   const lastTransition = episode.timeline?.[episode.timeline.length - 1];
   return (
@@ -142,6 +142,8 @@ export function SystemAutopilotPanel({
   const closeEpisode = useCloseSystemIncidentEpisode();
   const [episodeToClose, setEpisodeToClose] =
     useState<SystemIncidentEpisode | null>(null);
+  const historyTrigger = useRef<HTMLButtonElement>(null);
+  const historyOpener = useRef<HTMLButtonElement>(null);
   const [historyOpen, setHistoryOpen] = useState(!!initialEpisodeId);
   const [runsOpen, setRunsOpen] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
@@ -358,7 +360,8 @@ export function SystemAutopilotPanel({
                       type="button"
                       size="sm"
                       variant="link"
-                      onClick={() => {
+                      onClick={(event) => {
+                        historyOpener.current = event.currentTarget;
                         onIncidentChange?.(item.episode_id!);
                         setHistoryOpen(true);
                       }}
@@ -440,7 +443,11 @@ export function SystemAutopilotPanel({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setHistoryOpen(true)}
+            ref={historyTrigger}
+            onClick={(event) => {
+              historyOpener.current = event.currentTarget;
+              setHistoryOpen(true);
+            }}
           >
             <History className="mr-2 h-4 w-4" />
             Incident history
@@ -485,7 +492,8 @@ export function SystemAutopilotPanel({
                 <IncidentRow
                   key={episode.id}
                   episode={episode}
-                  onInspect={() => {
+                  onInspect={(event) => {
+                    historyOpener.current = event.currentTarget;
                     onIncidentChange?.(episode.id);
                     setHistoryOpen(true);
                   }}
@@ -512,7 +520,8 @@ export function SystemAutopilotPanel({
                 <IncidentRow
                   key={episode.id}
                   episode={episode}
-                  onInspect={() => {
+                  onInspect={(event) => {
+                    historyOpener.current = event.currentTarget;
                     onIncidentChange?.(episode.id);
                     setHistoryOpen(true);
                   }}
@@ -619,6 +628,11 @@ export function SystemAutopilotPanel({
         }
       />
       <SystemIncidentHistorySheet
+        finalFocus={() =>
+          historyOpener.current?.isConnected
+            ? historyOpener.current
+            : historyTrigger.current ?? true
+        }
         onCloseIncident={setEpisodeToClose}
         isClosing={closeEpisode.isPending}
         open={historyOpen}

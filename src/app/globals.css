@@ -18,7 +18,7 @@
     --muted-foreground: 220 9% 46%;
     --accent: 220 14% 96%;
     --accent-foreground: 224 71% 4%;
-    --destructive: 0 84% 60%;
+    --destructive: 0 75% 48%;
     --destructive-foreground: 210 40% 98%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
@@ -39,7 +39,7 @@
     --gold-foreground: 0 0% 7%;
 
     /* Wahb brand — News surface (newsprint + red accent, per .news-page theme) */
-    --news: 355 78% 56%;
+    --news: 355 78% 50%;
     --news-foreground: 0 0% 100%;
     --newsprint: 30 25% 96%;
     --newsprint-foreground: 0 0% 10%;
@@ -72,7 +72,7 @@
     --warning: 38 92% 50%;
     --warning-foreground: 26 83% 14%;
     --info: 217 91% 60%;
-    --info-foreground: 210 40% 98%;
+    --info-foreground: 224 71% 4%;
 
     /* Wahb brand — dark mode (gold holds; news red lifts to #ff6b6b) */
     --gold: 41 71% 51%;

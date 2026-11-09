@@ -447,15 +447,13 @@ export function WorkloadOverview({
             {unavailable ||
             missingEvidence ||
             (!needsOwner && healthIssues.length > 0) ? (
-              <Button asChild size="sm">
-                <Link href="/platform/system-health">
+              <Button size="sm" render={<Link href="/platform/system-health">
                   {t('Check System Health', 'افحص صحة النظام')}
                   <ArrowUpRight
                     className="ms-2 h-3.5 w-3.5"
                     aria-hidden="true"
                   />
-                </Link>
-              </Button>
+                </Link>} />
             ) : (
               <Button
                 size="sm"

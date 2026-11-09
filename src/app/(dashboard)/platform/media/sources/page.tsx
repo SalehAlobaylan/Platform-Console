@@ -140,12 +140,10 @@ export default function MediaSourcesPage() {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" asChild>
-                        <Link href="/platform/media/sources/new">
+                    <Button variant="outline" render={<Link href="/platform/media/sources/new">
                             <Plus className="mr-1.5 h-4 w-4" />
                             Add source
-                        </Link>
-                    </Button>
+                        </Link>} />
                     <Button
                         variant="ghost"
                         size="icon"
@@ -232,7 +230,7 @@ export default function MediaSourcesPage() {
                             />
                         </TabsContent>
 
-                        <TabsContent value="policy" forceMount hidden={tab !== 'policy'} className="space-y-5 data-[state=inactive]:hidden">
+                        <TabsContent value="policy" keepMounted hidden={tab !== 'policy'} className="space-y-5 data-[hidden]:hidden">
                             <MediaAcquisitionSettingsCard />
                             {context.data?.config ? (
                                 <MediaSettings config={context.data.config} />
@@ -470,12 +468,10 @@ function SourceIntelligencePanel({ context }: { context?: MediaSourcesContext })
                 {renderContent()}
             </Card>
             <Sheet>
-                <SheetTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start gap-2 lg:hidden" disabled={!hasSelection}>
+                <SheetTrigger render={<Button variant="outline" className="w-full justify-start gap-2 lg:hidden" disabled={!hasSelection}>
                         <PanelRightOpen className="h-4 w-4" />
                         {hasSelection ? 'Open selection details' : 'Select an interest or candidate'}
-                    </Button>
-                </SheetTrigger>
+                    </Button>} />
                 <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
                     <SheetHeader>
                         <SheetTitle>Selection details</SheetTitle>
@@ -577,11 +573,9 @@ function SourceIntelligenceContent({ context }: { context?: MediaSourcesContext 
                                 ))}
                             </div>
                             {relationship?.matched_source_id && (
-                                <Button asChild size="sm" variant="outline" className="mt-3">
-                                    <Link href={`/platform/media/sources?tab=sources&source=${relationship.matched_source_id}`}>
+                                <Button size="sm" variant="outline" className="mt-3" render={<Link href={`/platform/media/sources?tab=sources&source=${relationship.matched_source_id}`}>
                                         Open existing source
-                                    </Link>
-                                </Button>
+                                    </Link>} />
                             )}
                         </div>
                         <div className="space-y-3 rounded-md border p-3">
@@ -650,11 +644,9 @@ function SourceIntelligenceContent({ context }: { context?: MediaSourcesContext 
                         )}
                         <div className="grid gap-2">
                             {approveBlocked && relationship?.matched_source_id ? (
-                                <Button asChild>
-                                    <Link href={`/platform/media/sources?tab=sources&source=${relationship.matched_source_id}`}>
+                                <Button render={<Link href={`/platform/media/sources?tab=sources&source=${relationship.matched_source_id}`}>
                                         Open existing source
-                                    </Link>
-                                </Button>
+                                    </Link>} />
                             ) : (
                                 <Button disabled={approve.isPending || approveBlocked} onClick={() => approve.mutate(suggestion.id)}>
                                     {approve.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
@@ -662,11 +654,9 @@ function SourceIntelligenceContent({ context }: { context?: MediaSourcesContext 
                                 </Button>
                             )}
                             <div className="grid grid-cols-2 gap-2">
-                                <Button variant="outline" asChild>
-                                    <a href={suggestion.feed_url} target="_blank" rel="noreferrer">
+                                <Button variant="outline" render={<a href={suggestion.feed_url} target="_blank" rel="noreferrer">
                                         <ExternalLink className="mr-1.5 h-4 w-4" /> Open feed
-                                    </a>
-                                </Button>
+                                    </a>} />
                                 <Button variant="ghost" disabled={reject.isPending} onClick={() => reject.mutate({ id: suggestion.id })}>
                                     Reject
                                 </Button>
@@ -723,17 +713,13 @@ function SourceIntelligenceContent({ context }: { context?: MediaSourcesContext 
                             )}
                         </div>
                         <div className="flex gap-2">
-                            <Button asChild size="sm" variant="outline">
-                                <Link href={`/platform/sources/${source.id}?from=${encodeURIComponent('/platform/media/sources')}`}>
+                            <Button size="sm" variant="outline" render={<Link href={`/platform/sources/${source.id}?from=${encodeURIComponent('/platform/media/sources')}`}>
                                     Edit source
-                                </Link>
-                            </Button>
+                                </Link>} />
                             {source.feed_url && (
-                                <Button asChild size="sm" variant="ghost">
-                                    <a href={source.feed_url} target="_blank" rel="noreferrer">
+                                <Button size="sm" variant="ghost" render={<a href={source.feed_url} target="_blank" rel="noreferrer">
                                         <ExternalLink className="mr-1.5 h-4 w-4" /> Open feed
-                                    </a>
-                                </Button>
+                                    </a>} />
                             )}
                         </div>
                     </div>

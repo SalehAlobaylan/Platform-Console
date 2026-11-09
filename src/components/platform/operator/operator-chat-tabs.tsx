@@ -423,8 +423,7 @@ export function OperatorChatTabs({
       </div>
       <div className="min-w-0 md:hidden">
         <DropdownMenu dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-          <DropdownMenuTrigger asChild>
-            <Button
+          <DropdownMenuTrigger render={<Button
               variant="ghost"
               className="h-10 w-full min-w-0 justify-start gap-1.5 rounded-md px-1 text-xs text-muted-foreground sm:px-2"
               aria-label={`${t.openChats} (${tabs.length})`}
@@ -445,8 +444,7 @@ export function OperatorChatTabs({
                 {tabs.length}
               </span>
               <ChevronDown className="size-3 shrink-0" />
-            </Button>
-          </DropdownMenuTrigger>
+            </Button>} />
           <DropdownMenuContent
             align="start"
             className="flex max-h-[min(600px,calc(100dvh-80px))] w-[min(340px,calc(100vw-24px))] flex-col overflow-y-auto"
@@ -459,7 +457,7 @@ export function OperatorChatTabs({
                 <DropdownMenuItem
                   key={tab.id}
                   className="gap-2"
-                  onSelect={() => onSelect(tab, true)}
+                  onClick={() => onSelect(tab, true)}
                 >
                   {statusIcon(status)}
                   <span className="min-w-0 flex-1 truncate" dir="auto">
@@ -475,7 +473,7 @@ export function OperatorChatTabs({
             <DropdownMenuSeparator />
             {mobileActions}
             {mobileActions ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuItem onSelect={() => onClose(activeID)}>
+            <DropdownMenuItem onClick={() => onClose(activeID)}>
               <X className="me-2 size-3.5" />
               {t.closeTab}
             </DropdownMenuItem>

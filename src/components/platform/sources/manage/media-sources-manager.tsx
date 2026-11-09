@@ -112,12 +112,10 @@ export function MediaSourcesManager({
                     <Zap className="mr-2 h-4 w-4" />
                     Run all stale{staleSources.length > 0 ? ` (${staleSources.length})` : ''}
                 </Button>
-                <Button asChild>
-                    <Link href={addHref}>
+                <Button render={<Link href={addHref}>
                         <Plus className="mr-2 h-4 w-4" />
                         Add media source
-                    </Link>
-                </Button>
+                    </Link>} />
             </div>
 
             <MediaSourcesToolbar

@@ -348,7 +348,7 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
                     <h1 className="truncate text-2xl font-semibold" title={content.title}>
                         {content.title || '(untitled)'}
                     </h1>
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
                         <Badge variant="secondary">{content.type}</Badge>
                         <Badge variant="outline">{content.status}</Badge>
                         <Badge variant="outline" title={content.file_size_bytes ? `${content.file_size_bytes.toLocaleString()} bytes` : 'Size not tracked'}>
@@ -434,7 +434,7 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
                 </div>
             ) : (
                 <>
-                    <div className="grid gap-3 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                         <div className="rounded-md border p-3">
                             <div className="mb-2 flex items-center justify-between gap-2">
                                 <h2 className="text-sm font-semibold">Transcript quality</h2>
@@ -538,7 +538,7 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
                     )}
 
                     {/* Chapters + transcript */}
-                    <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                         <ChapterList
                             chapters={chapters}
                             onSeek={seek}
@@ -548,9 +548,9 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
                             onAddAtPeaks={content.heatmap?.length ? handleAddAtPeaks : undefined}
                         />
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
                                 <h3 className="text-sm font-semibold">Transcript</h3>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <Button
                                         size="sm"
                                         variant="outline"

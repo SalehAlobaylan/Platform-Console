@@ -375,10 +375,7 @@ export function MediaAcquisitionSettingsCard() {
           className="max-h-[90dvh] overflow-y-auto [&>button:last-child]:rtl:left-4 [&>button:last-child]:rtl:right-auto"
           dir={locale === 'ar' ? 'rtl' : 'ltr'}
           closeLabel={t('Close settings review', 'إغلاق مراجعة الإعدادات')}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            saveRef.current?.focus();
-          }}
+          finalFocus={saveRef}
         >
           <DialogHeader className="text-start sm:text-start">
             <DialogTitle>

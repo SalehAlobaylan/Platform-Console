@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NewsSourcesManager } from './news-sources-manager';
 import { getNewsCollection, previewNewsCollection, applyNewsCollection } from '@/lib/api/cms/news-collection';
@@ -59,4 +60,17 @@ it('takes connection warnings directly to the affected sources', async () => {
     expect(screen.getByRole('switch', { name: 'Enable Telegram Source' })).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: 'Enable Daily News' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Needs attention/ })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('exposes mixed selection and selects the matching sources with Space', async () => {
+    const user = userEvent.setup();
+    mount();
+    const header = await screen.findByRole('checkbox', { name: 'Select all 3 matching sources' });
+    expect(header).toHaveAttribute('aria-checked', 'false');
+    await user.click(screen.getByRole('checkbox', { name: 'Select Daily News' }));
+    expect(header).toBePartiallyChecked();
+    header.focus();
+    await user.keyboard(' ');
+    expect(header).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Select Metro' })).toBeChecked();
 });
