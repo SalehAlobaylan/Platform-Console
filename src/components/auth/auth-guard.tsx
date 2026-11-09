@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useLocation } from '@tanstack/react-router';
+import { signInLocation } from '@/lib/sign-in-destination';
+import { Button } from '@/components/ui/button';
 import { useRouter } from '@/lib/navigation';
 import { useAuthStore } from '@/lib/stores/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,12 +17,27 @@ export function AuthGuard({ children }: AuthGuardProps) {
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const isLoading = useAuthStore((state) => state.isLoading);
 
+    const href = useLocation({ select: (location) => location.href });
+    const pathname = useLocation({ select: (location) => location.pathname });
+    const issue = useAuthStore((state) => state.sessionIssue);
+    const checkAuth = useAuthStore((state) => state.checkAuth);
+
     useEffect(() => {
-        // Only redirect if we've finished loading and user is not authenticated
-        if (!isLoading && !isAuthenticated) {
-            router.push('/login');
+        if (!isLoading && !isAuthenticated && issue !== 'unavailable' && pathname !== '/login') {
+            router.replace(signInLocation(href, issue === 'runtime_changed'), { fromPath: pathname });
         }
-    }, [isLoading, isAuthenticated, router]);
+    }, [isLoading, isAuthenticated, issue, router, href, pathname]);
+
+    if (!isAuthenticated && issue === 'unavailable') {
+        return (
+            <main className="flex min-h-screen items-center justify-center p-6">
+                <div className="space-y-4 text-center">
+                    <p role="alert">We couldn’t check your session. Try again to continue.</p>
+                    <Button onClick={() => void checkAuth()} disabled={isLoading}>Retry</Button>
+                </div>
+            </main>
+        );
+    }
 
     // Show loading state while checking auth
     if (isLoading) {
@@ -39,5 +57,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         return null;
     }
 
-    return <>{children}</>;
+    return <>
+        {issue === 'unavailable' && <div role="status" className="flex items-center justify-center gap-3 border-b p-2 text-sm">
+            The sign-in service is temporarily unavailable.
+            <Button variant="outline" size="sm" onClick={() => void checkAuth()}>Retry</Button>
+        </div>}
+        {children}
+    </>;
 }

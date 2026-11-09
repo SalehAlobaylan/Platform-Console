@@ -1,18 +1,24 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
+import { getRequest } from '@tanstack/react-start/server';
 import type { ReactNode } from 'react';
 import '@fontsource-variable/inter';
 import '@/app/globals.css';
 import { Providers } from '@/app/providers';
 import GlobalError from '@/app/error';
 import NotFound from '@/app/not-found';
+import { localQuickSignInCredentials } from '@/lib/server/local-quick-sign-in';
 
 const readPublicRuntime = createServerFn().handler(() => {
     const runtimeId = process.env.WAHB_RUNTIME_ID ?? '';
     if (process.env.WAHB_MANAGED_ENV === '1' && !runtimeId) {
         throw new Error('Console launch configuration is missing');
     }
-    return { runtimeId, grafanaUrl: process.env.GRAFANA_URL ?? process.env.NEXT_PUBLIC_GRAFANA_URL ?? '' };
+    return {
+        runtimeId,
+        grafanaUrl: process.env.GRAFANA_URL ?? process.env.NEXT_PUBLIC_GRAFANA_URL ?? '',
+        localQuickSignIn: Boolean(localQuickSignInCredentials(getRequest())),
+    };
 });
 
 export const Route = createRootRoute({

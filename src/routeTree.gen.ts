@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as DashboardAdminRouteImport } from './routes/_dashboard.admin'
 import { Route as DashboardPlatformRouteImport } from './routes/_dashboard.platform'
@@ -41,10 +43,14 @@ import { Route as DashboardPlatformSystemHealthRouteImport } from './routes/_das
 import { Route as DashboardPlatformTopicsRouteImport } from './routes/_dashboard.platform_.topics'
 import { Route as DashboardPlatformWorkloadRouteImport } from './routes/_dashboard.platform_.workload'
 import { Route as ApiAggregationSplatRouteImport } from './routes/api.aggregation.$'
+import { Route as ApiAuthCapabilitiesRouteImport } from './routes/api.auth.capabilities'
+import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api.auth.forgot-password'
 import { Route as ApiAuthLoginRouteImport } from './routes/api.auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
 import { Route as ApiAuthMeRouteImport } from './routes/api.auth.me'
+import { Route as ApiAuthPasskeysRouteImport } from './routes/api.auth.passkeys'
 import { Route as ApiAuthRefreshRouteImport } from './routes/api.auth.refresh'
+import { Route as ApiAuthResetPasswordRouteImport } from './routes/api.auth.reset-password'
 import { Route as ApiCmsSplatRouteImport } from './routes/api.cms.$'
 import { Route as ApiDatabaseMigrationsActionsRouteImport } from './routes/api.database-migrations.actions'
 import { Route as ApiDatabaseMigrationsProgramsRouteImport } from './routes/api.database-migrations.programs'
@@ -72,16 +78,31 @@ import { Route as DashboardPlatformNewsFindingRouteImport } from './routes/_dash
 import { Route as DashboardPlatformNewsSourcesRouteImport } from './routes/_dashboard.platform_.news_.sources'
 import { Route as DashboardPlatformSourcesIdRouteImport } from './routes/_dashboard.platform_.sources_.$id'
 import { Route as DashboardPlatformSourcesNewRouteImport } from './routes/_dashboard.platform_.sources_.new'
+import { Route as ApiAuthPasskeysRemoveRouteImport } from './routes/api.auth.passkeys.remove'
 import { Route as DashboardPlatformMediaSourcesNewRouteImport } from './routes/_dashboard.platform_.media_.sources_.new'
+import { Route as ApiAuthPasskeysAuthenticationBeginRouteImport } from './routes/api.auth.passkeys.authentication.begin'
+import { Route as ApiAuthPasskeysAuthenticationFinishRouteImport } from './routes/api.auth.passkeys.authentication.finish'
+import { Route as ApiAuthPasskeysRegistrationBeginRouteImport } from './routes/api.auth.passkeys.registration.begin'
+import { Route as ApiAuthPasskeysRegistrationFinishRouteImport } from './routes/api.auth.passkeys.registration.finish'
 import { Route as ApiOperatorInvestigationsIdEventsRouteImport } from './routes/api.operator.investigations.$id.events'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -254,6 +275,16 @@ const ApiAggregationSplatRoute = ApiAggregationSplatRouteImport.update({
   path: '/api/aggregation/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthCapabilitiesRoute = ApiAuthCapabilitiesRouteImport.update({
+  id: '/api/auth/capabilities',
+  path: '/api/auth/capabilities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthForgotPasswordRoute = ApiAuthForgotPasswordRouteImport.update({
+  id: '/api/auth/forgot-password',
+  path: '/api/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
   id: '/api/auth/login',
   path: '/api/auth/login',
@@ -269,9 +300,19 @@ const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
   path: '/api/auth/me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthPasskeysRoute = ApiAuthPasskeysRouteImport.update({
+  id: '/api/auth/passkeys',
+  path: '/api/auth/passkeys',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthRefreshRoute = ApiAuthRefreshRouteImport.update({
   id: '/api/auth/refresh',
   path: '/api/auth/refresh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthResetPasswordRoute = ApiAuthResetPasswordRouteImport.update({
+  id: '/api/auth/reset-password',
+  path: '/api/auth/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCmsSplatRoute = ApiCmsSplatRouteImport.update({
@@ -433,11 +474,40 @@ const DashboardPlatformSourcesNewRoute =
     path: '/platform/sources/new',
     getParentRoute: () => DashboardRoute,
   } as any)
+const ApiAuthPasskeysRemoveRoute = ApiAuthPasskeysRemoveRouteImport.update({
+  id: '/remove',
+  path: '/remove',
+  getParentRoute: () => ApiAuthPasskeysRoute,
+} as any)
 const DashboardPlatformMediaSourcesNewRoute =
   DashboardPlatformMediaSourcesNewRouteImport.update({
     id: '/platform_/media_/sources_/new',
     path: '/platform/media/sources/new',
     getParentRoute: () => DashboardRoute,
+  } as any)
+const ApiAuthPasskeysAuthenticationBeginRoute =
+  ApiAuthPasskeysAuthenticationBeginRouteImport.update({
+    id: '/authentication/begin',
+    path: '/authentication/begin',
+    getParentRoute: () => ApiAuthPasskeysRoute,
+  } as any)
+const ApiAuthPasskeysAuthenticationFinishRoute =
+  ApiAuthPasskeysAuthenticationFinishRouteImport.update({
+    id: '/authentication/finish',
+    path: '/authentication/finish',
+    getParentRoute: () => ApiAuthPasskeysRoute,
+  } as any)
+const ApiAuthPasskeysRegistrationBeginRoute =
+  ApiAuthPasskeysRegistrationBeginRouteImport.update({
+    id: '/registration/begin',
+    path: '/registration/begin',
+    getParentRoute: () => ApiAuthPasskeysRoute,
+  } as any)
+const ApiAuthPasskeysRegistrationFinishRoute =
+  ApiAuthPasskeysRegistrationFinishRouteImport.update({
+    id: '/registration/finish',
+    path: '/registration/finish',
+    getParentRoute: () => ApiAuthPasskeysRoute,
   } as any)
 const ApiOperatorInvestigationsIdEventsRoute =
   ApiOperatorInvestigationsIdEventsRouteImport.update({
@@ -448,7 +518,9 @@ const ApiOperatorInvestigationsIdEventsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof DashboardAdminRoute
   '/platform': typeof DashboardPlatformRoute
   '/api/ai-metrics': typeof ApiAiMetricsRoute
@@ -478,10 +550,14 @@ export interface FileRoutesByFullPath {
   '/platform/topics': typeof DashboardPlatformTopicsRoute
   '/platform/workload': typeof DashboardPlatformWorkloadRoute
   '/api/aggregation/$': typeof ApiAggregationSplatRoute
+  '/api/auth/capabilities': typeof ApiAuthCapabilitiesRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/passkeys': typeof ApiAuthPasskeysRouteWithChildren
   '/api/auth/refresh': typeof ApiAuthRefreshRoute
+  '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/cms/$': typeof ApiCmsSplatRoute
   '/api/database-migrations/actions': typeof ApiDatabaseMigrationsActionsRoute
   '/api/database-migrations/programs': typeof ApiDatabaseMigrationsProgramsRoute
@@ -509,11 +585,18 @@ export interface FileRoutesByFullPath {
   '/platform/news/sources': typeof DashboardPlatformNewsSourcesRoute
   '/platform/sources/$id': typeof DashboardPlatformSourcesIdRoute
   '/platform/sources/new': typeof DashboardPlatformSourcesNewRoute
+  '/api/auth/passkeys/remove': typeof ApiAuthPasskeysRemoveRoute
   '/platform/media/sources/new': typeof DashboardPlatformMediaSourcesNewRoute
+  '/api/auth/passkeys/authentication/begin': typeof ApiAuthPasskeysAuthenticationBeginRoute
+  '/api/auth/passkeys/authentication/finish': typeof ApiAuthPasskeysAuthenticationFinishRoute
+  '/api/auth/passkeys/registration/begin': typeof ApiAuthPasskeysRegistrationBeginRoute
+  '/api/auth/passkeys/registration/finish': typeof ApiAuthPasskeysRegistrationFinishRoute
   '/api/operator/investigations/$id/events': typeof ApiOperatorInvestigationsIdEventsRoute
 }
 export interface FileRoutesByTo {
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof DashboardAdminRoute
   '/platform': typeof DashboardPlatformRoute
   '/api/ai-metrics': typeof ApiAiMetricsRoute
@@ -544,10 +627,14 @@ export interface FileRoutesByTo {
   '/platform/topics': typeof DashboardPlatformTopicsRoute
   '/platform/workload': typeof DashboardPlatformWorkloadRoute
   '/api/aggregation/$': typeof ApiAggregationSplatRoute
+  '/api/auth/capabilities': typeof ApiAuthCapabilitiesRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/passkeys': typeof ApiAuthPasskeysRouteWithChildren
   '/api/auth/refresh': typeof ApiAuthRefreshRoute
+  '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/cms/$': typeof ApiCmsSplatRoute
   '/api/database-migrations/actions': typeof ApiDatabaseMigrationsActionsRoute
   '/api/database-migrations/programs': typeof ApiDatabaseMigrationsProgramsRoute
@@ -575,13 +662,20 @@ export interface FileRoutesByTo {
   '/platform/news/sources': typeof DashboardPlatformNewsSourcesRoute
   '/platform/sources/$id': typeof DashboardPlatformSourcesIdRoute
   '/platform/sources/new': typeof DashboardPlatformSourcesNewRoute
+  '/api/auth/passkeys/remove': typeof ApiAuthPasskeysRemoveRoute
   '/platform/media/sources/new': typeof DashboardPlatformMediaSourcesNewRoute
+  '/api/auth/passkeys/authentication/begin': typeof ApiAuthPasskeysAuthenticationBeginRoute
+  '/api/auth/passkeys/authentication/finish': typeof ApiAuthPasskeysAuthenticationFinishRoute
+  '/api/auth/passkeys/registration/begin': typeof ApiAuthPasskeysRegistrationBeginRoute
+  '/api/auth/passkeys/registration/finish': typeof ApiAuthPasskeysRegistrationFinishRoute
   '/api/operator/investigations/$id/events': typeof ApiOperatorInvestigationsIdEventsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_dashboard/admin': typeof DashboardAdminRoute
   '/_dashboard/platform': typeof DashboardPlatformRoute
   '/api/ai-metrics': typeof ApiAiMetricsRoute
@@ -612,10 +706,14 @@ export interface FileRoutesById {
   '/_dashboard/platform_/topics': typeof DashboardPlatformTopicsRoute
   '/_dashboard/platform_/workload': typeof DashboardPlatformWorkloadRoute
   '/api/aggregation/$': typeof ApiAggregationSplatRoute
+  '/api/auth/capabilities': typeof ApiAuthCapabilitiesRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/passkeys': typeof ApiAuthPasskeysRouteWithChildren
   '/api/auth/refresh': typeof ApiAuthRefreshRoute
+  '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/cms/$': typeof ApiCmsSplatRoute
   '/api/database-migrations/actions': typeof ApiDatabaseMigrationsActionsRoute
   '/api/database-migrations/programs': typeof ApiDatabaseMigrationsProgramsRoute
@@ -643,14 +741,21 @@ export interface FileRoutesById {
   '/_dashboard/platform_/news_/sources': typeof DashboardPlatformNewsSourcesRoute
   '/_dashboard/platform_/sources_/$id': typeof DashboardPlatformSourcesIdRoute
   '/_dashboard/platform_/sources_/new': typeof DashboardPlatformSourcesNewRoute
+  '/api/auth/passkeys/remove': typeof ApiAuthPasskeysRemoveRoute
   '/_dashboard/platform_/media_/sources_/new': typeof DashboardPlatformMediaSourcesNewRoute
+  '/api/auth/passkeys/authentication/begin': typeof ApiAuthPasskeysAuthenticationBeginRoute
+  '/api/auth/passkeys/authentication/finish': typeof ApiAuthPasskeysAuthenticationFinishRoute
+  '/api/auth/passkeys/registration/begin': typeof ApiAuthPasskeysRegistrationBeginRoute
+  '/api/auth/passkeys/registration/finish': typeof ApiAuthPasskeysRegistrationFinishRoute
   '/api/operator/investigations/$id/events': typeof ApiOperatorInvestigationsIdEventsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/admin'
     | '/platform'
     | '/api/ai-metrics'
@@ -680,10 +785,14 @@ export interface FileRouteTypes {
     | '/platform/topics'
     | '/platform/workload'
     | '/api/aggregation/$'
+    | '/api/auth/capabilities'
+    | '/api/auth/forgot-password'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/passkeys'
     | '/api/auth/refresh'
+    | '/api/auth/reset-password'
     | '/api/cms/$'
     | '/api/database-migrations/actions'
     | '/api/database-migrations/programs'
@@ -711,11 +820,18 @@ export interface FileRouteTypes {
     | '/platform/news/sources'
     | '/platform/sources/$id'
     | '/platform/sources/new'
+    | '/api/auth/passkeys/remove'
     | '/platform/media/sources/new'
+    | '/api/auth/passkeys/authentication/begin'
+    | '/api/auth/passkeys/authentication/finish'
+    | '/api/auth/passkeys/registration/begin'
+    | '/api/auth/passkeys/registration/finish'
     | '/api/operator/investigations/$id/events'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/admin'
     | '/platform'
     | '/api/ai-metrics'
@@ -746,10 +862,14 @@ export interface FileRouteTypes {
     | '/platform/topics'
     | '/platform/workload'
     | '/api/aggregation/$'
+    | '/api/auth/capabilities'
+    | '/api/auth/forgot-password'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/passkeys'
     | '/api/auth/refresh'
+    | '/api/auth/reset-password'
     | '/api/cms/$'
     | '/api/database-migrations/actions'
     | '/api/database-migrations/programs'
@@ -777,12 +897,19 @@ export interface FileRouteTypes {
     | '/platform/news/sources'
     | '/platform/sources/$id'
     | '/platform/sources/new'
+    | '/api/auth/passkeys/remove'
     | '/platform/media/sources/new'
+    | '/api/auth/passkeys/authentication/begin'
+    | '/api/auth/passkeys/authentication/finish'
+    | '/api/auth/passkeys/registration/begin'
+    | '/api/auth/passkeys/registration/finish'
     | '/api/operator/investigations/$id/events'
   id:
     | '__root__'
     | '/_dashboard'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/_dashboard/admin'
     | '/_dashboard/platform'
     | '/api/ai-metrics'
@@ -813,10 +940,14 @@ export interface FileRouteTypes {
     | '/_dashboard/platform_/topics'
     | '/_dashboard/platform_/workload'
     | '/api/aggregation/$'
+    | '/api/auth/capabilities'
+    | '/api/auth/forgot-password'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/passkeys'
     | '/api/auth/refresh'
+    | '/api/auth/reset-password'
     | '/api/cms/$'
     | '/api/database-migrations/actions'
     | '/api/database-migrations/programs'
@@ -844,20 +975,31 @@ export interface FileRouteTypes {
     | '/_dashboard/platform_/news_/sources'
     | '/_dashboard/platform_/sources_/$id'
     | '/_dashboard/platform_/sources_/new'
+    | '/api/auth/passkeys/remove'
     | '/_dashboard/platform_/media_/sources_/new'
+    | '/api/auth/passkeys/authentication/begin'
+    | '/api/auth/passkeys/authentication/finish'
+    | '/api/auth/passkeys/registration/begin'
+    | '/api/auth/passkeys/registration/finish'
     | '/api/operator/investigations/$id/events'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ApiAiMetricsRoute: typeof ApiAiMetricsRoute
   ApiSystemHealthRoute: typeof ApiSystemHealthRouteWithChildren
   ApiAggregationSplatRoute: typeof ApiAggregationSplatRoute
+  ApiAuthCapabilitiesRoute: typeof ApiAuthCapabilitiesRoute
+  ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
+  ApiAuthPasskeysRoute: typeof ApiAuthPasskeysRouteWithChildren
   ApiAuthRefreshRoute: typeof ApiAuthRefreshRoute
+  ApiAuthResetPasswordRoute: typeof ApiAuthResetPasswordRoute
   ApiCmsSplatRoute: typeof ApiCmsSplatRoute
   ApiDatabaseMigrationsActionsRoute: typeof ApiDatabaseMigrationsActionsRoute
   ApiDatabaseMigrationsProgramsRoute: typeof ApiDatabaseMigrationsProgramsRoute
@@ -876,11 +1018,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/': {
@@ -1093,6 +1249,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAggregationSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/capabilities': {
+      id: '/api/auth/capabilities'
+      path: '/api/auth/capabilities'
+      fullPath: '/api/auth/capabilities'
+      preLoaderRoute: typeof ApiAuthCapabilitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/forgot-password': {
+      id: '/api/auth/forgot-password'
+      path: '/api/auth/forgot-password'
+      fullPath: '/api/auth/forgot-password'
+      preLoaderRoute: typeof ApiAuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/login': {
       id: '/api/auth/login'
       path: '/api/auth/login'
@@ -1114,11 +1284,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthMeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/passkeys': {
+      id: '/api/auth/passkeys'
+      path: '/api/auth/passkeys'
+      fullPath: '/api/auth/passkeys'
+      preLoaderRoute: typeof ApiAuthPasskeysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/refresh': {
       id: '/api/auth/refresh'
       path: '/api/auth/refresh'
       fullPath: '/api/auth/refresh'
       preLoaderRoute: typeof ApiAuthRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/reset-password': {
+      id: '/api/auth/reset-password'
+      path: '/api/auth/reset-password'
+      fullPath: '/api/auth/reset-password'
+      preLoaderRoute: typeof ApiAuthResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/cms/$': {
@@ -1310,12 +1494,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPlatformSourcesNewRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/api/auth/passkeys/remove': {
+      id: '/api/auth/passkeys/remove'
+      path: '/remove'
+      fullPath: '/api/auth/passkeys/remove'
+      preLoaderRoute: typeof ApiAuthPasskeysRemoveRouteImport
+      parentRoute: typeof ApiAuthPasskeysRoute
+    }
     '/_dashboard/platform_/media_/sources_/new': {
       id: '/_dashboard/platform_/media_/sources_/new'
       path: '/platform/media/sources/new'
       fullPath: '/platform/media/sources/new'
       preLoaderRoute: typeof DashboardPlatformMediaSourcesNewRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/api/auth/passkeys/authentication/begin': {
+      id: '/api/auth/passkeys/authentication/begin'
+      path: '/authentication/begin'
+      fullPath: '/api/auth/passkeys/authentication/begin'
+      preLoaderRoute: typeof ApiAuthPasskeysAuthenticationBeginRouteImport
+      parentRoute: typeof ApiAuthPasskeysRoute
+    }
+    '/api/auth/passkeys/authentication/finish': {
+      id: '/api/auth/passkeys/authentication/finish'
+      path: '/authentication/finish'
+      fullPath: '/api/auth/passkeys/authentication/finish'
+      preLoaderRoute: typeof ApiAuthPasskeysAuthenticationFinishRouteImport
+      parentRoute: typeof ApiAuthPasskeysRoute
+    }
+    '/api/auth/passkeys/registration/begin': {
+      id: '/api/auth/passkeys/registration/begin'
+      path: '/registration/begin'
+      fullPath: '/api/auth/passkeys/registration/begin'
+      preLoaderRoute: typeof ApiAuthPasskeysRegistrationBeginRouteImport
+      parentRoute: typeof ApiAuthPasskeysRoute
+    }
+    '/api/auth/passkeys/registration/finish': {
+      id: '/api/auth/passkeys/registration/finish'
+      path: '/registration/finish'
+      fullPath: '/api/auth/passkeys/registration/finish'
+      preLoaderRoute: typeof ApiAuthPasskeysRegistrationFinishRouteImport
+      parentRoute: typeof ApiAuthPasskeysRoute
     }
     '/api/operator/investigations/$id/events': {
       id: '/api/operator/investigations/$id/events'
@@ -1454,16 +1673,45 @@ const ApiSystemHealthRouteWithChildren = ApiSystemHealthRoute._addFileChildren(
   ApiSystemHealthRouteChildren,
 )
 
+interface ApiAuthPasskeysRouteChildren {
+  ApiAuthPasskeysRemoveRoute: typeof ApiAuthPasskeysRemoveRoute
+  ApiAuthPasskeysAuthenticationBeginRoute: typeof ApiAuthPasskeysAuthenticationBeginRoute
+  ApiAuthPasskeysAuthenticationFinishRoute: typeof ApiAuthPasskeysAuthenticationFinishRoute
+  ApiAuthPasskeysRegistrationBeginRoute: typeof ApiAuthPasskeysRegistrationBeginRoute
+  ApiAuthPasskeysRegistrationFinishRoute: typeof ApiAuthPasskeysRegistrationFinishRoute
+}
+
+const ApiAuthPasskeysRouteChildren: ApiAuthPasskeysRouteChildren = {
+  ApiAuthPasskeysRemoveRoute: ApiAuthPasskeysRemoveRoute,
+  ApiAuthPasskeysAuthenticationBeginRoute:
+    ApiAuthPasskeysAuthenticationBeginRoute,
+  ApiAuthPasskeysAuthenticationFinishRoute:
+    ApiAuthPasskeysAuthenticationFinishRoute,
+  ApiAuthPasskeysRegistrationBeginRoute: ApiAuthPasskeysRegistrationBeginRoute,
+  ApiAuthPasskeysRegistrationFinishRoute:
+    ApiAuthPasskeysRegistrationFinishRoute,
+}
+
+const ApiAuthPasskeysRouteWithChildren = ApiAuthPasskeysRoute._addFileChildren(
+  ApiAuthPasskeysRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ApiAiMetricsRoute: ApiAiMetricsRoute,
   ApiSystemHealthRoute: ApiSystemHealthRouteWithChildren,
   ApiAggregationSplatRoute: ApiAggregationSplatRoute,
+  ApiAuthCapabilitiesRoute: ApiAuthCapabilitiesRoute,
+  ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
+  ApiAuthPasskeysRoute: ApiAuthPasskeysRouteWithChildren,
   ApiAuthRefreshRoute: ApiAuthRefreshRoute,
+  ApiAuthResetPasswordRoute: ApiAuthResetPasswordRoute,
   ApiCmsSplatRoute: ApiCmsSplatRoute,
   ApiDatabaseMigrationsActionsRoute: ApiDatabaseMigrationsActionsRoute,
   ApiDatabaseMigrationsProgramsRoute: ApiDatabaseMigrationsProgramsRoute,

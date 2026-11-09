@@ -11,60 +11,33 @@ test('redirects a signed-out deep link before requesting private content', async
         if (path.startsWith('/api/cms/')) contentRequests.push(path);
     });
     await page.goto(origin + '/platform/news?view=library');
-    await expect(page).toHaveURL(origin + '/login');
+    await expect(page).toHaveURL(origin + '/login?returnTo=%2Fplatform%2Fnews%3Fview%3Dlibrary');
     await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
     expect(contentRequests).toEqual([]);
 });
 
-test('guides quick sign-in when the browser has no saved credentials', async ({ page }) => {
+test('disables local quick sign-in in the production build', async ({ page, request }) => {
     const origin = fixtureOrigin();
-    await page.addInitScript(() => {
-        Object.defineProperty(navigator, 'credentials', { value: { get: async () => null } });
-    });
     await page.goto(origin + '/login');
-    const shortcut = page.getByRole('button', { name: 'Quick sign in' });
-    await shortcut.click();
-    await expect(page.getByRole('status')).toHaveText(/Enter your Console credentials/);
-    await expect(page.getByLabel('Email')).toBeFocused();
-    await expect(page.getByText('Please enter a valid email address')).toHaveCount(0);
-    await expect(page.getByText('Password is required')).toHaveCount(0);
-
-    await page.getByLabel('Email').fill('operator@example.test');
-    await shortcut.click();
-    await expect(page.getByLabel('Password')).toBeFocused();
-    await expect(page.getByText('Password is required')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Quick sign in' })).toHaveCount(0);
+    const response = await request.post(origin + '/api/auth/login', {
+        headers: { origin, 'x-wahb-runtime-id': 'fixture-launch' },
+        data: { mode: 'local-quick-sign-in' },
+    });
+    expect(response.status()).toBe(404);
 
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByText('Password is required')).toBeVisible();
 });
 
-test('signs in through the logo using the credentials in the form', async ({ page, browserName }) => {
+test('signs in with password manager autofill', async ({ page, browserName }) => {
     test.skip(browserName === 'webkit', 'The fixture HTTP origin cannot store Secure cookies in WebKit');
     const origin = fixtureOrigin();
     await page.goto(origin + '/login');
-    const shortcut = page.getByRole('button', { name: 'Quick sign in' });
-
     // Simulate a password manager populating the inputs without input events.
     await page.getByLabel('Email').evaluate((input: HTMLInputElement) => { input.value = 'operator@example.test'; });
-    await page.getByLabel('Password').evaluate((input: HTMLInputElement) => { input.value = 'fixture-only'; });
-    await shortcut.click();
-    await expect(page).toHaveURL(origin + '/');
-    await expect(page.getByRole('link', { name: 'News', exact: true }).first()).toBeVisible();
-});
-
-test('uses a browser-selected saved login when the form is empty', async ({ page, browserName }) => {
-    test.skip(browserName === 'webkit', 'The fixture HTTP origin cannot store Secure cookies in WebKit');
-    const origin = fixtureOrigin();
-    await page.addInitScript(() => {
-        Object.defineProperty(window, 'PasswordCredential', { value: class {} });
-        Object.defineProperty(navigator, 'credentials', {
-            value: { get: async ({ password }: { password?: boolean }) => password
-                ? { type: 'password', id: 'operator@example.test', password: 'fixture-only' }
-                : null },
-        });
-    });
-    await page.goto(origin + '/login');
-    await page.getByRole('button', { name: 'Quick sign in' }).click();
+    await page.getByLabel('Password', { exact: true }).evaluate((input: HTMLInputElement) => { input.value = 'fixture-only'; });
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page).toHaveURL(origin + '/');
     await expect(page.getByRole('link', { name: 'News', exact: true }).first()).toBeVisible();
 });
@@ -167,4 +140,115 @@ test('keeps System Health navigation visible while the Incidents panel loads', a
     } finally {
         assetGate.resolve();
     }
+});
+
+test('returns to a bookmarked page after sign-in', async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'The fixture HTTP origin cannot store Secure cookies in WebKit');
+    const origin = fixtureOrigin();
+    const target = '/platform/news?view=library#search';
+    await page.goto(origin + target);
+    await expect(page).toHaveURL((url) => url.pathname === '/login' && url.searchParams.get('returnTo') === target);
+    await page.getByLabel('Email', { exact: true }).fill('operator@example.test');
+    await page.getByLabel('Password', { exact: true }).fill('fixture-only');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).toHaveURL(origin + target);
+});
+
+test('restores one expired session across tabs and clears it on sign-out', async ({ context, browserName }) => {
+    test.skip(browserName === 'webkit', 'The fixture HTTP origin cannot store Secure cookies in WebKit');
+    const origin = fixtureOrigin();
+    await fixtureLogin(context, origin);
+    await context.clearCookies({ name: 'console_access_token' });
+    let refreshes = 0;
+    context.on('request', (request) => { if (request.url().endsWith('/api/auth/refresh')) ++refreshes; });
+    const tabs = await Promise.all([context.newPage(), context.newPage()]);
+    await Promise.all(tabs.map((tab) => tab.goto(origin + '/platform/news')));
+    await Promise.all(tabs.map((tab) => expect(tab.getByRole('heading', { name: 'News', exact: true })).toBeVisible()));
+    expect(refreshes).toBe(1);
+    await tabs[0].getByRole('button', { name: 'Account options' }).click();
+    await tabs[0].getByRole('menuitem', { name: 'Sign out' }).click();
+    await expect(tabs[1]).toHaveURL((url) => url.pathname === '/login');
+    expect((await context.cookies()).some((cookie) => cookie.name === 'console_refresh_token')).toBe(false);
+});
+
+test('allows session retry during an IAM outage', async ({ page, context, browserName }) => {
+    test.skip(browserName === 'webkit', 'The fixture HTTP origin cannot store Secure cookies in WebKit');
+    const origin = fixtureOrigin();
+    await fixtureLogin(context, origin);
+    await page.route('**/api/auth/me', (route) => route.fulfill({
+        status: 503, json: { code: 'session_unavailable' },
+    }), { times: 1 });
+    await page.goto(origin + '/platform/news');
+    await expect(page.getByRole('alert')).toContainText('couldn’t check your session');
+    expect((await context.cookies()).some((cookie) => cookie.name === 'console_refresh_token')).toBe(true);
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'News', exact: true })).toBeVisible();
+});
+
+test('enrolls and uses a passkey with a Chromium virtual authenticator', async ({ page, context, browserName }) => {
+    test.skip(browserName !== 'chromium', 'The virtual authenticator uses Chromium DevTools');
+    const origin = fixtureOrigin().replace('127.0.0.1', 'localhost');
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
+        protocol: 'ctap2', transport: 'internal', hasResidentKey: true,
+        hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true,
+    } });
+    await page.goto(origin + '/login');
+    await page.getByLabel('Email', { exact: true }).fill('operator@example.test');
+    await page.getByLabel('Password', { exact: true }).fill('fixture-only');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await page.getByRole('button', { name: 'Account options' }).click();
+    await page.getByRole('menuitem', { name: 'Passkeys' }).click();
+    await page.getByRole('button', { name: 'Add a passkey' }).click();
+    await page.getByLabel('Current password', { exact: true }).fill('fixture-only');
+    await page.getByRole('button', { name: 'Create passkey' }).click();
+    await expect(page.getByText(/Passkey added/)).toBeVisible();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: 'Account options' }).click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(origin + '/login');
+    await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+    await expect(page).toHaveURL(origin + '/');
+    await page.getByRole('button', { name: 'Account options' }).click();
+    await page.getByRole('menuitem', { name: 'Passkeys' }).click();
+    await page.getByRole('button', { name: 'Remove', exact: true }).click();
+    await page.getByLabel('Current password', { exact: true }).fill('fixture-only');
+    await page.getByRole('button', { name: 'Remove passkey' }).click();
+    await expect(page.getByText('You haven’t added a passkey.')).toBeVisible();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: 'Account options' }).click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(origin + '/login');
+    await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+    await expect(page.getByRole('alert')).toContainText('Passkey sign-in didn’t complete');
+    await page.evaluate(() => {
+        navigator.credentials.get = async () => { throw new DOMException('Cancelled', 'NotAllowedError'); };
+    });
+    await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+    await expect(page.getByRole('alert')).toContainText('Passkey sign-in didn’t complete');
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled();
+});
+
+test('uses the dedicated Console reset page and removes its token from the URL', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Fixture reset token is single use');
+    const origin = fixtureOrigin().replace('127.0.0.1', 'localhost');
+    await page.goto(origin + '/login');
+    await page.getByRole('link', { name: 'Forgot password?' }).click();
+    await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible();
+    await page.getByLabel('Email', { exact: true }).fill('operator@example.test');
+    await page.getByRole('button', { name: 'Send reset link' }).click();
+    await expect(page.getByRole('status')).toContainText('If an account matches that email');
+
+    await page.goto(origin + '/reset-password#token=fixture-reset');
+    await expect(page).toHaveURL(origin + '/reset-password');
+    await page.getByLabel('New password', { exact: true }).fill('fixture-new-password');
+    await page.getByLabel('Confirm new password', { exact: true }).fill('fixture-new-password');
+    await page.getByRole('button', { name: 'Update password' }).click();
+    await expect(page.getByRole('status')).toContainText('Your password was updated');
+    await page.goto(origin + '/reset-password#token=fixture-reset');
+    await page.getByLabel('New password', { exact: true }).fill('fixture-new-password');
+    await page.getByLabel('Confirm new password', { exact: true }).fill('fixture-new-password');
+    await page.getByRole('button', { name: 'Update password' }).click();
+    await expect(page.getByRole('alert')).toContainText('invalid or expired');
 });

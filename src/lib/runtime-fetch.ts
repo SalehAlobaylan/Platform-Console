@@ -1,4 +1,5 @@
 'use client';
+import { signInLocation } from './sign-in-destination';
 // Captured from the current document, so a tab opened before a restart keeps
 // the old value even if another tab signs in with new cookies.
 import { consoleRuntime } from './runtime-config';
@@ -27,12 +28,15 @@ if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
     new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
     headers.set('X-Wahb-Runtime-ID', runtime);
     const response = await original(input, { ...init, headers });
-    if (response.status === 409) {
+    if (response.status === 409 && !target.pathname.startsWith('/api/auth/')) {
       const value = await response
         .clone()
         .json()
         .catch(() => null);
-      if (value?.code === 'runtime_changed') window.location.assign('/login');
+      if (value?.code === 'runtime_changed') {
+        const { pathname, search, hash } = window.location;
+        window.location.assign(signInLocation(pathname + search + hash, true));
+      }
     }
     return response;
   };

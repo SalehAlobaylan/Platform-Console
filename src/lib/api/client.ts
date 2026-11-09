@@ -7,6 +7,7 @@ import axios, {
   InternalAxiosRequestConfig,
 } from 'axios';
 import { clearAuthState } from '@/lib/stores/auth';
+import { recoverSession } from '@/lib/auth-session';
 
 export interface ApiError {
   message: string;
@@ -26,85 +27,21 @@ type ErrorHandler = (error: ApiError) => void;
 
 let on401Handler: ErrorHandler = () => {
   clearAuthState();
-  if (typeof window !== 'undefined') {
-    window.location.href = '/login';
-  }
 };
 
 let on403Handler: ErrorHandler = (error) => {
   console.error('Permission denied:', error.message);
 };
+let onSessionUnavailable = () => {};
 
 export function setErrorHandlers(handlers: {
   on401?: ErrorHandler;
   on403?: ErrorHandler;
+  onSessionUnavailable?: () => void;
 }) {
   if (handlers.on401) on401Handler = handlers.on401;
   if (handlers.on403) on403Handler = handlers.on403;
-}
-
-// Share recovery across clients without caching authentication decisions.
-type RefreshState = 'refreshed' | 'expired' | 'unknown';
-let refreshInFlight: Promise<RefreshState> | null = null;
-type SessionState = 'valid' | 'expired' | 'unknown';
-let sessionCheckInFlight: Promise<SessionState> | null = null;
-
-async function authRequest(
-  path: string,
-  method: 'GET' | 'POST',
-  timeoutMs: number
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(path, {
-      method,
-      cache: 'no-store',
-      signal: controller.signal,
-      headers: {
-        'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '',
-      },
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function attemptRefresh(): Promise<RefreshState> {
-  if (!refreshInFlight) {
-    refreshInFlight = authRequest('/api/auth/refresh', 'POST', 10_000)
-      .then(
-        (res): RefreshState =>
-          res.ok ? 'refreshed' : res.status === 401 ? 'expired' : 'unknown'
-      )
-      .catch((): RefreshState => 'unknown')
-      .finally(() => {
-        // small delay so concurrent requests that started while refresh
-        // was pending see the resolved value before nulling
-        setTimeout(() => {
-          refreshInFlight = null;
-        }, 0);
-      });
-  }
-  return refreshInFlight;
-}
-
-// A service can reject a token even while IAM still recognizes the operator.
-// Only an authoritative session rejection should clear the Console session;
-// network failures and upstream token-contract errors remain request errors.
-function inspectSession(): Promise<SessionState> {
-  if (!sessionCheckInFlight) {
-    sessionCheckInFlight = authRequest('/api/auth/me', 'GET', 5_000)
-      .then(
-        (res): SessionState =>
-          res.ok ? 'valid' : res.status === 401 ? 'expired' : 'unknown'
-      )
-      .catch((): SessionState => 'unknown')
-      .finally(() => {
-        sessionCheckInFlight = null;
-      });
-  }
-  return sessionCheckInFlight;
+  if (handlers.onSessionUnavailable) onSessionUnavailable = handlers.onSessionUnavailable;
 }
 
 function createAxiosInstance(baseURL: string): AxiosInstance {
@@ -143,21 +80,18 @@ function createAxiosInstance(baseURL: string): AxiosInstance {
       };
 
       if (apiError.status === 401) {
-        if (originalRequest?.url?.includes('/api/auth/')) {
+        const session = await recoverSession();
+        if (session.state === 'valid') {
+          if (session.refreshed && originalRequest && !originalRequest._retried) {
+            originalRequest._retried = true;
+            return instance(originalRequest);
+          }
+          apiError.code = 'upstream_authentication_failed';
+        } else if (session.state === 'signed_out' || session.state === 'runtime_changed') {
+          apiError.code = session.state;
           on401Handler(apiError);
         } else {
-          const session = await inspectSession();
-          if (session === 'expired') {
-            if (originalRequest && !originalRequest._retried) {
-              originalRequest._retried = true;
-              const refresh = await attemptRefresh();
-              if (refresh === 'refreshed') return instance(originalRequest);
-              if (refresh === 'unknown') return Promise.reject(apiError);
-            }
-            on401Handler(apiError);
-          } else if (session === 'valid') {
-            apiError.code = 'upstream_authentication_failed';
-          }
+          onSessionUnavailable();
         }
       } else if (apiError.status === 403) {
         on403Handler(apiError);

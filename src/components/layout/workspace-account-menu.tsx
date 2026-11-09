@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronDown, LogOut, Moon, Sun, User } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, KeyRound, LogOut, Moon, Sun, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,15 +11,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PasskeySettings } from '@/components/auth/passkey-settings';
+import { useConsoleAuthCapabilities } from '@/lib/console-auth-capabilities';
 import { useAuth } from '@/hooks/use-auth';
 import { useConsoleTheme } from '@/hooks/use-console-theme';
 
 export function WorkspaceAccountMenu({ locale }: { locale: 'en' | 'ar' }) {
   const { user, logout } = useAuth();
+  const capabilities = useConsoleAuthCapabilities();
+  const [passkeysOpen, setPasskeysOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState(false);
+  async function signOut() {
+    setLoggingOut(true);
+    setLogoutError(false);
+    try { await logout(); }
+    catch { setLogoutError(true); }
+    finally { setLoggingOut(false); }
+  }
   const { theme, mounted, toggleTheme } = useConsoleTheme();
   const ar = locale === 'ar';
   const label = ar ? 'خيارات الحساب' : 'Account options';
-  return (
+  return (<>
     <DropdownMenu dir={ar ? 'rtl' : 'ltr'}>
       <DropdownMenuTrigger asChild>
         <Button
@@ -67,11 +81,22 @@ export function WorkspaceAccountMenu({ locale }: { locale: 'en' | 'ar' }) {
                 : 'Light appearance'}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onSelect={() => void logout()}>
+        {capabilities?.passkeys && <DropdownMenuItem onSelect={() => setPasskeysOpen(true)}>
+          <KeyRound className="me-2 size-4" />
+          {ar ? 'مفاتيح المرور' : 'Passkeys'}
+        </DropdownMenuItem>}
+        {logoutError && <p role="alert" className="px-2 py-1 text-xs text-destructive">
+          {ar ? 'تعذر تسجيل الخروج. حاول مرة أخرى.' : 'Couldn’t sign out. Try again.'}
+        </p>}
+        <DropdownMenuItem disabled={loggingOut} onSelect={(event) => {
+          event.preventDefault();
+          void signOut();
+        }}>
           <LogOut className="me-2 size-4" />
           {ar ? 'تسجيل الخروج' : 'Sign out'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
+    {capabilities?.passkeys && <PasskeySettings open={passkeysOpen} onOpenChange={setPasskeysOpen} />}
+  </>);
 }

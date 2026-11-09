@@ -5,6 +5,13 @@ import { retryQuery } from '../query-retry';
 
 jest.mock('@/lib/stores/auth', () => ({ clearAuthState: jest.fn() }));
 
+const valid = { ok: true, status: 200, json: async () => ({ user_id: 'fixture' }) };
+const state = (code: string, status = 401) => ({ ok: false, status, json: async () => ({ code }) });
+const expired = state('access_expired');
+const signedOut = state('no_session');
+const refreshRejected = state('session_rejected');
+const unavailable = state('session_unavailable', 503);
+
 describe('backend rejection versus Console session expiry', () => {
   const previousFetch = global.fetch;
   const on401 = jest.fn();
@@ -34,11 +41,12 @@ describe('backend rejection versus Console session expiry', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
     global.fetch = previousFetch;
   });
 
   it('keeps a valid IAM session without refreshing or retrying a backend rejection', async () => {
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = jest.fn().mockResolvedValue(valid);
     await expect(
       createClient('/api/aggregation').post('/admin/test', {}, { adapter })
     ).rejects.toMatchObject({
@@ -56,7 +64,7 @@ describe('backend rejection versus Console session expiry', () => {
   });
 
   it('does not repeat a confirmed backend authentication rejection through query retries', async () => {
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = jest.fn().mockResolvedValue(valid);
     const queries = new QueryClient({
       defaultOptions: { queries: { retry: retryQuery, retryDelay: 0 } },
     });
@@ -97,8 +105,10 @@ describe('backend rejection versus Console session expiry', () => {
   it('clears a session that IAM rejects', async () => {
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({ ok: false, status: 401 });
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(refreshRejected)
+      .mockResolvedValueOnce(expired);
     await expect(
       createClient('/api/aggregation').post('/admin/test', {}, { adapter })
     ).rejects.toMatchObject({ status: 401 });
@@ -110,7 +120,7 @@ describe('backend rejection versus Console session expiry', () => {
     global.fetch = jest
       .fn()
       .mockRejectedValueOnce(new Error('Network unavailable'))
-      .mockResolvedValueOnce({ ok: false, status: 503 });
+      .mockResolvedValueOnce(unavailable);
     await expect(
       createClient('/api/aggregation').post('/admin/test', {}, { adapter })
     ).rejects.toMatchObject({ status: 401 });
@@ -127,8 +137,8 @@ describe('backend rejection versus Console session expiry', () => {
   }
 
   function pendingResponse() {
-    let resolve!: (value: { ok: boolean; status: number }) => void;
-    const promise = new Promise<{ ok: boolean; status: number }>((complete) => {
+    let resolve!: (value: typeof valid | typeof expired) => void;
+    const promise = new Promise<typeof valid | typeof expired>((complete) => {
       resolve = complete;
     });
     return { promise, resolve };
@@ -158,8 +168,10 @@ describe('backend rejection versus Console session expiry', () => {
   it('refreshes a genuinely expired access token and retries once', async () => {
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({ ok: true, status: 200 });
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(valid)
+      .mockResolvedValueOnce(valid);
     adapter
       .mockImplementationOnce(async (config) => {
         throw new AxiosError(
@@ -181,9 +193,9 @@ describe('backend rejection versus Console session expiry', () => {
       createClient('/api/aggregation').post('/admin/test', {}, { adapter })
     ).resolves.toEqual({ success: true });
     expect(adapter).toHaveBeenCalledTimes(2);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
     expect(global.fetch).toHaveBeenNthCalledWith(
-      2,
+      3,
       '/api/auth/refresh',
       expect.objectContaining({ method: 'POST' })
     );
@@ -193,9 +205,11 @@ describe('backend rejection versus Console session expiry', () => {
   it('stops retrying a backend rejection after refresh and valid session readback', async () => {
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({ ok: true, status: 200 })
-      .mockResolvedValueOnce({ ok: true, status: 200 });
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(valid)
+      .mockResolvedValueOnce(valid)
+      .mockResolvedValueOnce(valid);
     await expect(
       createClient('/api/aggregation').post('/admin/test', {}, { adapter })
     ).rejects.toMatchObject({
@@ -203,15 +217,16 @@ describe('backend rejection versus Console session expiry', () => {
       code: 'upstream_authentication_failed',
     });
     expect(adapter).toHaveBeenCalledTimes(2);
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(global.fetch).toHaveBeenCalledTimes(5);
     expect(on401).not.toHaveBeenCalled();
   });
 
   it('retains session state when refresh is unavailable during an outage', async () => {
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({ ok: false, status: 503 });
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(unavailable);
     await expect(
       createClient('/api/aggregation').post('/admin/test', {}, { adapter })
     ).rejects.toMatchObject({ status: 401 });
@@ -232,7 +247,7 @@ describe('backend rejection versus Console session expiry', () => {
     );
     await tick();
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    session.resolve({ ok: true, status: 200 });
+    session.resolve(valid);
     const results = await outcomes;
     expect(
       results.every(
@@ -252,7 +267,9 @@ describe('backend rejection versus Console session expiry', () => {
     global.fetch = jest
       .fn()
       .mockReturnValueOnce(session.promise)
-      .mockReturnValueOnce(refresh.promise);
+      .mockResolvedValueOnce(expired)
+      .mockReturnValueOnce(refresh.promise)
+      .mockResolvedValueOnce(valid);
     adapter.mockImplementation(async (config) => {
       if ((config as typeof config & { _retried?: boolean })._retried)
         return successful(config);
@@ -280,12 +297,12 @@ describe('backend rejection versus Console session expiry', () => {
       )
     );
     await tick();
-    session.resolve({ ok: false, status: 401 });
+    session.resolve(expired);
     await tick();
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-    refresh.resolve({ ok: true, status: 200 });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+    refresh.resolve(valid);
     expect(await outcomes).toHaveLength(32);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
     expect(adapter).toHaveBeenCalledTimes(64);
     expect(on401).not.toHaveBeenCalled();
   });
@@ -293,9 +310,8 @@ describe('backend rejection versus Console session expiry', () => {
   it('rechecks later failures instead of caching a previously valid session', async () => {
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce({ ok: true, status: 200 })
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({ ok: false, status: 401 });
+      .mockResolvedValueOnce(valid)
+      .mockResolvedValueOnce(signedOut);
     const client = createClient('/api/aggregation');
     await expect(
       client.post('/admin/test', {}, { adapter })
@@ -304,7 +320,7 @@ describe('backend rejection versus Console session expiry', () => {
       client.post('/admin/test', {}, { adapter })
     ).rejects.toMatchObject({ status: 401 });
     expect(on401).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it('bounds session inspection at five seconds without signing out', async () => {
@@ -328,13 +344,14 @@ describe('backend rejection versus Console session expiry', () => {
     jest.useFakeTimers();
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(expired)
       .mockImplementationOnce(waitForAbort);
     const outcome = createClient('/api/aggregation')
       .post('/admin/test', {}, { adapter })
       .catch((error) => error);
     await jest.advanceTimersByTimeAsync(0);
-    const signal = (global.fetch as jest.Mock).mock.calls[1][1]
+    const signal = (global.fetch as jest.Mock).mock.calls[2][1]
       .signal as AbortSignal;
     await jest.advanceTimersByTimeAsync(10000);
     expect(signal.aborted).toBe(true);

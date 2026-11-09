@@ -16,6 +16,8 @@ import { consumeOperatorLaunchContext } from '@/lib/operator/launch-context';
 let mockPath = '/platform/storage',
   mockSearch = 'tab=quality';
 const push = jest.fn();
+jest.mock('@/lib/console-auth-capabilities', () => ({ useConsoleAuthCapabilities: () => undefined }));
+
 jest.mock('@/lib/navigation', () => ({
   usePathname: () => mockPath,
   useSearchParams: () => new URLSearchParams(mockSearch),

@@ -1,10 +1,5 @@
 import { consoleRuntime } from '@/lib/runtime-config';
-import type {
-    LoginRequest,
-    RegisterRequest,
-    RegisterResponse,
-    MeResponse,
-} from './types';
+import type { LoginRequest, RegisterRequest, RegisterResponse, MeResponse } from './types';
 
 interface IamError {
     message: string;
@@ -12,7 +7,26 @@ interface IamError {
     code?: string;
 }
 
-async function parseError(res: Response): Promise<IamError> {
+export async function authRequest(path: string, options: { method?: string; body?: unknown; timeout?: number } = {}) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options.timeout ?? 10_000);
+    try {
+        return await fetch(path, {
+            method: options.method ?? (options.body === undefined ? 'GET' : 'POST'),
+            cache: 'no-store',
+            signal: controller.signal,
+            headers: {
+                'X-Wahb-Runtime-ID': consoleRuntime().runtimeId,
+                ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+            },
+            body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+export async function parseAuthError(res: Response): Promise<IamError> {
     const payload = await res.json().catch(() => ({}));
     return {
         message: payload?.message || payload?.error || `Request failed (${res.status})`,
@@ -21,44 +35,21 @@ async function parseError(res: Response): Promise<IamError> {
     };
 }
 
-export async function login(request: LoginRequest): Promise<void> {
-    const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' },
-        body: JSON.stringify(request),
-    });
-    if (!res.ok) {
-        throw await parseError(res);
-    }
-}
+export type ConsoleLoginRequest = LoginRequest | { mode: 'local-quick-sign-in' };
 
-export async function logout(): Promise<void> {
-    await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' } });
-}
-
-export async function refresh(): Promise<void> {
-    const res = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' } });
-    if (!res.ok) {
-        throw await parseError(res);
-    }
-}
-
-export async function getMe(): Promise<MeResponse> {
-    const res = await fetch('/api/auth/me');
-    if (!res.ok) {
-        throw await parseError(res);
-    }
+export async function login(request: ConsoleLoginRequest): Promise<MeResponse> {
+    const res = await authRequest('/api/auth/login', { body: request, timeout: 15_000 });
+    if (!res.ok) throw await parseAuthError(res);
     return res.json();
 }
 
+export async function logout(): Promise<void> {
+    const res = await authRequest('/api/auth/logout', { method: 'POST' });
+    if (!res.ok) throw await parseAuthError(res);
+}
+
 export async function register(request: RegisterRequest): Promise<RegisterResponse> {
-    const res = await fetch('/api/iam/api/v1/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Wahb-Runtime-ID': consoleRuntime().runtimeId || '' },
-        body: JSON.stringify(request),
-    });
-    if (!res.ok) {
-        throw await parseError(res);
-    }
+    const res = await authRequest('/api/iam/api/v1/auth/register', { body: request });
+    if (!res.ok) throw await parseAuthError(res);
     return res.json();
 }

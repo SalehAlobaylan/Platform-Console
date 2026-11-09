@@ -36,7 +36,7 @@ export interface MeResponse {
     roles: string[];
     permissions: string[];
     is_admin: boolean;
-    token_expiry?: string;
+    token_expiry?: number | string;
 }
 
 export interface IAMRole {

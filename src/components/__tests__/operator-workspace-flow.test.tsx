@@ -26,6 +26,8 @@ const replace = jest.fn((href: string) => {
 const invalidate = jest.fn().mockResolvedValue(undefined);
 const caseID = '00000000-0000-4000-8000-000000000001';
 const investigationID = '00000000-0000-4000-8000-000000000002';
+jest.mock('@/lib/console-auth-capabilities', () => ({ useConsoleAuthCapabilities: () => undefined }));
+
 jest.mock('@/lib/navigation', () => ({
   usePathname: () => '/platform/operator',
   useRouter: () => ({ replace }),

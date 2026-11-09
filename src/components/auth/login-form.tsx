@@ -1,116 +1,68 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter } from '@/lib/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from '@/components/ui/toast';
-import { useAuthStore } from '@/lib/stores/auth';
-import type { ApiError } from '@/lib/api/client';
 
-// Validation schema
 const loginSchema = z.object({
-    email: z.string().email('Please enter a valid email address'),
+    email: z.string().trim().email('Please enter a valid email address'),
     password: z.string().min(1, 'Password is required'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-export function LoginForm({ id }: { id: string }) {
-    const router = useRouter();
-    const login = useAuthStore((state) => state.login);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const {
-        register,
-        handleSubmit,
-        setValue,
-        formState: { errors },
-    } = useForm<LoginFormData>({
+export function LoginForm({ onSignIn, pending, recovery }: {
+    onSignIn: (email: string, password: string) => Promise<void>;
+    pending: boolean;
+    recovery: boolean;
+}) {
+    const [showPassword, setShowPassword] = useState(false);
+    const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
-        defaultValues: {
-            email: '',
-            password: '',
-        },
+        defaultValues: { email: '', password: '' },
     });
 
-    const onSubmit = async (data: LoginFormData) => {
-        setIsSubmitting(true);
-        try {
-            await login(data.email, data.password);
-            toast({
-                title: 'Welcome back!',
-                description: 'You have been successfully logged in.',
-                variant: 'success',
-            });
-            // Redirect to dashboard
-            router.push('/');
-        } catch (error) {
-            const apiError = error as ApiError;
-            toast({
-                title: 'Login failed',
-                description: apiError.message || 'Invalid email or password. Please try again.',
-                variant: 'destructive',
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
     const submit = (event: FormEvent<HTMLFormElement>) => {
-        // Password managers can populate inputs without React input events.
+        // Some password managers update native input values without React events.
         const data = new FormData(event.currentTarget);
         setValue('email', String(data.get('email') ?? ''));
         setValue('password', String(data.get('password') ?? ''));
-        void handleSubmit(onSubmit)(event);
+        void handleSubmit(({ email, password }) => onSignIn(email, password))(event);
     };
 
     return (
-        <form id={id} onSubmit={submit} className="space-y-4">
+        <form method="post" onSubmit={submit} className="space-y-4" noValidate>
             <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@example.com"
-                    autoComplete="username"
-                    {...register('email')}
-                    disabled={isSubmitting}
-                />
-                {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email.message}</p>
-                )}
+                <Input id="email" type="email" autoComplete="username" {...register('email')}
+                    aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'email-error' : undefined} />
+                {errors.email && <p id="email-error" className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    {...register('password')}
-                    disabled={isSubmitting}
-                />
-                {errors.password && (
-                    <p className="text-sm text-destructive">{errors.password.message}</p>
-                )}
+                <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="password">Password</Label>
+                    {recovery && <Link to="/forgot-password" className="text-xs underline">Forgot password?</Link>}
+                </div>
+                <div className="relative">
+                    <Input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password"
+                        className="pe-11" {...register('password')}
+                        aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? 'password-error' : undefined} />
+                    <Button type="button" variant="ghost" size="icon" className="absolute inset-y-0 end-0 size-9"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        onClick={() => setShowPassword((value) => !value)}>
+                        {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                    </Button>
+                </div>
+                {errors.password && <p id="password-error" className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? (
-                    <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Signing in...
-                    </>
-                ) : (
-                    'Sign in'
-                )}
-            </Button>
+            <Button type="submit" className="w-full" disabled={pending}>Sign in</Button>
         </form>
     );
 }

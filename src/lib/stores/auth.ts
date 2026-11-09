@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { login as iamLogin, logout as iamLogout, getMe as iamGetMe } from '@/lib/api/iam/auth';
+import { login as iamLogin, logout as iamLogout } from '@/lib/api/iam/auth';
+import { notifySessionChange, recoverSession, withSessionLock } from '@/lib/auth-session';
 import type { User } from '@/lib/api/cms/types';
 import type { MeResponse as IamMeResponse } from '@/lib/api/iam/types';
 
@@ -32,6 +33,7 @@ interface AuthErrorShape {
     message: string;
     status: number;
     code?: string;
+    name?: string;
 }
 
 function toAuthError(error: unknown): AuthErrorShape {
@@ -43,10 +45,12 @@ function toAuthError(error: unknown): AuthErrorShape {
     ) {
         const maybeStatus = (error as { status?: unknown }).status;
         const maybeCode = (error as { code?: unknown }).code;
+        const maybeName = (error as { name?: unknown }).name;
         return {
             message: (error as { message: string }).message,
             status: typeof maybeStatus === 'number' ? maybeStatus : 500,
             code: typeof maybeCode === 'string' ? maybeCode : undefined,
+            name: typeof maybeName === 'string' ? maybeName : undefined,
         };
     }
 
@@ -60,73 +64,88 @@ const EMPTY_AUTH = {
     user: null,
     isAuthenticated: false,
     isLoading: false,
-};
+    sessionIssue: null,
+} as const;
 
 interface AuthState {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
+    sessionIssue: 'unavailable' | 'runtime_changed' | null;
     login: (email: string, password: string) => Promise<void>;
+    quickSignIn: () => Promise<void>;
+    completeSignIn: (authenticate: () => Promise<IamMeResponse>) => Promise<void>;
     logout: () => Promise<void>;
     checkAuth: () => Promise<void>;
     clearAuth: () => void;
     setLoading: (loading: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()((set) => ({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
+export const useAuthStore = create<AuthState>()((set) => {
+    let authVersion = 0;
+    let changingSession = false;
 
-    login: async (email: string, password: string) => {
-        set({ isLoading: true });
+    async function signIn(authenticate: () => Promise<IamMeResponse>) {
+        if (changingSession) return;
+        changingSession = true;
+        ++authVersion;
+        set({ isLoading: true, sessionIssue: null });
         try {
-            await iamLogin({ email, password });
-            const me = await iamGetMe();
-            set({
-                user: mapIamUser(me),
-                isAuthenticated: true,
-                isLoading: false,
-            });
+            const profile = await authenticate();
+            set({ user: mapIamUser(profile), isAuthenticated: true, isLoading: false, sessionIssue: null });
+            notifySessionChange('login');
         } catch (error) {
             set(EMPTY_AUTH);
             throw toAuthError(error);
+        } finally {
+            changingSession = false;
         }
-    },
+    }
 
-    logout: async () => {
-        try {
-            await iamLogout();
-        } catch {
-            // best-effort; cookies will be cleared client-side on redirect anyway
-        }
-        set(EMPTY_AUTH);
-        if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-        }
-    },
+    return {
+        ...EMPTY_AUTH,
+        isLoading: true,
+        login: (email, password) => signIn(() => withSessionLock(() => iamLogin({ email, password }))),
+        quickSignIn: () => signIn(() => withSessionLock(() => iamLogin({ mode: 'local-quick-sign-in' }))),
+        completeSignIn: signIn,
+        logout: async () => {
+            if (changingSession) return;
+            changingSession = true;
+            ++authVersion;
+            try {
+                await withSessionLock(iamLogout);
+                set(EMPTY_AUTH);
+                notifySessionChange('logout');
+                if (typeof window !== 'undefined') window.location.replace('/login');
+            } finally {
+                changingSession = false;
+            }
+        },
 
-    checkAuth: async () => {
-        try {
-            const me = await iamGetMe();
-            set({
-                user: mapIamUser(me),
-                isAuthenticated: true,
-                isLoading: false,
-            });
-        } catch {
+        checkAuth: async () => {
+            if (changingSession) return;
+            const version = ++authVersion;
+            const result = await recoverSession();
+            if (version !== authVersion) return;
+            if (result.state === 'valid') {
+                set({ user: mapIamUser(result.profile), isAuthenticated: true, isLoading: false, sessionIssue: null });
+            } else if (result.state === 'unavailable') {
+                set({ isLoading: false, sessionIssue: result.state });
+            } else {
+                set({ ...EMPTY_AUTH, sessionIssue: result.state === 'runtime_changed' ? result.state : null });
+            }
+        },
+
+        clearAuth: () => {
+            ++authVersion;
             set(EMPTY_AUTH);
-        }
-    },
+        },
 
-    clearAuth: () => {
-        set(EMPTY_AUTH);
-    },
-
-    setLoading: (loading: boolean) => {
-        set({ isLoading: loading });
-    },
-}));
+        setLoading: (loading: boolean) => {
+            set({ isLoading: loading });
+        },
+    };
+});
 
 export function clearAuthState(): void {
     useAuthStore.getState().clearAuth();

@@ -1,117 +1,98 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { LoginForm } from '@/components/auth';
+import { Button } from '@/components/ui/button';
+import { useRouter } from '@/lib/navigation';
 import { useAuthStore } from '@/lib/stores/auth';
+import { useConsoleAuthCapabilities } from '@/lib/console-auth-capabilities';
+import { canUsePasskeys, signInWithPasskey } from '@/lib/console-passkeys';
 
-const loginFormId = 'console-login';
+export default function LoginPage({ localQuickSignIn, returnTo, reason }: {
+    localQuickSignIn: boolean;
+    returnTo: string;
+    reason?: 'runtime_changed' | 'password_reset';
+}) {
+    const router = useRouter();
+    const { isAuthenticated, isLoading, sessionIssue, checkAuth } = useAuthStore();
+    const [error, setError] = useState('');
+    const [passkeySupport, setPasskeySupport] = useState(false);
+    const capabilities = useConsoleAuthCapabilities();
+    useEffect(() => { setPasskeySupport(canUsePasskeys()); }, []);
+    useEffect(() => {
+        if (isAuthenticated) router.replace(returnTo, { fromPath: '/login' });
+    }, [isAuthenticated, returnTo, router]);
 
-async function savedPassword() {
-    // Some browsers expose navigator.credentials only for passkeys.
-    if (!('PasswordCredential' in window) || !navigator.credentials) return null;
-    const options = { password: true, mediation: 'optional' } as const;
-    try {
-        const credential = await navigator.credentials.get(options);
-        return credential?.type === 'password' && 'password' in credential && typeof credential.password === 'string'
-            ? { email: credential.id, password: credential.password }
-            : null;
-    } catch {
-        return null;
-    }
-}
-
-function WahbLoginMark() {
-    return (
-        <>
-            <span
-                aria-hidden="true"
-                className="block h-9 w-8 bg-contain bg-center bg-no-repeat dark:hidden"
-                style={{ backgroundImage: "url('/images/wahb_mark_transparent.png')" }}
-            />
-            <span
-                aria-hidden="true"
-                className="hidden h-9 w-8 bg-contain bg-center bg-no-repeat dark:block"
-                style={{ backgroundImage: "url('/images/wahb_mark_transparent_dark.png')" }}
-            />
-            <span className="sr-only">Wahb</span>
-        </>
-    );
-}
-
-export default function LoginPage() {
-    const isLoading = useAuthStore((state) => state.isLoading);
-    const [isCheckingSavedLogin, setIsCheckingSavedLogin] = useState(false);
-    const [quickSignInHint, setQuickSignInHint] = useState('');
-
-    async function quickSignIn(event: MouseEvent<HTMLButtonElement>) {
-        const form = event.currentTarget.form;
-        const email = form?.elements.namedItem('email');
-        const password = form?.elements.namedItem('password');
-        if (!form || !(email instanceof HTMLInputElement) || !(password instanceof HTMLInputElement)) return;
-
-        setQuickSignInHint('');
-        if (!email.value && !password.value) {
-            setIsCheckingSavedLogin(true);
-            const saved = await savedPassword();
-            setIsCheckingSavedLogin(false);
-            const auth = useAuthStore.getState();
-            if (!form.isConnected || auth.isLoading || auth.isAuthenticated) return;
-            if (saved && !email.value && !password.value) {
-                email.value = saved.email;
-                if (email.value && email.validity.valid) password.value = saved.password;
+    async function signIn(authenticate: () => Promise<void>, method: 'password' | 'quick' | 'passkey') {
+        if (useAuthStore.getState().isLoading) return;
+        setError('');
+        try {
+            await authenticate();
+        } catch (cause) {
+            const code = (cause as { code?: string })?.code;
+            const name = (cause as { name?: string })?.name;
+            if (code === 'runtime_changed') {
+                setError('The local app restarted. Reload this page before signing in.');
+            } else if (code === 'invalid_credentials' && method === 'password') {
+                setError('The email or password is incorrect, or this account can’t sign in.');
+            } else if (code === 'session_unavailable' || name === 'AbortError' || name === 'TimeoutError' || name === 'TypeError') {
+                setError('The sign-in service is temporarily unavailable. Try again.');
+            } else if (method === 'passkey') {
+                setError('Passkey sign-in didn’t complete. Try again or use your password.');
+            } else if (method === 'quick') {
+                setError('Quick sign-in didn’t complete. Try again or use your password.');
+            } else {
+                setError('Couldn’t sign in. Try again.');
             }
         }
-
-        if (email.value && email.validity.valid && password.value) {
-            form.requestSubmit();
-            return;
-        }
-
-        setQuickSignInHint('Enter your Console credentials, or select a saved login from your password manager.');
-        (!email.value || !email.validity.valid ? email : password).focus();
     }
 
-    return (
-        <div className="w-full max-w-sm px-4">
-            <div className="mb-8 flex flex-col items-center gap-3">
-                <button
-                    type="button"
-                    form={loginFormId}
-                    aria-label="Quick sign in"
-                    title="Sign in with a saved login or the credentials in the form"
-                    disabled={isLoading || isCheckingSavedLogin}
-                    onClick={quickSignIn}
-                    className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shadow-sm transition-transform enabled:cursor-pointer enabled:hover:scale-110 enabled:active:scale-95 disabled:opacity-60"
-                >
-                    <WahbLoginMark />
-                </button>
-                <div className="text-center">
-                    <h1 className="text-xl font-semibold tracking-tight">Platform Console</h1>
-                    <p className="mt-0.5 text-sm text-muted-foreground">Wahb Content Management</p>
-                </div>
-            </div>
+    const logoClassName = 'flex size-12 items-center justify-center rounded-xl bg-primary/10';
+    const logo = (
+        <>
+            <span aria-hidden="true" className="block h-9 w-8 bg-contain bg-center bg-no-repeat dark:hidden"
+                style={{ backgroundImage: "url('/images/wahb_mark_transparent.png')" }} />
+            <span aria-hidden="true" className="hidden h-9 w-8 bg-contain bg-center bg-no-repeat dark:block"
+                style={{ backgroundImage: "url('/images/wahb_mark_transparent_dark.png')" }} />
+        </>
+    );
 
-            <Card className="shadow-sm">
-                <CardHeader className="space-y-1 pb-4">
-                    <CardTitle className="text-lg text-center">Sign in</CardTitle>
-                    <CardDescription className="text-center text-xs">
-                        Enter your credentials to continue
-                    </CardDescription>
-                    <p role="status" className={quickSignInHint ? 'text-center text-xs text-muted-foreground' : 'sr-only'}>
-                        {quickSignInHint}
-                    </p>
-                </CardHeader>
-                <CardContent>
-                    <LoginForm id={loginFormId} />
-                </CardContent>
-            </Card>
-        </div>
+    return (
+        <Card className="mx-4 w-full max-w-sm shadow-sm">
+            <CardHeader className="items-center gap-2 text-center">
+                {localQuickSignIn ? (
+                    <button type="button" aria-label="Quick sign in" disabled={isLoading}
+                        className={`${logoClassName} enabled:cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
+                        onClick={() => void signIn(useAuthStore.getState().quickSignIn, 'quick')}>
+                        {logo}
+                    </button>
+                ) : <div aria-hidden="true" className={logoClassName}>{logo}</div>}
+                <h1 className="text-xl font-semibold tracking-tight">Sign in to Platform Console</h1>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {reason === 'password_reset' && <p role="status" className="text-sm">
+                    Your password was updated. Sign in with your new password.
+                </p>}
+                {(reason === 'runtime_changed' || sessionIssue === 'runtime_changed') && (
+                    <p role="status" className="text-sm text-muted-foreground">The local app restarted. Sign in again to continue.</p>
+                )}
+                {sessionIssue === 'unavailable' && (
+                    <div className="space-y-2">
+                        <p role="alert" className="text-sm">We couldn’t check your session.</p>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void checkAuth()}>Retry</Button>
+                    </div>
+                )}
+                {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+                {capabilities?.passkeys && passkeySupport && (
+                    <Button type="button" variant="outline" className="w-full" disabled={isLoading}
+                        onClick={() => void signIn(() => useAuthStore.getState().completeSignIn(signInWithPasskey), 'passkey')}>
+                        Sign in with a passkey
+                    </Button>
+                )}
+                <LoginForm pending={isLoading} recovery={capabilities?.recovery === true}
+                    onSignIn={(email, password) => signIn(() => useAuthStore.getState().login(email, password), 'password')} />
+            </CardContent>
+        </Card>
     );
 }

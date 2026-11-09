@@ -1,28 +1,22 @@
-import { sessionHeaders } from '@/lib/server/session-cookies';
+import { authError, finishSignIn, requestIam } from '@/lib/server/console-auth';
+import { localQuickSignInCredentials } from '@/lib/server/local-quick-sign-in';
 
 export async function POST(request: Request) {
-    const IAM_URL = process.env.IAM_BASE_URL;
-    if (!IAM_URL) {
-        return Response.json({ message: 'IAM_BASE_URL is not configured' }, { status: 500 });
-    }
-
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') {
-        return Response.json({ message: 'Invalid JSON body' }, { status: 400 });
+        return authError(400, 'invalid_request', 'Enter your email and password.');
     }
 
-    const res = await fetch(`${IAM_URL.replace(/\/$/, '')}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: body.email, password: body.password }),
-    });
-
-    if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Login failed' }));
-        return Response.json(error, { status: res.status });
+    const credentials = body.mode === 'local-quick-sign-in'
+        ? localQuickSignInCredentials(request)
+        : { email: body.email, password: body.password };
+    if (!credentials) {
+        return authError(404, 'quick_sign_in_unavailable', 'Quick sign-in is unavailable.');
+    }
+    if (typeof credentials.email !== 'string' || !credentials.email.trim() ||
+        typeof credentials.password !== 'string' || !credentials.password) {
+        return authError(400, 'invalid_credentials', 'Enter your email and password.');
     }
 
-    const tokens = await res.json();
-
-    return Response.json({ success: true }, { headers: sessionHeaders(tokens) });
+    return finishSignIn(await requestIam('/auth/login', { body: credentials }));
 }

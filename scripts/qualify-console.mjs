@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createServer, request as httpRequest } from 'node:http';
 import { once } from 'node:events';
@@ -24,6 +25,10 @@ const fixtureAccounts = [
 ];
 const items = (items = []) => ({ items, total: items.length, page: 1, limit: 20, total_pages: 1 });
 const upgradeAttempts = [];
+const passkeys = new Map();
+const ceremonies = new Map();
+const resetTokens = new Set(['fixture-reset']);
+let authFixtureOrigin;
 
 async function bind(server) {
     server.listen(0, '127.0.0.1');
@@ -55,11 +60,66 @@ const upstream = await bind(createServer(async (incoming, outgoing) => {
         if (!account) return reply(outgoing, { message: 'Invalid credentials' }, 401);
         return reply(outgoing, { access_token: account.access, refresh_token: account.refresh, expires_in: 3600 });
     }
+    if (pathname === '/api/v1/auth/console-capabilities') {
+        return reply(outgoing, { origin: authFixtureOrigin, recovery: true, passkeys: true });
+    }
+    if (pathname === '/api/v1/auth/revoke-session') return reply(outgoing, { success: true });
+    if (pathname === '/api/v1/auth/forgot-password' || pathname === '/api/v1/auth/reset-password' ||
+        pathname.startsWith('/api/v1/auth/passkeys')) {
+        let body = '';
+        for await (const chunk of incoming) body += chunk;
+        const input = body ? JSON.parse(body) : {};
+        if (pathname.endsWith('/forgot-password')) return reply(outgoing, { success: input.client === 'console' });
+        if (pathname.endsWith('/reset-password')) return reply(outgoing, {}, resetTokens.delete(input.token) ? 200 : 400);
+
+        const registration = pathname.includes('/registration/');
+        const authentication = pathname.includes('/authentication/');
+        if (!authentication && incoming.headers.authorization !== 'Bearer fixture-access') {
+            return reply(outgoing, {}, 401);
+        }
+        if (pathname.endsWith('/passkeys')) return reply(outgoing, [...passkeys.values()]);
+        if (pathname.endsWith('/remove')) {
+            if (input.password !== 'fixture-only') return reply(outgoing, {}, 401);
+            passkeys.delete(input.id);
+            return reply(outgoing, {});
+        }
+        if (pathname.endsWith('/begin')) {
+            if (registration && input.password !== 'fixture-only') return reply(outgoing, {}, 401);
+            const binding = randomBytes(32).toString('base64url');
+            const challenge = randomBytes(32).toString('base64url');
+            ceremonies.set(binding, { registration, challenge });
+            return reply(outgoing, { binding, options: { publicKey: registration ? {
+                challenge, rp: { id: 'localhost', name: 'Wahb Console' },
+                user: { id: Buffer.from('fixture-operator').toString('base64url'), name: 'operator@example.test', displayName: 'Operator' },
+                pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+                authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+            } : { challenge, rpId: 'localhost', userVerification: 'required' } } });
+        }
+        const ceremony = ceremonies.get(input.binding);
+        ceremonies.delete(input.binding);
+        const credential = input.credential;
+        if (!ceremony || ceremony.registration !== registration || !credential?.response?.clientDataJSON) {
+            return reply(outgoing, {}, 400);
+        }
+        const data = JSON.parse(Buffer.from(credential.response.clientDataJSON, 'base64url').toString());
+        if (data.challenge !== ceremony.challenge || data.origin !== authFixtureOrigin ||
+            data.type !== (registration ? 'webauthn.create' : 'webauthn.get')) {
+            return reply(outgoing, {}, 400);
+        }
+        if (registration && credential.response.attestationObject) {
+            passkeys.set(credential.id, { id: credential.id, created_at: new Date().toISOString() });
+            return reply(outgoing, {});
+        }
+        if (passkeys.has(credential.id) && credential.response.signature) {
+            return reply(outgoing, { access_token: 'fixture-access', refresh_token: 'fixture-refresh', expires_in: 3600 });
+        }
+        return reply(outgoing, {}, 401);
+    }
     if (pathname === '/api/v1/auth/logout' && method === 'POST') return reply(outgoing, { success: true });
     if (pathname === '/api/v1/roles/me') {
         const account = fixtureAccounts.find(({ access }) => incoming.headers.authorization === `Bearer ${access}`);
         if (!account) return reply(outgoing, {}, 401);
-        return reply(outgoing, { user_id: account.id, email: account.email, role: 'admin', roles: ['admin'], is_admin: true, permissions: ['*:*'] });
+        return reply(outgoing, { user_id: account.id, email: account.email, tenant_id: 'fixture-tenant', role: 'admin', roles: ['admin'], is_admin: true, permissions: ['*:*'] });
     }
     if (pathname === '/admin/qualification/wire') {
         if (method === 'POST') {
@@ -156,6 +216,7 @@ async function launch(entry, managed = true, runtime = 'fixture-launch') {
         NODE_ENV: 'production', HOST: '127.0.0.1', HOSTNAME: '127.0.0.1', PORT: String(port),
         ...(managed && { WAHB_RUNTIME_ID: runtime, WAHB_MANAGED_ENV: '1' }), NEXT_TELEMETRY_DISABLED: '1',
         CMS_BASE_URL: upstream, IAM_BASE_URL: upstream, AGGREGATION_BASE_URL: upstream,
+        LOCAL_QUICK_SIGN_IN_EMAIL: 'operator@example.test', LOCAL_QUICK_SIGN_IN_PASSWORD: 'fixture-only',
         ENRICHMENT_BASE_URL: upstream, MEDIA_BASE_URL: upstream, PLATFORM_BASE_URL: upstream,
         MIGRATION_COORDINATOR_URL: upstream, MIGRATION_COORDINATOR_READ_TOKEN: 'fixture-machine',
     };
@@ -186,6 +247,7 @@ function forward(incoming, outgoing, target) {
 
 try {
     let origin = await launch('.output/server/index.mjs');
+    authFixtureOrigin = origin.replace('127.0.0.1', 'localhost');
     let baseline;
     let contractBaseline;
     let unmanaged;

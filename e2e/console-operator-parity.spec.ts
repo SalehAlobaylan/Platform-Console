@@ -147,9 +147,9 @@ test('keeps drafts and late private responses isolated when switching accounts',
         await page.getByRole('menuitem', { name: 'Sign out' }).click();
         await expect(page).toHaveURL(origin + '/login');
         await expect(page.locator('html')).not.toHaveAttribute('data-fixture-account', 'first');
-        await expect(page.getByRole('button', { name: 'Quick sign in' })).toBeEnabled();
+        await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled();
         await page.getByLabel('Email').fill('reviewer@example.test');
-        await page.getByLabel('Password').fill('fixture-only');
+        await page.getByLabel('Password', { exact: true }).fill('fixture-only');
         await page.getByRole('button', { name: 'Sign in', exact: true }).click();
         await expect(page).toHaveURL(origin + '/');
         await page.goto(library);
@@ -194,7 +194,7 @@ test('rejects a stale tab after another tab signs into the new launch', async ({
     const response = await rejected;
     expect(response.status()).toBe(409);
     expect(response.request().headers()['x-wahb-runtime-id']).toBe('fixture-launch');
-    await expect(page).toHaveURL(origin + '/login');
+    await expect(page).toHaveURL((url) => url.pathname === '/login' && url.searchParams.get('reason') === 'runtime_changed');
     expect(await attempts()).toEqual(before);
     await expect(newTab.getByRole('heading', { name: 'News', exact: true })).toBeVisible();
 });

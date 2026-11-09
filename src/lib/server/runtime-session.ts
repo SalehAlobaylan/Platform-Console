@@ -18,14 +18,21 @@ export function rejectInvalidRuntimeRequest(request: Request): Response | undefi
     const runtime = currentRuntimeID();
     const path = new URL(request.url).pathname;
     if (!path.startsWith('/api/')) return;
+    const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+    if (mutation && path.startsWith('/api/auth/') && !sameOrigin(request)) {
+        return Response.json({ message: 'Same-origin requests are required' }, { status: 403 });
+    }
     if (!runtime) {
         if (process.env.WAHB_MANAGED_ENV === '1') {
             return Response.json({ message: 'Console launch configuration is missing' }, { status: 503 });
         }
         return;
     }
-    const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
-    const publicAuth = path === '/api/auth/login' || path === '/api/auth/logout';
+    const publicAuth = [
+        '/api/auth/login', '/api/auth/logout', '/api/auth/me', '/api/auth/capabilities',
+        '/api/auth/forgot-password', '/api/auth/reset-password',
+        '/api/auth/passkeys/authentication/begin', '/api/auth/passkeys/authentication/finish',
+    ].includes(path);
     if (mutation && !sameOrigin(request)) {
         return Response.json({ message: 'Same-origin requests are required' }, { status: 403 });
     }

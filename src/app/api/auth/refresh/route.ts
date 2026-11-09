@@ -1,30 +1,18 @@
-import { readCookie, sessionHeaders, clearSessionHeaders } from '@/lib/server/session-cookies';
+import { authError, authUnavailable, readTokens, requestIam } from '@/lib/server/console-auth';
+import { readCookie, sessionHeaders } from '@/lib/server/session-cookies';
 import { hasCurrentRuntimeSession } from '@/lib/server/runtime-session';
 
 export async function POST(request: Request) {
-    const IAM_URL = process.env.IAM_BASE_URL;
-    if (!IAM_URL) {
-        return Response.json({ message: 'IAM_BASE_URL is not configured' }, { status: 500 });
+    if (!hasCurrentRuntimeSession(request)) {
+        return authError(401, 'runtime_changed', 'The app restarted. Sign in again.');
     }
-
-    if (!hasCurrentRuntimeSession(request)) return Response.json({ message: 'Sign in again for this runtime' }, { status: 401 });
     const refreshToken = readCookie(request, 'console_refresh_token');
+    if (!refreshToken) return authError(401, 'no_session', 'Sign in to continue.');
 
-    if (!refreshToken) {
-        return Response.json({ message: 'No session' }, { status: 401 });
-    }
-
-    const res = await fetch(`${IAM_URL.replace(/\/$/, '')}/api/v1/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-
-    if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Refresh failed' }));
-        return Response.json(error, { status: res.status, headers: clearSessionHeaders() });
-    }
-
-    const tokens = await res.json();
-    return Response.json({ success: true }, { headers: sessionHeaders(tokens) });
+    const response = await requestIam('/auth/refresh', { body: { refresh_token: refreshToken } });
+    // A concurrent tab may already have rotated this credential. A failed
+    // refresh must never clear cookies written by the winning request.
+    if (response?.status === 401) return authError(401, 'session_rejected', 'Your session expired. Sign in again.');
+    const tokens = response?.ok ? await readTokens(response) : undefined;
+    return tokens ? Response.json({ success: true }, { headers: sessionHeaders(tokens) }) : authUnavailable();
 }
