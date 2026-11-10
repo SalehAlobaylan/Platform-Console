@@ -125,6 +125,10 @@ function CapacityRail({
 
 export default function RetentionPage() {
     const status = useRetentionStatus();
+    const readErrors = status.data?.historical?.status_read_errors;
+    const previewUnavailable = status.isError || (Array.isArray(readErrors) && readErrors.includes('news_preview_unavailable'));
+    const candidateRows = previewUnavailable ? undefined : status.data?.preview.candidate_rows;
+
     const runs = useRetentionRuns();
     const holds = useRetentionHolds();
     const run = useRunRetention();
@@ -399,9 +403,9 @@ export default function RetentionPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                            <Metric label="Dormant stories" value={String(status.data?.preview.eligible_stories ?? 0)} />
-                            <Metric label="Inspected rows" value={String(status.data?.preview.candidate_rows ?? 0)} />
-                            <Metric label="Inspected bytes" value={formatBytes(status.data?.preview.estimated_bytes)} />
+                            <Metric label="Dormant stories" value={previewUnavailable || status.data?.preview.eligible_stories === undefined ? "Unavailable" : String(status.data.preview.eligible_stories)} />
+                            <Metric label="Inspected rows" value={candidateRows === undefined ? "Unavailable" : String(candidateRows)} />
+                            <Metric label="Inspected bytes" value={previewUnavailable ? "Unavailable" : formatBytes(status.data?.preview.estimated_bytes)} />
                             <Metric label="Protection" value="Checked during preparation" />
                         </div>
                         <div className="mt-5 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
@@ -417,7 +421,7 @@ export default function RetentionPage() {
                         <Button
                             className="mt-4"
                             variant="outline"
-                            disabled={prepareCompaction.isPending || (status.data?.preview.candidate_rows ?? 0) === 0}
+                            disabled={prepareCompaction.isPending || !candidateRows}
                             onClick={() => prepareCompaction.mutate(compactionCursor, { onSuccess: (manifest) => { setCompactionCursor(manifest.evidence?.has_more ? manifest.evidence.next_cursor : undefined); selectWork(manifest.run_id, manifest.action_id); } })}
                         >
                             <ArchiveRestore className="mr-2 h-4 w-4" />{prepareCompaction.isPending ? 'Preparing…' : compactionCursor ? 'Continue bounded scan' : 'Prepare current-month plan'}
@@ -425,7 +429,7 @@ export default function RetentionPage() {
                         <p className="mt-2 text-xs text-muted-foreground">
                             This freezes the candidate evidence for review. It does not compact or delete anything. Blocked or oversized stories are skipped and the next bounded page can be continued here.
                         </p>
-                        {(status.data?.preview.candidate_rows ?? 0) === 0 ? <p className="mt-2 text-sm text-muted-foreground">No current-month candidates were found. Run a new observation to refresh the preview.</p> : null}
+                        {candidateRows === 0 ? <p className="mt-2 text-sm text-muted-foreground">No current-month candidates were found. Run a new observation to refresh the preview.</p> : null}
                         {prepareCompaction.isError ? <p role="alert" className="mt-2 text-sm text-destructive">Plan preparation failed: {prepareCompaction.error.message}</p> : null}
                     </CardContent>
                 </Card>

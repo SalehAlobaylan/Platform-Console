@@ -1,5 +1,10 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+import { getFeedIntegrityEpisode } from '@/lib/api/cms/feed-integrity';
+import { isRecordId } from '@/lib/operator-destinations';
+import { useWorkspaceSession } from '@/lib/stores/workspace-session';
+import { CopyConsoleLink } from '@/components/shared/copy-console-link';
 import { useEffect, useState } from 'react';
 import Link from '@/lib/console-link';
 import { ArrowUpRight, Copy, Search, X } from 'lucide-react';
@@ -502,14 +507,19 @@ export function FeedIntegrityIssues({
   const feed = params.get('feed') || 'all';
   const state = params.get('state') || 'all';
   const check = params.get('check') || '';
-  const selected = episodes.find(
-    (ep) => String(ep.id) === params.get('selected')
-  );
+  const selectedID = params.get('selected');
+  const owner = useWorkspaceSession(state => state.owner);
+  const openEpisode = episodes.find(ep => ep.id === selectedID);
+  const exact = useQuery({
+    queryKey: ['feed-integrity', 'exact-episode', owner, selectedID],
+    queryFn: ({ signal }) => getFeedIntegrityEpisode(selectedID ?? '', signal),
+    enabled: Boolean(owner) && isRecordId(selectedID),
+    retry: false,
+  });
+  const selected = exact.isError ? undefined : exact.data ?? openEpisode;
   const inspectKey = selected?.check_key || params.get('inspect') || '';
   const inspectFeed = selected?.feed || params.get('inspectFeed') || '';
-  const missingSelection =
-    !!params.get('selected') && !selected && !!data && !unavailable;
-  const inspectorOpen = !!inspectKey || missingSelection;
+  const inspectorOpen = !!inspectKey || Boolean(selectedID);
   const matching = episodes.filter(
     (ep) =>
       (feed === 'all' || ep.feed === feed) &&
@@ -570,19 +580,24 @@ export function FeedIntegrityIssues({
       inspect: undefined,
       inspectFeed: undefined,
     });
-  const inspector = missingSelection ? (
+  const inspector = selectedID && !selected ? (
     <div className="space-y-3 text-sm">
-      <p>
-        {t(
-          'This issue is no longer in the open issue list. Review Activity for its recorded history.',
-          'لم تعد هذه المشكلة ضمن قائمة المشكلات المفتوحة. راجع النشاط لعرض سجلها.'
-        )}
-      </p>
-      <Button variant="outline" size="sm" onClick={finish}>
-        {t('Clear selection', 'إلغاء الاختيار')}
-      </Button>
+      <p role="status">{exact.isPending && isRecordId(selectedID) ? t('Loading issue…', 'جارٍ تحميل المشكلة…') : t('This issue is unavailable.', 'هذه المشكلة غير متاحة.')}</p>
+      {exact.isError && <Button size="sm" variant="outline" onClick={() => void exact.refetch()}>{t('Retry', 'إعادة المحاولة')}</Button>}
+      <Button size="sm" variant="outline" onClick={finish}>{t('Clear selection', 'إلغاء الاختيار')}</Button>
     </div>
+  ) : selected && !['open', 'recovering'].includes(selected.status) ? (
+    <section className="space-y-3 p-3">
+      <Badge variant="outline">{stateLabel(selected.status, locale)}</Badge>
+      <h3 dir="auto" className="text-sm font-semibold">{selected.summary || checkName(selected.check_key, locale)}</h3>
+      <p className="text-xs text-muted-foreground">{checkName(selected.check_key, locale)} · {feedName(selected.feed, locale)}</p>
+      <p className="text-xs text-muted-foreground">{t('First observed', 'أول رصد')} <IntegrityTime value={selected.first_detected_at} locale={locale} /></p>
+      {selected.close_reason_class && <p className="text-sm">{reasonLabel(selected.close_reason_class, locale)}</p>}
+      <CopyConsoleLink key={'copy-' + selected.id} href={'/platform/feed-integrity?tab=issues&selected=' + selected.id} />
+    </section>
   ) : (
+    <div className="space-y-2">
+      {selected && <CopyConsoleLink key={'copy-' + selected.id} href={'/platform/feed-integrity?tab=issues&selected=' + selected.id} />}
     <IssueInspector
       key={selected?.id || `${inspectFeed}:${inspectKey}`}
       episode={selected}
@@ -595,6 +610,7 @@ export function FeedIntegrityIssues({
       onCheck={onCheck}
       onFinish={finish}
     />
+    </div>
   );
   return (
     <div className="space-y-4">

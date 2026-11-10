@@ -56,6 +56,7 @@ export interface OpsAttentionItem {
   count: number;
   first_seen: string;
   href: string;
+  issue_href?: string;
   state?: string;
   snoozed: boolean;
   snoozed_until?: string | null;
@@ -107,7 +108,24 @@ export interface OpsFilters {
   offset?: number;
   limit?: number;
 }
+export interface OpsHandoff {
+  episode_id: string;
+  owner: string;
+  next_step: string;
+  next_check?: string;
+  revision: number;
+  mine: boolean;
+}
+
+export const updateOpsHandoff = (body: {
+  episode_id: string; fingerprint: string; severity: string; revision: number;
+  action: 'claim' | 'update' | 'release'; next_step?: string; next_check?: string;
+}) => cmsClient.post('/admin/ops/attention/handoff', body);
+
 export interface OpsAttentionPage {
+  handoffs?: OpsHandoff[] | null;
+  handoffs_available?: boolean;
+  complete?: boolean;
   as_of: string;
   items: OpsAttentionItem[];
   adapter_errors: string[];
@@ -117,6 +135,7 @@ export interface OpsAttentionPage {
   has_more: boolean;
 }
 export interface OpsBriefing {
+  handoffs?: OpsHandoff[] | null;
   since: string;
   through: string;
   read_token: string;

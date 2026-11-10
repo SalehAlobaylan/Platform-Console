@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { cmsClient } from '@/lib/api/client';
+import { useRecentConsoleRecord } from '@/hooks/use-recent-console-record';
 import { useRouter, useSearchParams } from '@/lib/navigation';
 import { Plus, ArrowLeft, Sparkles, Wand2, ChevronDown, Loader2, Rss } from 'lucide-react';
 
@@ -16,7 +19,7 @@ import { toast } from '@/components/ui/toast';
 import { TopicBoard } from '@/components/platform/news/topic-board';
 import { NewsBoard } from '@/components/platform/news/news-board';
 import { NewsOverview } from '@/components/platform/news/news-overview';
-import { NewsLibrary, type NewsLibraryType } from '@/components/platform/news/news-library';
+import { NewsLibrary } from '@/components/platform/news/news-library';
 import { AddNewsSheet } from '@/components/platform/news/add-news-sheet';
 import { PullFreshButton } from '@/components/platform/news/run-source-dialog';
 import { RecclusterDialog } from '@/components/platform/news/recluster-dialog';
@@ -24,8 +27,6 @@ import { FeedsManager } from '@/components/platform/news/feeds-manager';
 import { NewsSectionNav } from '@/components/platform/news/news-section-nav';
 import { NewsCollectionOverview } from '@/components/platform/sources/manage/news-collection-controls';
 import { useReclassify } from '@/hooks/use-news';
-import { CONTENT_STATUS_LABELS } from '@/types/platform/content';
-import type { ContentStatus } from '@/types/platform/content';
 import type { TopicSelection } from '@/types/platform/news';
 
 type NewsViewTab = 'overview' | 'topics' | 'library';
@@ -44,19 +45,15 @@ export default function NewsPage() {
     const view: NewsViewTab =
         viewParam === 'topics' || viewParam === 'library' ? viewParam : 'overview';
 
-    // Library deep-link presets (e.g. Content type-breakdown / overview cards).
-    const statusParam = searchParams.get('status');
-    const initialStatus =
-        statusParam && statusParam in CONTENT_STATUS_LABELS
-            ? (statusParam as ContentStatus)
-            : ('all' as const);
-    const typeParam = searchParams.get('type');
-    const initialType: NewsLibraryType =
-        typeParam === 'ARTICLE' || typeParam === 'TWEET' || typeParam === 'COMMENT'
-            ? typeParam
-            : 'NEWS';
-
-    const [active, setActive] = useState<TopicSelection | null>(null);
+    const storyId = view === 'topics' ? searchParams.get('story') : null;
+    const validStoryId = Boolean(storyId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storyId));
+    const story = useQuery({
+        queryKey: ['news', 'exact-story', storyId],
+        queryFn: ({ signal }) => cmsClient.get<TopicSelection>('/admin/stories/' + encodeURIComponent(storyId ?? ''), undefined, signal),
+        enabled: validStoryId,
+    });
+    useRecentConsoleRecord('story', story.isSuccess && story.data?.id === storyId ? story.data.id : undefined, story.data?.label, 'News story');
+    const active = storyId === 'none' ? { id: 'none', label: 'Uncategorized' } : story.data ?? null;
     const [addOpen, setAddOpen] = useState(false);
     const [reclusterOpen, setReclusterOpen] = useState(false);
     const [feedsOpen, setFeedsOpen] = useState(false);
@@ -106,12 +103,13 @@ export default function NewsPage() {
                         <>
                             <button
                                 type="button"
-                                onClick={() => setActive(null)}
+                                onClick={() => setView('topics')}
                                 className="mb-1 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                             >
                                 <ArrowLeft className="h-4 w-4" />
                                 All stories
                             </button>
+                            <p className="brand-overline text-news">News desk</p>
                             <h1 className="truncate text-3xl font-bold tracking-tight" title={active.label}>
                                 {active.label}
                             </h1>
@@ -120,7 +118,7 @@ export default function NewsPage() {
                     ) : (
                         <>
                             <span className="brand-overline text-news">News Center</span>
-                            <h1 className="font-editorial text-3xl font-bold tracking-tight">News</h1>
+                            <h1 className="text-3xl font-semibold tracking-tight">News</h1>
                             <p className="text-muted-foreground">{VIEW_SUBTITLES[view]}</p>
                         </>
                     )}
@@ -178,14 +176,15 @@ export default function NewsPage() {
                     />
                 </TabsContent>
                 <TabsContent value="topics" className="mt-5">
-                    {active ? <NewsBoard topic={active} /> : <TopicBoard onOpenTopic={setActive} />}
+                    {active ? <NewsBoard key={active.id} topic={active} /> : storyId ? (
+                        <div className="rounded-lg border p-4">
+                            <p role="status">{validStoryId && story.isPending ? 'Loading story…' : 'This story is unavailable.'}</p>
+                            <Button variant="outline" onClick={() => setView('topics')}>All stories</Button>
+                        </div>
+                    ) : <TopicBoard onOpenTopic={topic => setView('topics', { story: topic.id })} />}
                 </TabsContent>
                 <TabsContent value="library" className="mt-5">
-                    <NewsLibrary
-                        key={`${initialType}-${initialStatus}`}
-                        initialType={initialType}
-                        initialStatus={initialStatus}
-                    />
+                    <NewsLibrary />
                 </TabsContent>
             </Tabs>
 

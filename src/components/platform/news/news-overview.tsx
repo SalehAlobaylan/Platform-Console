@@ -70,10 +70,10 @@ export function NewsOverview({ onOpenLibrary, onOpenTopics }: NewsOverviewProps)
     });
 
     const topics = useTopics({ limit: 1 });
-    const topicCount = topics.data?.total ?? 0;
-    const unclassified = topics.data?.uncategorized?.total ?? 0;
+    const topicCount = topics.data?.total ?? (topics.isPending ? "Loading…" : "Unavailable");
+    const unclassified = topics.data?.uncategorized?.total ?? (topics.isPending ? "Loading…" : "Unavailable");
 
-    const failedTotal = (failedNews.data?.total ?? 0) + (failedArticles.data?.total ?? 0);
+    const failedTotal = combinedTotal(failedNews, failedArticles);
     const failedItems = useMemo(
         () =>
             [...(failedNews.data?.data ?? []), ...(failedArticles.data?.data ?? [])]
@@ -100,7 +100,7 @@ export function NewsOverview({ onOpenLibrary, onOpenTopics }: NewsOverviewProps)
             {/* Lineup health */}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard
-                    label="Live now"
+                    label="Ready items"
                     value={readyTotal}
                     icon={<CheckCircle2 className="h-4 w-4" />}
                     tone="text-news"
@@ -138,12 +138,12 @@ export function NewsOverview({ onOpenLibrary, onOpenTopics }: NewsOverviewProps)
                         <div className="flex items-center gap-3 rounded-md border px-3 py-2">
                             <FolderKanban className="h-4 w-4 text-muted-foreground" />
                             <div className="flex-1 text-sm">Stories</div>
-                            <div className="font-mono text-sm tabular-nums">{topicCount}</div>
+                            <div className="font-mono text-sm tabular-nums">{topicCount}{topics.isError && topics.data ? " · Stale" : ""}</div>
                         </div>
                         <div className="flex items-center gap-3 rounded-md border px-3 py-2">
                             <Sparkles className="h-4 w-4 text-muted-foreground" />
                             <div className="flex-1 text-sm">Unclassified backlog</div>
-                            <div className="font-mono text-sm tabular-nums">{unclassified}</div>
+                            <div className="font-mono text-sm tabular-nums">{unclassified}{topics.isError && topics.data ? " · Stale" : ""}</div>
                         </div>
                         <p className="text-xs text-muted-foreground">
                             Classify and re-cluster live under the Auto-stories menu in the header.
@@ -160,11 +160,12 @@ export function NewsOverview({ onOpenLibrary, onOpenTopics }: NewsOverviewProps)
                         <CardTitle className="text-base">Failed News</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
+                        {(failedNews.isError || failedArticles.isError) && <p role="status" className="text-sm text-muted-foreground">Some results are unavailable. {(failedNews.data || failedArticles.data) ? "Showing available results." : ""} <button type="button" className="underline" onClick={() => { void failedNews.refetch(); void failedArticles.refetch(); }}>Retry</button></p>}
                         {failedNews.isLoading || failedArticles.isLoading ? (
                             <LoadingRows />
                         ) : failedItems.length > 0 ? (
                             failedItems.map((item) => <ItemRow key={item.id} item={item} />)
-                        ) : (
+                        ) : (failedNews.isError || failedArticles.isError) ? null : (
                             <EmptyRows text="No failed news items right now." />
                         )}
                     </CardContent>
@@ -176,11 +177,12 @@ export function NewsOverview({ onOpenLibrary, onOpenTopics }: NewsOverviewProps)
                         <CardTitle className="text-base">Recently Ingested</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
+                        {(recentNews.isError || recentArticles.isError) && <p role="status" className="text-sm text-muted-foreground">Some results are unavailable. {(recentNews.data || recentArticles.data) ? "Showing available results." : ""} <button type="button" className="underline" onClick={() => { void recentNews.refetch(); void recentArticles.refetch(); }}>Retry</button></p>}
                         {recentNews.isLoading || recentArticles.isLoading ? (
                             <LoadingRows />
                         ) : recentItems.length > 0 ? (
                             recentItems.map((item) => <ItemRow key={item.id} item={item} />)
-                        ) : (
+                        ) : (recentNews.isError || recentArticles.isError) ? null : (
                             <EmptyRows text="Nothing ingested yet — pull fresh or add news." />
                         )}
                     </CardContent>
@@ -191,10 +193,18 @@ export function NewsOverview({ onOpenLibrary, onOpenTopics }: NewsOverviewProps)
 }
 
 /** Combined NEWS + ARTICLE total for one status — the Center owns both types. */
-function useNewsTypeTotals(status: ContentStatus): number {
+function useNewsTypeTotals(status: ContentStatus) {
     const news = useContent({ type: 'NEWS', status, page: 1, limit: 1 });
     const articles = useContent({ type: 'ARTICLE', status, page: 1, limit: 1 });
-    return (news.data?.total ?? 0) + (articles.data?.total ?? 0);
+    return combinedTotal(news, articles);
+}
+
+function combinedTotal(first: ReturnType<typeof useContent>, second: ReturnType<typeof useContent>): number | string {
+    const a = first.data?.total;
+    const b = second.data?.total;
+    if (a === undefined || b === undefined) return first.isPending || second.isPending ? 'Loading…' : 'Unavailable';
+    const count = a + b;
+    return first.isError || second.isError ? `${count.toLocaleString()} · Stale` : count;
 }
 
 function StatCard({
@@ -205,7 +215,7 @@ function StatCard({
     onClick,
 }: {
     label: string;
-    value: number;
+    value: number | string;
     icon: ReactNode;
     tone?: string;
     onClick: () => void;

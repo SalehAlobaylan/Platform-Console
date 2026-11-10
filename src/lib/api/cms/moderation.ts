@@ -7,11 +7,12 @@ import type {
 } from '@/types/platform/moderation';
 
 export function listModerationReports(
-  status: ModerationStatus | 'all' = 'open'
+  status: ModerationStatus | 'all' = 'open',
+  page = 1
 ): Promise<ModerationReportPage> {
   return cmsClient.get<ModerationReportPage>(
     '/admin/moderation/reports',
-    status === 'all' ? undefined : { status }
+    { status: status === 'all' ? undefined : status, page }
   );
 }
 
@@ -33,11 +34,12 @@ export function resolveCommentPolicyReview(
 
 export function resolveModerationReport(
   id: string,
-  status: Exclude<ModerationStatus, 'open'>
+  status: Exclude<ModerationStatus, 'open'>,
+  reason?: string
 ): Promise<{ data: ModerationReport }> {
   return cmsClient.post<{ data: ModerationReport }>(
     `/admin/moderation/reports/${id}/resolve`,
-    { status }
+    { status, reason }
   );
 }
 
@@ -47,4 +49,16 @@ export function removeModerationComment(
   return cmsClient.delete<{ message: string }>(
     `/admin/moderation/comments/${id}`
   );
+}
+
+export function getModerationCase(id: string, signal: AbortSignal) {
+  return cmsClient.get<{ data: { report: ModerationReport; target_available: boolean; comment_text?: string; parent_id?: string; parent_title?: string } }>(
+    '/admin/moderation/reports/' + encodeURIComponent(id), undefined, signal
+  ).then(result => result.data);
+}
+
+export function getNextModerationCase(id: string, signal: AbortSignal) {
+  return cmsClient.get<{ data: { id: string | null } }>(
+    '/admin/moderation/reports/' + encodeURIComponent(id) + '/next', undefined, signal
+  ).then(response => response.data.id);
 }

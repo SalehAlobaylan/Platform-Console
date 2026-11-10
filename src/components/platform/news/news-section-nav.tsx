@@ -5,7 +5,7 @@ import { usePathname } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-    { label: 'Library', href: '/platform/news' },
+    { label: 'News desk', href: '/platform/news' },
     { label: 'Sources', href: '/platform/news/sources' },
     { label: 'Feeds Finding', href: '/platform/news/finding' },
     { label: 'Circulation', href: '/platform/news/circulation' },
@@ -16,13 +16,12 @@ export function NewsSectionNav() {
     return (
         <nav aria-label="News sections" className="flex flex-wrap items-center gap-x-5 border-b sm:gap-x-6">
             {TABS.map((tab) => {
-                const active = tab.href === '/platform/news'
-                    ? pathname === tab.href
-                    : pathname.startsWith(tab.href);
+                const active = pathname.replace(/\/$/, '') === tab.href;
                 return (
                     <Link
                         key={tab.href}
                         href={tab.href}
+                        aria-current={active ? "page" : undefined}
                         className={cn(
                             'whitespace-nowrap border-b-2 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                             active ? 'border-news font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'

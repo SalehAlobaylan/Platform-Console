@@ -32,6 +32,7 @@ import { StudioAutopilotPanel } from '@/components/platform/media/studio/studio-
 import { MediaJourneyGuide, MediaJourneyList, EpisodeJourney, useJourneyLocale } from '@/components/platform/media/studio/media-journey';
 import { PublishedJourney } from '@/components/platform/media/studio/published-journey';
 import { JourneyActions } from '@/components/platform/media/studio/journey-actions';
+import { useRecentConsoleRecord } from '@/hooks/use-recent-console-record';
 import { EpisodeContextTab } from '@/components/platform/media/studio/episode-context-tabs';
 import {
     Select,
@@ -223,16 +224,17 @@ function StatusBadge({ value }: { value?: string | null }) {
 }
 
 function KpiCard({ label, value, sub, tone = 'neutral' }: { label: string; value: number | string; sub?: string; tone?: 'neutral' | 'ok' | 'warn' | 'bad' }) {
+    const unavailable = value === 'Unavailable';
     return (
         <div className="rounded-md border bg-card p-4 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-normal text-muted-foreground">{label}</p>
             <div className="mt-2 flex min-h-9 items-end justify-between gap-3">
                 <p className={cn(
-                    'font-mono text-2xl font-semibold tabular-nums',
-                    tone === 'ok' && 'text-[#2CBAC6]',
-                    tone === 'warn' && 'text-[#D7A83E]',
-                    tone === 'bad' && 'text-[#C94B4B]',
-                    tone === 'neutral' && 'text-foreground',
+                    unavailable ? 'text-sm text-muted-foreground' : 'font-mono text-2xl font-semibold tabular-nums',
+                    !unavailable && tone === 'ok' && 'text-[#2CBAC6]',
+                    !unavailable && tone === 'warn' && 'text-[#D7A83E]',
+                    !unavailable && tone === 'bad' && 'text-[#C94B4B]',
+                    !unavailable && tone === 'neutral' && 'text-foreground',
                 )}>
                     {typeof value === 'number' ? compactNumber(value) : value}
                 </p>
@@ -365,69 +367,96 @@ function PolicyPill({ label, value, accent }: { label: string; value: string; ac
     );
 }
 
+const policySwitches = [
+    ['chaptering_enabled', 'Chaptering'],
+    ['auto_publish_high_confidence', 'Auto-publish'],
+    ['preserve_video', 'Preserve video'],
+    ['remove_sponsor_segments', 'Remove sponsors'],
+] as const;
+
+const policyNumbers = [
+    { key: 'high_confidence_threshold', label: 'Confidence', min: 0.01, max: 1, step: 0.01 },
+    { key: 'max_chapters_per_parent', label: 'Max chapters', min: 1, max: 2147483647, step: 1 },
+    { key: 'min_feed_unit_seconds', label: 'Feed floor sec', min: 270, max: 2400, step: 1 },
+    { key: 'atomization_min_parent_seconds', label: 'Parent min sec', min: 2400, max: 2147483647, step: 1 },
+] as const;
+
 function PolicyEditor({
     policy,
     saving,
-    onPatch,
+    unavailable,
+    onSave,
 }: {
     policy?: MediaAtomizationPolicy;
     saving: boolean;
-    onPatch: (patch: Partial<MediaAtomizationPolicy>) => void;
+    unavailable: boolean;
+    onSave: (patch: Partial<MediaAtomizationPolicy> & { expected_updated_at: string }) => Promise<unknown>;
 }) {
-    if (!policy) return <EmptyBox text="Tenant policy is unavailable. Controls will appear after a successful read." />;
+    const [draft, setDraft] = useState<Record<string, string | boolean>>({});
+    const [baseline, setBaseline] = useState<string>();
+    const dirty = Object.keys(draft).length > 0;
+    const changed = dirty && baseline !== policy?.updated_at;
+    const patch: Partial<MediaAtomizationPolicy> = {};
+    const summary: string[] = [];
+    let invalid = false;
+    for (const [key, label] of policySwitches) {
+        const next = draft[key];
+        if (typeof next === 'boolean' && next !== policy?.[key]) {
+            patch[key] = next;
+            summary.push(`${label}: ${policy?.[key] ? 'On' : 'Off'} → ${next ? 'On' : 'Off'}`);
+        }
+    }
+    for (const { key, label, min, max, step } of policyNumbers) {
+        const raw = draft[key];
+        if (typeof raw !== 'string') continue;
+        const next = Number(raw);
+        if (!raw.trim() || !Number.isFinite(next) || next < min || next > max || (step === 1 && !Number.isInteger(next))) invalid = true;
+        else if (next !== policy?.[key]) {
+            patch[key] = next;
+            summary.push(`${label}: ${policy?.[key]} → ${next}`);
+        }
+    }
+    const editable = Boolean(policy?.updated_at) && !unavailable && !saving;
+    const edit = (key: string, value: string | boolean) => {
+        if (!dirty) setBaseline(policy?.updated_at);
+        setDraft(previous => ({ ...previous, [key]: value }));
+    };
     return (
         <section className="rounded-md border bg-card">
-            <SectionHeader icon={<SlidersHorizontal className="h-4 w-4 text-[#2CBAC6]" />} title="Policy Controls" sub="Tenant defaults. Source and episode overrides can narrow these rules, but cannot atomize <=40m parents." />
-            <div className="grid gap-3 p-4 pt-0 md:grid-cols-2 xl:grid-cols-4">
-                <PolicyToggle label="Chaptering" value={policy?.chaptering_enabled ?? true} disabled={saving} onChange={(value) => onPatch({ chaptering_enabled: value })} />
-                <PolicyToggle label="Auto-publish" value={policy?.auto_publish_high_confidence ?? true} disabled={saving} onChange={(value) => onPatch({ auto_publish_high_confidence: value })} />
-                <PolicyToggle label="Preserve video" value={policy?.preserve_video ?? true} disabled={saving} onChange={(value) => onPatch({ preserve_video: value })} />
-                <PolicyToggle label="Remove sponsors" value={policy?.remove_sponsor_segments ?? true} disabled={saving} onChange={(value) => onPatch({ remove_sponsor_segments: value })} />
-                <PolicyNumber label="Confidence" value={policy?.high_confidence_threshold ?? 0.82} step={0.01} disabled={saving} onCommit={(value) => onPatch({ high_confidence_threshold: value })} />
-                <PolicyNumber label="Max chapters" value={policy?.max_chapters_per_parent ?? 5} disabled={saving} onCommit={(value) => onPatch({ max_chapters_per_parent: Math.round(value) })} />
-                <PolicyNumber label="Feed floor sec" value={policy?.min_feed_unit_seconds ?? 270} disabled={saving} onCommit={(value) => onPatch({ min_feed_unit_seconds: Math.round(value) })} />
-                <PolicyNumber label="Parent min sec" value={policy?.atomization_min_parent_seconds ?? 2400} disabled={saving} onCommit={(value) => onPatch({ atomization_min_parent_seconds: Math.round(value) })} />
-            </div>
+            <SectionHeader icon={<ShieldCheck className="h-4 w-4" />} title="Tenant defaults" sub="These settings affect all episodes that inherit tenant policy." />
+            {!policy?.updated_at || unavailable ? <p className="px-4 pb-3 text-sm text-muted-foreground">Current policy is unavailable. Refresh before saving.</p> : null}
+            <form className="space-y-3 p-4 pt-0" onSubmit={async event => {
+                event.preventDefault();
+                if (!editable || invalid || changed || !summary.length || !policy?.updated_at) return;
+                try {
+                    await onSave({ ...patch, expected_updated_at: policy.updated_at });
+                    setDraft({});
+                } catch { /* Keep the draft and show the owner error through the mutation. */ }
+            }}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                    {policySwitches.map(([key, label]) => (
+                        <label key={key} className="flex items-center gap-2 rounded-md border p-2 text-sm">
+                            <input type="checkbox" checked={Boolean(draft[key] ?? policy?.[key])} disabled={!editable} onChange={event => edit(key, event.target.checked)} />
+                            {label}
+                        </label>
+                    ))}
+                    {policyNumbers.map(({ key, label, min, max, step }) => (
+                        <label key={key} className="grid gap-1 text-sm">
+                            {label}
+                            <Input type="number" min={min} max={max} step={step} value={String(draft[key] ?? policy?.[key] ?? '')} disabled={!editable} onChange={event => edit(key, event.target.value)} />
+                        </label>
+                    ))}
+                </div>
+                {invalid && <p role="alert" className="text-sm text-destructive">Enter a valid value for every changed field.</p>}
+                {changed && <p role="status" className="text-sm">The saved policy changed. Review the differences against the latest version.</p>}
+                {summary.length > 0 && <ul className="list-inside list-disc text-sm text-muted-foreground">{summary.map(line => <li key={line}>{line}</li>)}</ul>}
+                <div className="flex flex-wrap gap-2">
+                    {changed && <Button type="button" variant="outline" disabled={!editable} onClick={() => setBaseline(policy?.updated_at)}>Use latest baseline</Button>}
+                    <Button type="submit" disabled={!editable || invalid || changed || !summary.length}>{saving ? 'Saving…' : 'Save changes'}</Button>
+                    <Button type="button" variant="outline" disabled={!dirty || saving} onClick={() => setDraft({})}>Discard changes</Button>
+                </div>
+            </form>
         </section>
-    );
-}
-
-function PolicyToggle({ label, value, disabled, onChange }: { label: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
-    return (
-        <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(!value)}
-            className={cn('flex items-center justify-between rounded-md border bg-muted/35 px-3 py-2 text-left text-sm transition hover:border-[#2CBAC6]', disabled && 'cursor-not-allowed opacity-60')}
-        >
-            <span>{label}</span>
-            <Badge variant={value ? 'success' : 'secondary'}>{value ? 'on' : 'off'}</Badge>
-        </button>
-    );
-}
-
-function PolicyNumber({ label, value, step = 1, disabled, onCommit }: { label: string; value: number; step?: number; disabled: boolean; onCommit: (value: number) => void }) {
-    const [draft, setDraft] = useState(String(value));
-    useEffect(() => {
-        setDraft(String(value));
-    }, [value]);
-
-    return (
-        <label className="grid gap-1 rounded-md border bg-muted/35 px-3 py-2 text-sm">
-            <span className="text-xs text-muted-foreground">{label}</span>
-            <Input
-                type="number"
-                step={step}
-                value={draft}
-                disabled={disabled}
-                onChange={(event) => setDraft(event.target.value)}
-                onBlur={() => {
-                    const next = Number(draft);
-                    if (Number.isFinite(next)) onCommit(next);
-                }}
-                className="h-8 font-mono"
-            />
-        </label>
     );
 }
 
@@ -1329,6 +1358,8 @@ export function MediaAtomizationDashboard() {
     const feedUnitLedger = useMediaAtomizationFeedUnits(feedUnitLedgerFilters, { enabled: false });
     const parents = useMediaAtomizationParents(parentFilters, { enabled: loadPolicyControls || loadDiagnosticsHistory || studioActive });
     const studioContext = useMediaAtomizationParentContext(selectedStudioItem, { enabled: studioActive && Boolean(selectedStudioItem) });
+    const recentParent = studioActive && studioContext.isSuccess && studioContext.data?.parent?.id === selectedStudioItem ? studioContext.data.parent : undefined;
+    useRecentConsoleRecord('episode', recentParent?.id, recentParent ? recentParent.title ?? 'Untitled episode' : undefined, recentParent?.source_name ?? undefined);
     const chapters = useMediaAtomizationChapters(chapterFilters, { enabled: reviewActive });
     const runs = useMediaAtomizationRuns({ enabled: loadDiagnosticsHistory });
     const approve = useApproveAtomizedChapter();
@@ -1391,7 +1422,9 @@ export function MediaAtomizationDashboard() {
     const schemaStatus = overviewData?.schema_status ?? pipeline.data?.schema_status;
     const schemaDegraded = schemaStatus?.ready === false;
     const missingSchema = schemaStatus?.missing ?? [];
-    const durationViolations = overviewData?.duration_violation_count ?? 0;
+    const overviewEvidence = overviewData?.schema_status?.ready === false ? undefined : overviewData;
+    const durationViolations = overviewEvidence?.duration_violation_count;
+    const atomizationMinimum = policy.data?.atomization_min_parent_seconds;
     const lastUpdated = pipeline.data?.updated_at ?? overviewData?.updated_at;
     const actionsDisabled = Boolean(schemaDegraded);
     const resolvedStudioItem = studioContext.data?.parent?.id ?? selectedStudioItem;
@@ -1488,20 +1521,22 @@ export function MediaAtomizationDashboard() {
                         {selectedStudioItem && <EpisodeJourney id={selectedStudioItem} actions={item => <JourneyActions item={item} />} />}
                         {reviewLoading && !chapters.data && <TabLoading label="Loading review queue" />}
                         <SummaryStrip>
-                            <KpiCard label="Needs review" value={overviewData?.review_needed_count ?? 0} tone="warn" />
-                            <KpiCard label="Short cuts in review" value={overviewData?.short_chapter_review_count ?? 0} sub="merge/edit" tone="warn" />
-                            <KpiCard label="Invalid visible" value={publicationPathCount(overviewData, 'invalid')} tone={publicationPathCount(overviewData, 'invalid') > 0 ? 'bad' : 'ok'} />
-                            <KpiCard label="Embedding pending" value={childVisibilityCount(overviewData, 'embedding_pending')} />
+                            <KpiCard label="Needs review" value={overviewEvidence?.review_needed_count ?? 'Unavailable'} tone="warn" />
+                            <KpiCard label="Short cuts in review" value={overviewEvidence?.short_chapter_review_count ?? 'Unavailable'} sub="merge/edit" tone="warn" />
+                            <KpiCard label="Invalid visible" value={overviewEvidence?.publication_summary?.invalid_visible_count ?? durationViolations ?? 'Unavailable'} tone={publicationPathCount(overviewEvidence, 'invalid') > 0 ? 'bad' : 'ok'} />
+                            <KpiCard label="Embedding pending" value={overviewEvidence?.child_state_counts ? childVisibilityCount(overviewEvidence, 'embedding_pending') : 'Unavailable'} />
                         </SummaryStrip>
+                        {chapters.data ? (
                         <ReviewQueue
                             chapters={chapterRows}
                             approving={approve.isPending}
                             rejecting={reject.isPending}
-                            actionsDisabled={actionsDisabled}
+                            actionsDisabled={actionsDisabled || chapters.isError}
                             onOpenStudio={openStudio}
                             onApprove={(id) => approve.mutate(id)}
                             onReject={(id) => reject.mutate(id)}
                         />
+                        ) : !reviewLoading ? <p role="status" className="text-sm text-muted-foreground">Review queue unavailable.</p> : null}
                     </>
                     )}
                 </TabsContent>
@@ -1510,14 +1545,14 @@ export function MediaAtomizationDashboard() {
                     {activeTab === 'studio' && (
                     <>
                         <SummaryStrip>
-                            <KpiCard label="Review pressure" value={overviewData?.review_needed_count ?? 0} sub="chapters" tone="warn" />
-                            <KpiCard label="Awaiting transcript" value={pipeline.data?.columns.find(c => c.key === 'transcript')?.count ?? 0} sub="parents" />
-                            <KpiCard label="Published in Pods" value={
-                                publicationPathCount(overviewData, 'atomized')
-                                + publicationPathCount(overviewData, 'direct_transcript')
-                                + publicationPathCount(overviewData, 'direct_no_transcript')
+                            <KpiCard label="Review pressure" value={overviewEvidence?.review_needed_count ?? 'Unavailable'} sub="chapters" tone="warn" />
+                            <KpiCard label="Awaiting transcript" value={pipeline.data?.columns.find(c => c.key === 'transcript')?.count ?? 'Unavailable'} sub="parents" />
+                            <KpiCard label="Published in Pods" value={overviewEvidence?.publication_summary ?
+                                publicationPathCount(overviewEvidence, 'atomized')
+                                + publicationPathCount(overviewEvidence, 'direct_transcript')
+                                + publicationPathCount(overviewEvidence, 'direct_no_transcript') : 'Unavailable'
                             } tone="ok" />
-                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 0} tone="bad" />
+                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 'Unavailable'} tone="bad" />
                         </SummaryStrip>
                         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,0.45fr)_minmax(0,1fr)]">
                             <section className="rounded-md border bg-card">
@@ -1587,16 +1622,24 @@ export function MediaAtomizationDashboard() {
                         <FilterBar filters={filters} setFilter={setFilter} resetFilters={resetFilters} />
                         {policyLoading && !policy.data && !sources.data && !parents.data && <TabLoading label="Loading policy controls" />}
                         <SummaryStrip>
-                            <KpiCard label="Excluded episodes" value={overviewData?.disabled_episode_count ?? 0} sub="manual opt-outs" />
-                            <KpiCard label="Excluded sources" value={overviewData?.disabled_source_count ?? 0} sub="source opt-outs" />
-                            <KpiCard label="Manual requests" value={overviewData?.manual_requested_count ?? 0} sub="queued by admins" />
-                            <KpiCard label="Atomize only" value={`>${Math.round(((overviewData?.policy?.atomization_min_parent_seconds ?? HARD_MAX_SECONDS) / 60))}m`} />
+                            <KpiCard label="Excluded episodes" value={overviewEvidence?.disabled_episode_count ?? 'Unavailable'} sub="manual opt-outs" />
+                            <KpiCard label="Excluded sources" value={overviewEvidence?.disabled_source_count ?? 'Unavailable'} sub="source opt-outs" />
+                            <KpiCard label="Manual requests" value={overviewEvidence?.manual_requested_count ?? 'Unavailable'} sub="queued by admins" />
+                            <KpiCard label="Atomize only" value={atomizationMinimum == null ? 'Unavailable' : `>${Math.round(atomizationMinimum / 60)}m`} />
                         </SummaryStrip>
                         <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                             <PolicyEditor
                                 policy={policy.data}
                                 saving={updatePolicy.isPending}
-                                onPatch={(patch) => { if (window.confirm(`Change tenant defaults: ${Object.entries(patch).map(([key, value]) => `${key} = ${value}`).join(', ')}? This affects all inheriting episodes. It does not recut existing media or apply a chapter draft.`)) updatePolicy.mutate(patch); }}
+                                unavailable={policy.isError}
+                                onSave={async patch => {
+                                    try {
+                                        return await updatePolicy.mutateAsync(patch);
+                                    } catch (error) {
+                                        void policy.refetch();
+                                        throw error;
+                                    }
+                                }}
                             />
                             <SourceOverrides
                                 sources={sources.data ?? []}
@@ -1641,10 +1684,10 @@ export function MediaAtomizationDashboard() {
                         <FilterBar filters={filters} setFilter={setFilter} resetFilters={resetFilters} />
                         {diagnosticsLoading && !runs.data && !parents.data && <TabLoading label="Loading diagnostics" />}
                         <SummaryStrip>
-                            <KpiCard label="Avg chapters" value={(overviewData?.average_chapters_per_parent ?? 0).toFixed(1)} sub="per parent" />
-                            <KpiCard label="Avg run time" value={formatSeconds(overviewData?.average_processing_seconds)} sub="completed runs" />
-                            <KpiCard label="Duration violations" value={durationViolations} sub="visible units" tone={durationViolations > 0 ? 'bad' : 'ok'} />
-                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 0} tone="bad" />
+                            <KpiCard label="Avg chapters" value={overviewEvidence?.average_chapters_per_parent?.toFixed(1) ?? 'Unavailable'} sub="per parent" />
+                            <KpiCard label="Avg run time" value={overviewEvidence?.average_processing_seconds == null ? 'Unavailable' : formatSeconds(overviewEvidence.average_processing_seconds)} sub="completed runs" />
+                            <KpiCard label="Duration violations" value={durationViolations ?? 'Unavailable'} sub="visible units" tone={durationViolations ? 'bad' : 'ok'} />
+                            <KpiCard label="Failed or reconciling" value={pipeline.data?.columns.find(c => c.key === 'failed')?.count ?? 'Unavailable'} tone="bad" />
                         </SummaryStrip>
                         <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                             <RunPanel runs={runs.data ?? []} onOpenStudio={openStudio} />

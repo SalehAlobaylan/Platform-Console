@@ -159,6 +159,22 @@ export default function EconomicsPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [runNeedsReview, setRunNeedsReview] = useState(false);
+  const [checkingRun, setCheckingRun] = useState(false);
+  const reviewLatestRun = async () => {
+    setCheckingRun(true);
+    try {
+      const history = await api.getAISpendRuns({ limit: 5 });
+      const latest = history.runs[0];
+      setNotice(latest ? `Latest recorded run: ${latest.id} · ${latest.status}` : 'No recent accounting run is recorded.');
+      setRunNeedsReview(false);
+      run.reset();
+    } catch {
+      setError('Could not verify run history.');
+    } finally {
+      setCheckingRun(false);
+    }
+  };
   const [scope, setScope] = useState('class:llm');
   const [cadence, setCadence] = useState('5');
   const [horizon, setHorizon] = useState('30');
@@ -448,14 +464,25 @@ export default function EconomicsPage() {
           <Button
             size="sm"
             variant="outline"
-            disabled={!canEdit || run.isPending}
-            onClick={() => run.mutate()}
+            disabled={!canEdit || run.isPending || runNeedsReview}
+            onClick={() => {
+              if (window.confirm('Run spend accounting for this tenant across all dates and accounts?')) run.mutate(undefined, {
+                onSuccess: result => setNotice(`Spend accounting completed · Run ${result.id}`),
+                onError: () => setRunNeedsReview(true),
+              });
+            }}
           >
             <RefreshCw
               className={`mr-2 h-3.5 w-3.5 ${run.isPending ? 'animate-spin' : ''}`}
             />
-            {run.isPending ? 'Updating ledger…' : 'Refresh ledger'}
+            {run.isPending ? 'Running accounting…' : 'Run spend accounting'}
           </Button>{' '}
+          <Button size="sm" variant="outline" disabled={status.isFetching} onClick={() => void status.refetch()}>
+            Refresh status
+          </Button>
+          {runNeedsReview && <Button size="sm" variant="outline" disabled={checkingRun} onClick={() => void reviewLatestRun()}>
+            Check latest run
+          </Button>}
           <Button
             size="sm"
             variant="ghost"
@@ -626,7 +653,7 @@ export default function EconomicsPage() {
           role="alert"
           className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
         >
-          {error || `Ledger run failed: ${run.error?.message}`}
+          {error || `Accounting run was not confirmed. Check run history before retrying. ${run.error?.message}`}
         </div>
       )}
       {notice && (

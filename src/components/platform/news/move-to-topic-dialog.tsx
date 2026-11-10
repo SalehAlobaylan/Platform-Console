@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAssignTopic, useTopics } from '@/hooks/use-news';
+import { assignTopic } from '@/lib/api/cms/news';
 import type { BulkSelection } from '@/types/platform/news';
 
 const UNCATEGORIZE = '__uncategorize__';
@@ -35,6 +36,19 @@ export function MoveToTopicDialog({ selection, count, onClose, onDone }: MoveToT
     const [target, setTarget] = useState('');
     const topics = useTopics({ limit: 200 });
     const assign = useAssignTopic();
+    const [attempt, setAttempt] = useState(0);
+    const [preview, setPreview] = useState<{ selection: BulkSelection; target: string; attempt: number; count: number | null }>();
+    const reviewed = preview && preview.selection === selection && preview.target === target && preview.attempt === attempt ? preview : undefined;
+    useEffect(() => {
+        setPreview(undefined);
+        if (!selection || !target) return;
+        let live = true;
+        void assignTopic({ ...selection, target_story_id: target === UNCATEGORIZE ? '' : target, dry_run: true }).then(
+            result => { if (live) setPreview({ selection, target, attempt, count: result.updated_count }); },
+            () => { if (live) setPreview({ selection, target, attempt, count: null }); }
+        );
+        return () => { live = false; };
+    }, [selection, target, attempt]);
 
     const close = () => {
         setTarget('');
@@ -42,7 +56,7 @@ export function MoveToTopicDialog({ selection, count, onClose, onDone }: MoveToT
     };
 
     const commit = () => {
-        if (!selection || !target) return;
+        if (!selection || !target || !reviewed?.count || assign.isPending) return;
         assign.mutate(
             { ...selection, target_story_id: target === UNCATEGORIZE ? '' : target },
             {
@@ -55,12 +69,15 @@ export function MoveToTopicDialog({ selection, count, onClose, onDone }: MoveToT
     };
 
     return (
-        <Dialog open={Boolean(selection)} onOpenChange={(o) => !o && close()}>
+        <Dialog open={Boolean(selection)} onOpenChange={(o) => !o && !assign.isPending && close()}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Move to story</DialogTitle>
                     <DialogDescription>
-                        Move {count.toLocaleString()} article{count === 1 ? '' : 's'} to another story.
+                        Review a destination for {count.toLocaleString()} selected or matching items.
+                        {target && (reviewed
+                            ? reviewed.count === null ? ' Preview unavailable.' : ` CMS found ${reviewed.count} matching items.`
+                            : ' Checking the destination and selection…')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -79,10 +96,11 @@ export function MoveToTopicDialog({ selection, count, onClose, onDone }: MoveToT
                 </Select>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={close}>
+                    {reviewed?.count === null && <Button variant="outline" onClick={() => setAttempt(n => n + 1)}>Retry preview</Button>}
+                    <Button variant="outline" onClick={close} disabled={assign.isPending}>
                         Cancel
                     </Button>
-                    <Button onClick={commit} disabled={!target || assign.isPending}>
+                    <Button onClick={commit} disabled={!reviewed?.count || assign.isPending}>
                         {assign.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Move
                     </Button>

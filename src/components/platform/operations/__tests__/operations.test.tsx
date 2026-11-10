@@ -146,12 +146,14 @@ it('shows cached attention and a warning after a failed refresh', () => {
 });
 it('browses beyond the first page and sends server filters', async () => {
   const user = userEvent.setup();
-  render(<AttentionInbox fleet={[]} locale="en" t={t} />);
+  const { rerender } = render(<AttentionInbox fleet={[]} locale="en" t={t} />);
   await user.click(screen.getByRole('button', { name: 'Next' }));
+  rerender(<AttentionInbox fleet={[]} locale="en" t={t} />);
   expect(hooks.useOpsAttention).toHaveBeenLastCalledWith(
     expect.objectContaining({ offset: 10 })
   );
   await user.selectOptions(screen.getByLabelText('State'), 'snoozed');
+  rerender(<AttentionInbox fleet={[]} locale="en" t={t} />);
   expect(hooks.useOpsAttention).toHaveBeenLastCalledWith(
     expect.objectContaining({
       state: 'snoozed',
@@ -159,6 +161,7 @@ it('browses beyond the first page and sends server filters', async () => {
       offset: 0,
     })
   );
+  window.history.replaceState(null, '', '/');
 });
 it('sends only the displayed evidence when acknowledging or snoozing', async () => {
   render(<AttentionInbox fleet={[]} locale="en" t={t} />);

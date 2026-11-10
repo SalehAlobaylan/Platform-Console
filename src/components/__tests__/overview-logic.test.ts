@@ -5,14 +5,12 @@ import {
     deriveWorstRux,
     feedScoreSeries,
     label,
-    relative,
     ruxHealthSeries,
     spendDailySeries,
     tone,
-    topAttention,
 } from '@/components/platform/overview/overview-logic';
 import type { AISpendBudget, AISpendRollup } from '@/lib/api/cms/ai-spend';
-import type { OpsAttentionItem, OpsFleetStatus } from '@/lib/api/cms/operations';
+import type { OpsFleetStatus } from '@/lib/api/cms/operations';
 import type { FeedIntegrityRun } from '@/types/platform/feed-integrity';
 import type { ExperienceRun, SurfaceVerdict } from '@/types/platform/real-experience';
 import type { ServiceHealth } from '@/types/platform/system-health';
@@ -50,25 +48,6 @@ describe('label', () => {
     it('replaces underscores and falls back to unknown', () => {
         expect(label('degraded_major')).toBe('degraded major');
         expect(label(undefined)).toBe('unknown');
-    });
-});
-
-describe('relative', () => {
-    const now = new Date('2026-07-13T12:00:00Z').getTime();
-
-    it('formats past minutes, hours, and days', () => {
-        expect(relative('2026-07-13T11:55:00Z', now)).toBe('5 minutes ago');
-        expect(relative('2026-07-13T09:00:00Z', now)).toBe('3 hours ago');
-        expect(relative('2026-07-11T12:00:00Z', now)).toBe('2 days ago');
-    });
-
-    it('clamps future timestamps to just now', () => {
-        expect(relative('2026-07-13T12:10:00Z', now)).toBe('just now');
-    });
-
-    it('handles missing values', () => {
-        expect(relative(undefined, now)).toBe('never');
-        expect(relative(null, now)).toBe('never');
     });
 });
 
@@ -176,22 +155,6 @@ describe('deriveServicesDetail', () => {
 
     it('counts healthy services', () => {
         expect(deriveServicesDetail([service('CMS', 'healthy'), service('IAM', 'healthy')])).toBe('2 services healthy');
-    });
-});
-
-describe('topAttention', () => {
-    const item = (key: string, snoozed: boolean): OpsAttentionItem =>
-        ({ key, fingerprint: key, system: 's', kind: 'k', severity: 'minor', title: key, detail: '', count: 1, first_seen: '2026-07-13T00:00:00Z', href: '/x', snoozed }) as OpsAttentionItem;
-
-    it('filters snoozed and caps the list', () => {
-        const items = [item('a', false), item('b', true), item('c', false), item('d', false), item('e', false), item('f', false), item('g', false), item('h', false)];
-        const top = topAttention(items, 6);
-        expect(top).toHaveLength(6);
-        expect(top.map((i) => i.key)).toEqual(['a', 'c', 'd', 'e', 'f', 'g']);
-    });
-
-    it('handles undefined input', () => {
-        expect(topAttention(undefined)).toEqual([]);
     });
 });
 

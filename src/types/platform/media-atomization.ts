@@ -93,6 +93,7 @@ export interface MediaAtomizationPolicySnapshot {
 }
 
 export interface MediaAtomizationPolicy {
+    updated_at?: string;
     chaptering_enabled: boolean;
     auto_publish_high_confidence: boolean;
     parent_feed_visible: boolean;

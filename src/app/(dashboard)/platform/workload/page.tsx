@@ -1,4 +1,5 @@
 'use client';
+import { WorkloadPolicyComparison } from '@/components/platform/workload/workload-policy-comparison';
 import { Suspense, useEffect, useState } from 'react';
 import Link from '@/lib/console-link';
 import { useRouter, useSearchParams } from '@/lib/navigation';
@@ -26,6 +27,8 @@ import {
 } from '@/components/platform/workload/presentation';
 import { WorkloadOverview } from '@/components/platform/workload/workload-overview';
 import { WorkloadEvidence } from '@/components/platform/workload/workload-evidence';
+import { SaveQueueView } from '@/components/shared/save-queue-view';
+import { queueViewFilters, queueViewHref } from '@/lib/saved-console-views';
 import { WorkloadActivity } from '@/components/platform/workload/workload-activity';
 import { WorkloadSettings } from '@/components/platform/workload/workload-settings';
 
@@ -88,6 +91,14 @@ function WorkloadWorkspace() {
   const stateFilter = search.get('state') || '';
   const resource = search.get('resource') || '';
   const history = search.get('history') === 'permits' ? 'permits' : 'decisions';
+  const showingChanges = search.get('history') === 'changes';
+  const rawRevision = search.get('revision');
+  const revision = Number(rawRevision);
+  const validRevision = Number.isSafeInteger(revision) && revision > 0;
+  const changes = hooks.useWorkloadDecisions(
+    { system: 'workload_governor', class: 'policy', policy_revision: validRevision ? revision : undefined, before: search.get('changes_before') || undefined, limit: 30 },
+    admin && view === 'activity' && showingChanges && (!rawRevision || validRevision)
+  );
   const decisions = hooks.useWorkloadDecisions(
     {
       class: classFilter || undefined,
@@ -95,7 +106,7 @@ function WorkloadWorkspace() {
       before: search.get('decisions_before') || undefined,
       limit: 50,
     },
-    admin && view === 'activity' && history === 'decisions'
+    admin && view === 'activity' && history === 'decisions' && !showingChanges
   );
   const permits = hooks.useWorkloadPermits(
     {
@@ -104,7 +115,7 @@ function WorkloadWorkspace() {
       before: search.get('permits_before') || undefined,
       limit: 50,
     },
-    admin && view === 'activity' && history === 'permits'
+    admin && view === 'activity' && history === 'permits' && !showingChanges
   );
   const snapshots = hooks.useWorkloadSnapshots(
     { resource: resource || undefined, limit: 100 },
@@ -362,6 +373,38 @@ function WorkloadWorkspace() {
           />
         </TabsContent>
         <TabsContent value="activity" className="mt-5">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button variant={showingChanges ? 'outline' : 'default'} onClick={() => navigate({ history: 'decisions', revision: '' })}>{t('Activity', 'النشاط')}</Button>
+            <Button variant={showingChanges ? 'default' : 'outline'} onClick={() => navigate({ history: 'changes', revision: '', changes_before: '' })}>{t('Changes', 'التغييرات')}</Button>
+          </div>
+          {showingChanges ? (
+            <div className="space-y-3">
+              <WorkloadPolicyComparison key={rawRevision ?? 'latest'} revision={validRevision ? revision : undefined} />
+              {validRevision && <Button variant="outline" onClick={() => navigate({ revision: '', changes_before: '' })}>{t('Show all changes', 'عرض كل التغييرات')}</Button>}
+              {rawRevision && !validRevision ? <p role="alert">Invalid policy revision.</p> : changes.isPending ? <WorkloadLoading /> : changes.isError ? <p role="alert">Policy change history is unavailable.</p> : <>
+                {!(changes.data?.data ?? []).some(row => row.event === 'policy_changed') && <p>No policy receipts in this result.</p>}
+                {changes.data?.data.filter(row => row.event === 'policy_changed').map(row => {
+                  const before = row.evidence.before;
+                  const after = row.evidence.after;
+                  const previous = before && typeof before === 'object' ? before as Record<string, unknown> : null;
+                  const current = after && typeof after === 'object' ? after as Record<string, unknown> : null;
+                  const ignored = new Set(['revision', 'updated_at', 'updated_by', 'scope']);
+                  const keys = current && previous ? [...new Set([...Object.keys(previous), ...Object.keys(current)])].filter(key => !ignored.has(key) && JSON.stringify(previous[key]) !== JSON.stringify(current[key])) : [];
+                  return <section key={row.id} className="space-y-2 rounded-lg border bg-card p-4">
+                    <h3 className="font-semibold">Revision {row.policy_revision}{data?.policy.revision === row.policy_revision ? ' · Current' : ''}</h3>
+                    <p className="text-sm text-muted-foreground">{new Date(row.created_at).toLocaleString()} · {row.actor || 'Actor unavailable'}</p>
+                    {typeof row.evidence.review_note === 'string' && <p className="text-sm">{row.evidence.review_note}</p>}
+                    {previous && current ? <ul className="space-y-1 break-words text-sm">{keys.map(key => <li key={key}><strong>{key.replaceAll('_', ' ')}</strong> {JSON.stringify(previous[key]) ?? '—'} → {JSON.stringify(current[key]) ?? '—'}</li>)}</ul> : <p>Field-level evidence is unavailable.</p>}
+                  </section>;
+                })}
+                {changes.data?.next_cursor && <Button variant="outline" onClick={() => navigate({ changes_before: changes.data!.next_cursor! })}>Older changes</Button>}
+              </>}
+            </div>
+          ) : <>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <SaveQueueView surface="workload" filters={queueViewFilters('workload', search)} locale={locale} />
+            {(classFilter || verdictFilter || stateFilter) && <Button size="sm" variant="ghost" onClick={() => router.push(queueViewHref('workload', { history }, locale))}>{t('Reset filters', 'مسح عوامل التصفية')}</Button>}
+          </div>
           <WorkloadActivity
             locale={locale}
             decisions={decisions}
@@ -387,6 +430,7 @@ function WorkloadWorkspace() {
               {t('Return to latest activity', 'العودة لأحدث نشاط')}
             </Button>
           )}
+          </>}
         </TabsContent>
         <TabsContent
           value="settings"

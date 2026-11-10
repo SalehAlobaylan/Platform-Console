@@ -214,7 +214,7 @@ async function launch(entry, managed = true, runtime = 'fixture-launch') {
     const env = {
         PATH: process.env.PATH,
         NODE_ENV: 'production', HOST: '127.0.0.1', HOSTNAME: '127.0.0.1', PORT: String(port),
-        ...(managed && { WAHB_RUNTIME_ID: runtime, WAHB_MANAGED_ENV: '1' }), NEXT_TELEMETRY_DISABLED: '1',
+        ...(managed && { WAHB_RUNTIME_ID: runtime, WAHB_MANAGED_ENV: '1', WAHB_ENVIRONMENT_ID: 'fixture-profile' }), NEXT_TELEMETRY_DISABLED: '1',
         CMS_BASE_URL: upstream, IAM_BASE_URL: upstream, AGGREGATION_BASE_URL: upstream,
         LOCAL_QUICK_SIGN_IN_EMAIL: 'operator@example.test', LOCAL_QUICK_SIGN_IN_PASSWORD: 'fixture-only',
         ENRICHMENT_BASE_URL: upstream, MEDIA_BASE_URL: upstream, PLATFORM_BASE_URL: upstream,
@@ -285,7 +285,7 @@ try {
         throw new Error('Choose chromium, firefox, or webkit for fixture qualification');
     }
     const specs = benchmark || timing ? ['console-routing-benchmark.spec.ts']
-        : workflows ? ['media-journey.spec.ts', 'platform-economics.spec.ts', 'real-experience.spec.ts', 'ai-spend.spec.ts']
+        : workflows ? ['media-journey.spec.ts', 'platform-economics.spec.ts', 'real-experience.spec.ts', 'ai-spend.spec.ts', 'operator-workflow-improvements.spec.ts']
         : ['console-route-parity.spec.ts', 'console-api-contract.spec.ts', 'console-operator-parity.spec.ts'];
     const runner = spawn(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', ...projects.map((project) => `--project=${project}`), '--workers=1', '--retries=0', '--reporter=list', '--output', `test-results/qualification-${process.pid}`, ...specs], {
         env: {

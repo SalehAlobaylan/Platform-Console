@@ -199,10 +199,13 @@ test.describe('AI spend cockpit', () => {
       })
     );
     await page.goto('/platform/economics');
-    await page.getByRole('button', { name: 'Refresh ledger' }).click();
-    await expect(page.getByRole('alert').first()).toContainText('Ledger');
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Run spend accounting' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Accounting run was not confirmed' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Run spend accounting' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Check latest run' })).toBeVisible();
     await expect(
-      page.getByText('Ledger refreshed', { exact: true })
+      page.getByText(/Spend accounting completed/)
     ).toHaveCount(0);
   });
   test('readers investigate while controls stay disabled', async ({ page }) => {
@@ -219,7 +222,7 @@ test.describe('AI spend cockpit', () => {
     await page.goto('/platform/economics');
     await expect(page.getByText('Your access is read only.')).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Refresh ledger' })
+      page.getByRole('button', { name: 'Run spend accounting' })
     ).toBeDisabled();
     await page.getByRole('button', { name: 'Budgets', exact: true }).click();
     await expect(

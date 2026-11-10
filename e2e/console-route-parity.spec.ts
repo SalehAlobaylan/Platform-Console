@@ -348,3 +348,117 @@ test('keeps News and Studio actions within the 320px viewport', async ({ context
     await page.getByPlaceholder('Chapter title').first().scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath('studio-320.png') });
 });
+
+test('keeps the Overview summary in view when the attention inbox is busy', async ({ context, page }) => {
+    const origin = fixtureOrigin();
+    await fixtureLogin(context, origin);
+    const title = 'Active media sources have no items eligible for the Pods feed. Check source readiness and the publication evidence.';
+    await page.route('**/api/cms/admin/ops/status', route => route.fulfill({ json: { data: {
+        as_of: new Date().toISOString(), headline: 'attention', summary: '26 fleet items need attention · 1 member stalled or stuck · 1 lane lacks liveness evidence.',
+        fleet: [], adapter_errors: [], complete: true,
+    } } }));
+    await page.route('**/api/cms/admin/ops/attention?*', route => {
+        const limit = new URL(route.request().url()).searchParams.get('limit');
+        expect(limit).toBe('1');
+        return route.fulfill({ json: { data: {
+            as_of: new Date().toISOString(), total: 26, limit: 1, offset: 0, has_more: true, complete: true, adapter_errors: [],
+            items: [{ key: 'fixture-alert', title, severity: 'major', href: '/platform/feed-integrity', snoozed: false }],
+        } } });
+    });
+
+    await page.goto(origin + '/');
+    const attention = page.getByRole('region', { name: 'Needs attention' });
+    await expect(attention.getByText('26 open')).toBeVisible();
+    await expect(attention.getByRole('link', { name: title })).toHaveAttribute('href', '/platform/feed-integrity');
+    await expect(attention.getByRole('link', { name: 'Open inbox' })).toHaveAttribute('href', '/platform/operations#ops-attention');
+    for (const width of [320, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(page.getByRole('heading', { name: 'System status' })).toBeInViewport();
+        await expect(page.getByRole('heading', { name: 'Content inventory' })).toBeInViewport();
+        expect((await attention.boundingBox())?.height).toBeLessThan(130);
+        expect(await page.locator('main').evaluate(main => main.scrollWidth)).toBeLessThanOrEqual(width);
+    }
+});
+
+test('opens an exact story from Find & Jump and restores the previous route', async ({ context, page }) => {
+    const origin = fixtureOrigin();
+    const story = '9709bf32-a4dc-4786-8708-4e956991cae3';
+    await fixtureLogin(context, origin);
+    const lookups: string[] = [];
+    await page.route('**/api/cms/admin/sources/lookup?*', route => {
+        lookups.push('source');
+        return route.fulfill({ json: { items: [] } });
+    });
+    await page.route('**/api/cms/admin/content/stories?*', route => {
+        const search = new URL(route.request().url()).searchParams.get('search');
+        return route.fulfill({ json: { data: search ? [{ id: story, label: 'Fixture searchable story' }] : [], total: search ? 1 : 0 } });
+    });
+    await page.route('**/api/cms/admin/stories/' + story, route => route.fulfill({ json: { id: story, label: 'Fixture searchable story' } }));
+    const from = origin + '/platform/news?view=library';
+    await page.goto(from);
+    const trigger = page.getByRole('button', { name: 'Find & Jump' });
+    await expect(trigger).toBeVisible();
+    expect(lookups).toHaveLength(0);
+    await trigger.click();
+    const input = page.getByRole('textbox', { name: 'Search Console' });
+    await expect(input).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await input.fill('searchable story');
+    await page.getByRole('link', { name: /Fixture searchable story/ }).click();
+    await expect(page).toHaveURL(origin + '/platform/news?view=topics&story=' + story);
+    await expect(page.getByRole('heading', { name: 'Fixture searchable story' })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(from);
+    await page.goto(origin + '/platform/news?view=topics&story=' + story);
+    await expect(page.getByRole('heading', { name: 'Fixture searchable story' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Fixture searchable story' })).toBeVisible();
+});
+
+test('reopens a paged moderation case and reconciles a concurrent decision', async ({ context, page }) => {
+    const origin = fixtureOrigin();
+    const first = '4bd5b554-de0b-4226-b23a-1dcedf96ad9f';
+    const second = '3c6508fd-a5ea-47ea-8815-71b8431f9a85';
+    await fixtureLogin(context, origin);
+    let reviewed = false;
+    const decisions: unknown[] = [];
+    const report = (id: string) => ({
+        id, target_id: fixtureItem, target_type: 'comment', reason: 'fixture_reason', author_suspended: false,
+        detail: id === first ? 'First page report' : 'Second page report', created_at: '2026-09-13T12:00:00Z',
+        status: reviewed && id === second ? 'resolved' : 'open',
+    });
+    await page.route('**/api/cms/admin/moderation/reports?*', route => {
+        const pageNumber = Number(new URL(route.request().url()).searchParams.get('page'));
+        return route.fulfill({ json: { data: [report(pageNumber === 2 ? second : first)], page: pageNumber, limit: 1, total: 2, total_pages: 2 } });
+    });
+    await page.route('**/api/cms/admin/moderation/reports/' + second, route => route.fulfill({ json: { data: {
+        report: report(second), target_available: true, comment_text: 'Fixture reported comment', parent_id: fixtureItem, parent_title: 'Fixture parent',
+    } } }));
+    await page.route('**/api/cms/admin/moderation/reports/' + second + '/resolve', route => {
+        decisions.push(route.request().postDataJSON());
+        reviewed = true;
+        return route.fulfill({ status: 409, json: { message: 'Report already reviewed' } });
+    });
+
+    await page.goto(origin + '/platform/moderation');
+    await expect(page.getByText('First page report')).toBeVisible();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(page.getByText('Page 2 of 2')).toBeVisible();
+    await expect(page.getByText('Second page report')).toBeVisible();
+    await page.getByRole('button', { name: 'Review case' }).click();
+    const selected = origin + '/platform/moderation?status=open&page=2&case=' + second;
+    await expect(page).toHaveURL(selected);
+    await expect(page.getByText('Fixture reported comment')).toBeVisible();
+    await page.reload();
+    await expect(page).toHaveURL(selected);
+    await expect(page.getByRole('link', { name: 'Fixture parent' })).toBeVisible();
+    const resolve = page.getByRole('button', { name: 'Resolve report' });
+    await expect(resolve).toBeDisabled();
+    await page.getByRole('textbox', { name: 'Decision reason' }).fill('Reviewed the reported comment');
+    await resolve.click();
+    await expect(page.getByText('Report status: resolved')).toBeVisible();
+    await expect(resolve).toHaveCount(0);
+    expect(decisions).toEqual([{ status: 'resolved', reason: 'Reviewed the reported comment' }]);
+});

@@ -41,12 +41,12 @@ export const getMediaAtomizationOverview = () =>
     unwrap(cmsClient.get<CmsEnvelope<MediaAtomizationOverview>>('/admin/media-atomization/overview'));
 
 export const getMediaAtomizationPolicy = () =>
-    unwrap(cmsClient.get<CmsEnvelope<{ policy: MediaAtomizationPolicy }>>('/admin/media-atomization/policy'))
-        .then((d) => d.policy);
+    unwrap(cmsClient.get<CmsEnvelope<{ policy: MediaAtomizationPolicy; updated_at?: string }>>('/admin/media-atomization/policy'))
+        .then((d) => ({ ...d.policy, updated_at: d.updated_at }));
 
-export const updateMediaAtomizationPolicy = (patch: MediaAtomizationPolicyPatch) =>
-    unwrap(cmsClient.patch<CmsEnvelope<{ policy: MediaAtomizationPolicy }>>('/admin/media-atomization/policy', patch))
-        .then((d) => d.policy);
+export const updateMediaAtomizationPolicy = (patch: MediaAtomizationPolicyPatch & { expected_updated_at?: string }) =>
+    unwrap(cmsClient.patch<CmsEnvelope<{ policy: MediaAtomizationPolicy; updated_at?: string }>>('/admin/media-atomization/policy', patch))
+        .then((d) => ({ ...d.policy, updated_at: d.updated_at }));
 
 export const listMediaAtomizationSources = (filters?: { q?: string; limit?: number }) =>
     unwrap(cmsClient.get<CmsEnvelope<{ items: MediaAtomizationSourcePolicy[] }>>('/admin/media-atomization/sources', cleanParams(filters)))

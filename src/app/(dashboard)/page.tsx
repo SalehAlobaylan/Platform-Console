@@ -26,12 +26,11 @@ import {
     feedScoreSeries,
     label,
     ruxHealthSeries,
-    topAttention,
 } from '@/components/platform/overview/overview-logic';
 
 export default function DashboardPage() {
     const ops = useOpsStatus();
-    const attention = useOpsAttention();
+    const attention = useOpsAttention({ limit: 1 });
     const systemHealth = useSystemHealth();
     const feedIntegrity = useFeedIntegrityStatus();
     const experience = useExperienceStatus();
@@ -43,7 +42,6 @@ export default function DashboardPage() {
     const experienceRuns = useExperienceRuns();
     const contentStats = useContentStats();
 
-    const attentionItems = useMemo(() => topAttention(attention.data?.items), [attention.data]);
     const integrityTrend = useMemo(() => feedScoreSeries(integrityRuns.data?.items), [integrityRuns.data]);
     const ruxTrend = useMemo(() => ruxHealthSeries(experienceRuns.data), [experienceRuns.data]);
     const spendTrend = useMemo(() => (spend.data?.breakdown?.day ?? []).map(d => ({ day: d.key.slice(0, 10), count: d.cost_usd, failed: 0 })), [spend.data]);
@@ -70,100 +68,106 @@ export default function DashboardPage() {
     ];
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-5 sm:space-y-6">
             <OverviewHeader status={ops.data} isLoading={ops.isLoading} isError={ops.isError} />
 
-            <ContentStatStrip stats={contentScale} loading={contentStatsLoading} />
+            <AttentionPreview
+                snapshot={attention.data}
+                isLoading={attention.isLoading}
+                isError={attention.isError}
+                isFetching={attention.isFetching}
+                onRetry={() => attention.refetch()}
+            />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                <VerdictTile
-                    href="/platform/system-health"
-                    title="Services"
-                    loading={systemHealth.isLoading}
-                    isError={systemHealth.isError}
-                    verdict={systemHealth.data?.overall}
-                    detail={servicesDetail}
-                />
-                <VerdictTile
-                    href="/platform/feed-integrity"
-                    title="Feed Integrity"
-                    loading={feedIntegrity.isLoading}
-                    isError={feedIntegrity.isError}
-                    verdict={feedIntegrity.data?.latest_run?.headline}
-                    detail={
-                        feedIntegrity.data
-                            ? feedResults.length
-                                ? (
-                                    <span className="flex flex-wrap gap-x-2">
-                                        {feedResults.map((f) => (
-                                            <span
-                                                key={`${f.feed}:${f.variant}`}
-                                                className={`font-medium ${f.feed === 'pods' ? 'text-gold' : f.feed === 'news' ? 'text-news' : ''}`}
-                                            >
-                                                {f.feed} {label(f.consumer_verdict)}
-                                            </span>
-                                        ))}
-                                        {openEpisodes ? <span>{openEpisodes} open episodes</span> : null}
-                                    </span>
-                                )
-                                : 'No runs yet'
-                            : undefined
-                    }
-                    trend={integrityTrend}
-                />
-                <VerdictTile
-                    href="/platform/real-experience"
-                    title="Real Experience"
-                    loading={experience.isLoading}
-                    isError={experience.isError}
-                    verdict={worstRux}
-                    detail={
-                        experience.data
-                            ? `${experience.data.open_incidents} open incidents${experience.data.telemetry_fresh ? '' : ' · telemetry stale'}`
-                            : undefined
-                    }
-                    trend={ruxTrend}
-                />
-                <VerdictTile
-                    href="/platform/economics"
-                    title="AI Spend"
-                    loading={spend.isLoading}
-                    isError={spend.isError}
-                    verdict={spendState}
-                    detail={spend.data ? `$${spendTotal.toFixed(2)} in selected 30-day period` : undefined}
-                    trend={spendTrend}
-                />
-                <VerdictTile
-                    href="/platform/operations"
-                    title="Autopilot Fleet"
-                    loading={ops.isLoading}
-                    isError={ops.isError}
-                    verdict={fleetSummary.state}
-                    detail={
-                        ops.data
-                            ? `${fleetSummary.lanes} lanes · ${fleetSummary.stalled} stalled · ${fleetSummary.paused} paused`
-                            : undefined
-                    }
-                />
-            </div>
+            <section aria-labelledby="overview-system-heading" className="space-y-2.5">
+                <h2 id="overview-system-heading" className="text-sm font-semibold">System status</h2>
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
+                    <VerdictTile
+                        href="/platform/system-health"
+                        title="Services"
+                        loading={systemHealth.isLoading}
+                        isError={systemHealth.isError}
+                        verdict={systemHealth.data?.overall}
+                        detail={servicesDetail}
+                    />
+                    <VerdictTile
+                        href="/platform/feed-integrity"
+                        title="Feed Integrity"
+                        loading={feedIntegrity.isLoading}
+                        isError={feedIntegrity.isError}
+                        verdict={feedIntegrity.data?.latest_run?.headline}
+                        detail={
+                            feedIntegrity.data
+                                ? feedResults.length
+                                    ? (
+                                        <span className="flex flex-wrap gap-x-2">
+                                            {feedResults.map((f) => (
+                                                <span
+                                                    key={`${f.feed}:${f.variant}`}
+                                                    className={`font-medium ${f.feed === 'pods' ? 'text-gold' : f.feed === 'news' ? 'text-news' : ''}`}
+                                                >
+                                                    {f.feed} {label(f.consumer_verdict)}
+                                                </span>
+                                            ))}
+                                            {openEpisodes ? <span>{openEpisodes} open episodes</span> : null}
+                                        </span>
+                                    )
+                                    : 'No runs yet'
+                                : undefined
+                        }
+                        trend={integrityTrend}
+                    />
+                    <VerdictTile
+                        href="/platform/real-experience"
+                        title="Real Experience"
+                        loading={experience.isLoading}
+                        isError={experience.isError}
+                        verdict={worstRux}
+                        detail={
+                            experience.data
+                                ? `${experience.data.open_incidents} open incidents${experience.data.telemetry_fresh ? '' : ' · telemetry stale'}`
+                                : undefined
+                        }
+                        trend={ruxTrend}
+                    />
+                    <VerdictTile
+                        href="/platform/economics"
+                        title="AI Spend"
+                        loading={spend.isLoading}
+                        isError={spend.isError}
+                        verdict={spendState}
+                        detail={spend.data ? `$${spendTotal.toFixed(2)} in selected 30-day period` : undefined}
+                        trend={spendTrend}
+                    />
+                    <VerdictTile
+                        href="/platform/operations"
+                        title="Autopilot Fleet"
+                        loading={ops.isLoading}
+                        isError={ops.isError}
+                        verdict={fleetSummary.state}
+                        detail={
+                            ops.data
+                                ? `${fleetSummary.lanes} lanes · ${fleetSummary.stalled} stalled · ${fleetSummary.paused} paused`
+                                : undefined
+                        }
+                    />
+                </div>
+            </section>
 
-            <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-                <AttentionPreview
-                    items={attentionItems}
-                    isLoading={attention.isLoading}
-                    isError={attention.isError || !!attention.data?.adapter_errors.length}
-                    onRetry={() => attention.refetch()}
-                />
-                <ContentFlowPanel
-                    counts={statusCounts.data}
-                    countsLoading={statusCounts.isLoading}
-                    sourcesTotal={sources.data?.total}
-                    sourcesLoading={sources.isLoading}
-                    storage={storage.data}
-                    storageLoading={storage.isLoading}
-                    daily={contentStats.data?.daily}
-                />
-            </div>
+            <section aria-labelledby="overview-inventory-heading" className="space-y-2.5">
+                <h2 id="overview-inventory-heading" className="text-sm font-semibold">Content inventory</h2>
+                <ContentStatStrip stats={contentScale} loading={contentStatsLoading} />
+            </section>
+
+            <ContentFlowPanel
+                counts={statusCounts.data}
+                countsLoading={statusCounts.isLoading}
+                sourcesTotal={sources.data?.total}
+                sourcesLoading={sources.isLoading}
+                storage={storage.data}
+                storageLoading={storage.isLoading}
+                daily={contentStats.data?.daily}
+            />
 
             {isAggregationConfigured() ? <AggregationHealthPanel /> : null}
         </div>

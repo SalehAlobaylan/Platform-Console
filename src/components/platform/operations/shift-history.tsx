@@ -65,6 +65,10 @@ export function ShiftBriefing({
                 {data.adapter_errors.join(' · ')}
               </OpsNotice>
             )}
+            {Boolean(data.handoffs?.length) && <section className="space-y-2">
+              <h3 className="text-sm font-medium">Open handoffs</h3>
+              <ul className="divide-y border">{data.handoffs?.map(row => <li key={row.episode_id} className="p-3 text-sm"><strong>{row.owner}</strong> · {row.next_step} · <OpsTime value={row.next_check} locale={locale} /></li>)}</ul>
+            </section>}
             {families.map((family) => (
               <section key={family} className="space-y-2">
                 <h3 className="text-sm font-medium capitalize">{family}</h3>

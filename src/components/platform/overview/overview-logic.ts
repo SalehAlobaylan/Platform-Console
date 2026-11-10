@@ -1,4 +1,4 @@
-import type { OpsAttentionItem, OpsFleetStatus } from '@/lib/api/cms/operations';
+import type { OpsFleetStatus } from '@/lib/api/cms/operations';
 import type { AISpendBudget, AISpendRollup } from '@/lib/api/cms/ai-spend';
 import type { ExperienceRun, RuxVerdict, SurfaceVerdict } from '@/types/platform/real-experience';
 import type { ServiceHealth } from '@/types/platform/system-health';
@@ -22,17 +22,6 @@ export function tone(value?: string | null): BadgeTone {
 }
 
 export const label = (value?: string | null) => (value ? value.replaceAll('_', ' ') : 'unknown');
-
-/** Human relative time. Future timestamps (clock skew) clamp to "just now". */
-export function relative(value?: string | null, now = Date.now()): string {
-    if (!value) return 'never';
-    const minutes = Math.min(0, Math.round((new Date(value).getTime() - now) / 60_000));
-    if (minutes === 0) return 'just now';
-    const fmt = new Intl.RelativeTimeFormat('en');
-    if (Math.abs(minutes) >= 60 * 24) return fmt.format(Math.round(minutes / (60 * 24)), 'day');
-    if (Math.abs(minutes) >= 60) return fmt.format(Math.round(minutes / 60), 'hour');
-    return fmt.format(minutes, 'minute');
-}
 
 /** Worst budget state across all AI spend budgets: paused > over_budget > warning > within. */
 export function deriveSpendState(budgets: AISpendBudget[] | undefined, now = new Date()): string | undefined {
@@ -79,11 +68,6 @@ export function deriveServicesDetail(services: ServiceHealth[] | undefined): str
     return unhealthy.length
         ? `${unhealthy.map((s) => s.displayName).join(', ')} not healthy`
         : `${services.length} services healthy`;
-}
-
-/** Unsnoozed attention items, capped for the dashboard preview. */
-export function topAttention(items: OpsAttentionItem[] | undefined, cap = 6): OpsAttentionItem[] {
-    return (items ?? []).filter((item) => !item.snoozed).slice(0, cap);
 }
 
 // --- Trend series -----------------------------------------------------------

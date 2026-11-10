@@ -15,15 +15,15 @@ const moderationRootKey = ['moderation'] as const;
 
 export const moderationKeys = {
   all: moderationRootKey,
-  queue: (status: ModerationStatus | 'all') =>
-    [...moderationRootKey, 'queue', status] as const,
+  queue: (status: ModerationStatus | 'all', page = 1) =>
+    [...moderationRootKey, 'queue', status, page] as const,
   policyReviews: [...moderationRootKey, 'policy-reviews'] as const,
 };
 
-export function useModerationQueue(status: ModerationStatus | 'all') {
+export function useModerationQueue(status: ModerationStatus | 'all', page = 1) {
   return useQuery({
-    queryKey: moderationKeys.queue(status),
-    queryFn: () => listModerationReports(status),
+    queryKey: moderationKeys.queue(status, page),
+    queryFn: () => listModerationReports(status, page),
     refetchInterval: 30_000,
   });
 }
@@ -60,10 +60,12 @@ export function useResolveModerationReport() {
     mutationFn: ({
       id,
       status,
+      reason,
     }: {
       id: string;
       status: 'resolved' | 'dismissed';
-    }) => resolveModerationReport(id, status),
+      reason?: string;
+    }) => resolveModerationReport(id, status, reason),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: moderationKeys.all });
       toast({ title: 'Report updated', variant: 'success' });

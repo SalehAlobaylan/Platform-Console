@@ -3,6 +3,9 @@
 import Link from '@/lib/console-link';
 import { useState } from 'react';
 import { usePathname, useSearchParams } from '@/lib/navigation';
+import { canReadConsole, deliveryHref } from '@/lib/operator-destinations';
+import { useAuthStore } from '@/lib/stores/auth';
+import { useMediaAtomizationParentContext } from '@/hooks/use-media-atomization';
 import { Button } from '@/components/ui/button';
 import { JourneyActions } from './journey-actions';
 import { MediaJourneyGuide, PageEvidence, useEpisodeJourney, useJourneyLocale } from './media-journey';
@@ -21,6 +24,7 @@ function SelectedEpisodeContext({ id, mode }: { id: string; mode: 'policy' | 'di
     const text = (en: string, arabic: string) => ar ? arabic : en;
     const params = useSearchParams(); const pathname = usePathname();
     const query = useEpisodeJourney(id); const data = query.data;
+    const canTrace = useAuthStore(state => canReadConsole(state.user, 'aggregation:read'));
     const [chaptersOpen, setChaptersOpen] = useState(false); const [eventsOpen, setEventsOpen] = useState(false);
     const href = (tab: string, guide?: string) => { const next = new URLSearchParams(params.toString()); next.set('tab', tab); if (guide) next.set('guide', guide); return `${pathname}?${next}`; };
     const stamp = (value?: string) => value ? new Date(value).toLocaleString() : text('Not recorded', 'غير مسجل');
@@ -30,7 +34,7 @@ function SelectedEpisodeContext({ id, mode }: { id: string; mode: 'policy' | 'di
     const stepAction = (step: JourneyStep) => journeyNextAction(step.reason_code, locale, step.key);
     const generation = (label: string, value?: JourneyGeneration | null) => <section className="border-b py-4 last:border-0"><h3 className="font-medium">{label}</h3>{value ? <><p className="mt-2 text-sm">{journeyState(value.state, locale)} · {value.completed_units}/{value.expected_units} {text('verified cuts', 'مقاطع متحققة')}</p><p className="mt-1 text-xs text-muted-foreground">{text('Plan origin', 'مصدر الخطة')}: {value.plan_origin ?? text('Origin unavailable', 'المصدر غير متاح')}</p><code className="mt-2 block break-all text-xs text-muted-foreground">{value.id}</code></> : <p className="mt-2 text-sm text-muted-foreground">{text('No generation recorded in this snapshot.', 'لا يوجد إصدار مسجل في هذه اللقطة.')}</p>}</section>;
     return <section className="space-y-4" dir={ar ? 'rtl' : 'ltr'}>
-        <header className="flex flex-wrap items-start justify-between gap-3 rounded-md border bg-card p-4"><div><h2 className="text-lg font-semibold">{mode === 'policy' ? text('Episode policy', 'سياسة الحلقة') : text('Episode diagnostics', 'تشخيص الحلقة')}</h2><p className="mt-2 text-lg" dir="auto">{data?.parent.title ?? text('Loading episode…', 'جارٍ تحميل الحلقة…')}</p><p className="mt-1 text-sm text-muted-foreground">{mode === 'policy' ? text('Effective settings for this episode. Global changes are separate.', 'الإعدادات الفعلية لهذه الحلقة. التغييرات العامة منفصلة.') : text('Current durable evidence, not historical run badges. A heartbeat is not processing progress.', 'أدلة الحالة الحالية وليست شارات التشغيل التاريخية. تجديد الحجز لا يثبت تقدم المعالجة.')}</p></div><div className="flex flex-wrap gap-2"><Link className="rounded-md border px-3 py-2 text-sm hover:bg-muted" href={href('workflow')}>{text('Open journey', 'فتح الرحلة')}</Link><MediaJourneyGuide /></div></header>
+        <header className="flex flex-wrap items-start justify-between gap-3 rounded-md border bg-card p-4"><div><h2 className="text-lg font-semibold">{mode === 'policy' ? text('Episode policy', 'سياسة الحلقة') : text('Episode diagnostics', 'تشخيص الحلقة')}</h2><p className="mt-2 text-lg" dir="auto">{data?.parent.title ?? text('Loading episode…', 'جارٍ تحميل الحلقة…')}</p><p className="mt-1 text-sm text-muted-foreground">{mode === 'policy' ? text('Effective settings for this episode. Global changes are separate.', 'الإعدادات الفعلية لهذه الحلقة. التغييرات العامة منفصلة.') : text('Current durable evidence, not historical run badges. A heartbeat is not processing progress.', 'أدلة الحالة الحالية وليست شارات التشغيل التاريخية. تجديد الحجز لا يثبت تقدم المعالجة.')}</p></div><div className="flex flex-wrap gap-2"><Link className="rounded-md border px-3 py-2 text-sm hover:bg-muted" href={href('workflow')}>{text('Open journey', 'فتح الرحلة')}</Link>{mode === 'diagnostics' && canTrace && data && <EpisodeTraceLink id={data.parent.id} chapter={params.get('chapter')} ar={ar} />}<MediaJourneyGuide /></div></header>
         {query.isError && <div role="alert" className="rounded-md border border-destructive/40 p-3 text-sm"><p>{query.error.message}</p><p>{data ? text('Showing a cached snapshot; refresh before acting.', 'تُعرض لقطة مخزنة؛ حدّثها قبل اتخاذ إجراء.') : text('Episode evidence is unavailable. Other sections are independent.', 'أدلة الحلقة غير متاحة. الأقسام الأخرى مستقلة.')}</p><p className="mt-1 text-xs text-muted-foreground">{journeyNextAction('evidence_unavailable', locale)}</p><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void query.refetch()}>{text('Refresh evidence', 'تحديث الأدلة')}</Button><Link className="inline-flex items-center rounded-md border px-3 py-2 text-xs font-medium hover:bg-muted" href="/platform/system-health">{text('Open System Health', 'فتح صحة النظام')}</Link></div></div>}
         {data && <>
             <p className="text-xs text-muted-foreground">{text('Last successful snapshot', 'آخر لقطة ناجحة')}: {new Date(query.dataUpdatedAt).toLocaleString()}</p>
@@ -69,4 +73,17 @@ function SelectedEpisodeContext({ id, mode }: { id: string; mode: 'policy' | 'di
             </>}
         </>}
     </section>;
+}
+
+function EpisodeTraceLink({ id, chapter, ar }: { id: string; chapter: string | null; ar: boolean }) {
+    const context = useMediaAtomizationParentContext(id, { enabled: Boolean(chapter) });
+    const child = chapter ? context.data?.children.find(item => item.id === chapter)?.id
+        ?? context.data?.chapters.find(item => item.id === chapter)?.child_content_item_id : undefined;
+    const label = child ? (ar ? 'عرض تتبع تسليم الفصل' : 'View chapter delivery trace')
+        : chapter ? (ar ? 'عرض تتبع تسليم الحلقة' : 'View episode delivery trace') : (ar ? 'عرض تتبع التسليم' : 'View delivery trace');
+    if (chapter && context.isLoading) return <span className="self-center text-xs text-muted-foreground">{ar ? 'جارٍ تحديد الفصل…' : 'Finding chapter…'}</span>;
+    return <div className="space-y-1">
+        <Button size="sm" variant="outline" render={<Link href={deliveryHref(child ?? id)}>{label}</Link>} />
+        {chapter && !child && <p className="text-xs text-muted-foreground">{ar ? 'تتبع تسليم الفصل غير متاح.' : 'Chapter delivery trace unavailable.'}</p>}
+    </div>;
 }

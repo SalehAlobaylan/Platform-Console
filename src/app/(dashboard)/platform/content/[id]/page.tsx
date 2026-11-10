@@ -24,6 +24,8 @@ import {
 import type { NewsMetadata } from '@/types/platform/content';
 
 import { DetailActionsMenu } from '@/components/platform/content/detail/detail-actions-menu';
+import { useAuthStore } from '@/lib/stores/auth';
+import { canReadConsole, deliveryHref } from '@/lib/operator-destinations';
 import { FailedBanner } from '@/components/platform/content/detail/failed-banner';
 import { EnrichmentCard } from '@/components/platform/content/detail/enrichment-card';
 
@@ -33,6 +35,7 @@ interface ContentDetailPageProps {
 
 export default function ContentDetailPage({ id }: ContentDetailPageProps) {
     const { data: item, isLoading, error } = useContentItem(id);
+    const canTrace = useAuthStore(state => canReadConsole(state.user, 'aggregation:read'));
     const news = extractNewsMetadata(item?.metadata);
 
     if (isLoading) {
@@ -93,7 +96,7 @@ export default function ContentDetailPage({ id }: ContentDetailPageProps) {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                 <div className="flex items-start gap-3 min-w-0">
                     <Button variant="ghost" size="icon" render={<Link href={backHref}>
                             <ArrowLeft className="h-4 w-4" />
@@ -125,7 +128,7 @@ export default function ContentDetailPage({ id }: ContentDetailPageProps) {
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-shrink-0 items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {item.original_url && (
                         <Button variant="outline" render={<a
                                 href={item.original_url}
@@ -142,12 +145,13 @@ export default function ContentDetailPage({ id }: ContentDetailPageProps) {
                                 Open in Media Studio
                             </Link>} />
                     )}
+                    {canTrace && item.status !== 'FAILED' && <Button size="sm" variant="outline" render={<Link href={deliveryHref(item.id)}>View delivery trace</Link>} />}
                     <DetailActionsMenu item={item} />
                 </div>
             </div>
 
             {/* FAILED retry banner */}
-            <FailedBanner item={item} />
+            <FailedBanner item={item} traceHref={canTrace ? deliveryHref(item.id) : undefined} />
 
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Main column */}

@@ -1,4 +1,5 @@
 'use client';
+import Link from '@/lib/console-link';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -121,7 +122,7 @@ export function WorkloadSettings({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [note, setNote] = useState('');
   const [failure, setFailure] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<WorkloadPolicyUpdate | null>(null);
   const [phrase, setPhrase] = useState('');
   const [pauseOpen, setPauseOpen] = useState(false);
@@ -150,17 +151,17 @@ export function WorkloadSettings({
     if (!policy) return;
     setDraft((old) => fn(old || fromPolicy(policy)));
     setFailure('');
-    setSaved(false);
+    setSaved(null);
   };
   const submit = async (input: WorkloadPolicyUpdate) => {
     setFailure('');
     try {
-      await save.mutateAsync(input);
+      const updated = await save.mutateAsync(input);
       setDraft(null);
       setNote('');
       setConfirm(null);
       setPhrase('');
-      setSaved(true);
+      setSaved(updated.revision);
     } catch (error) {
       setFailure(
         errorMessage(error) || t('Policy was not saved.', 'لم تُحفَظ السياسة.')
@@ -311,7 +312,7 @@ export function WorkloadSettings({
       });
       setPauseOpen(false);
       setPauseReason('');
-      setSaved(true);
+      setSaved(null);
     } catch (error) {
       setFailure(errorMessage(error));
       refresh();
@@ -354,9 +355,10 @@ export function WorkloadSettings({
       {saved && (
         <p role="status" className="rounded-md border p-3 text-sm">
           {t(
-            'Settings saved. Review the current policy below.',
+            'Settings saved.',
             'حُفظت الإعدادات. راجع السياسة الحالية أدناه.'
-          )}
+          )}{' '}
+          <Link className="underline" href={`/platform/workload?tab=activity&history=changes&revision=${saved}`}>{t('Open change receipt', 'افتح سجل التغيير')}</Link>
         </p>
       )}
       <section className="space-y-3 rounded-lg border bg-card p-4">
@@ -552,7 +554,7 @@ export function WorkloadSettings({
                 value={note}
                 onChange={(e) => {
                   setNote(e.target.value);
-                  setSaved(false);
+                  setSaved(null);
                 }}
                 disabled={locked || conflict}
                 maxLength={2000}
@@ -691,7 +693,7 @@ export function WorkloadSettings({
                   setDraft(null);
                   setNote('');
                   setFailure('');
-                  setSaved(false);
+                  setSaved(null);
                 }}
               >
                 {t('Discard draft', 'تجاهل المسودة')}

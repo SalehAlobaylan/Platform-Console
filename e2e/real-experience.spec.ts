@@ -51,6 +51,8 @@ const policy = {
   last_minute_bucket: now,
   updated_at: now,
 };
+const majorIncident = 'fb0c739a-4bdb-4f50-a7f5-298336d4b5aa';
+const minorIncident = '21452ab2-0cae-4689-b65d-9fa247d19290';
 const incident = (id: string, affected: number) => ({
   id,
   metric_key: 'playback_start_success',
@@ -59,10 +61,10 @@ const incident = (id: string, affected: number) => ({
   cohort_val: 'safari-18',
   severity: 'degraded',
   status: 'open',
-  summary: id === 'high' ? 'Safari startup failure' : 'Minor startup failure',
+  summary: id === majorIncident ? 'Safari startup failure' : 'Minor startup failure',
   likely_owner: 'wahb_platform',
   recommendation:
-    id === 'high' ? 'Compare Safari release evidence.' : 'Inspect playback.',
+    id === majorIncident ? 'Compare Safari release evidence.' : 'Inspect playback.',
   investigation_path: '/platform/real-experience',
   confirmed_at: now,
   first_seen_at: now,
@@ -99,7 +101,7 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
     readonly = false;
     metricsEmpty = false;
     lowVolume = false;
-    rows = [incident('low', 5), incident('high', 500)];
+    rows = [incident(minorIncident, 5), incident(majorIncident, 500)];
     nativeRows = [];
     writes = [];
     reads = [];
@@ -362,7 +364,7 @@ test.describe('Real Experience fixture cockpit (all requests isolated)', () => {
   }) => {
     nativeRows = [
       {
-        ...incident('native', 50),
+        ...incident('8814368e-c7bf-478e-9c72-e05cd11b843a', 50),
         cohort_dim: 'os',
         cohort_val: '26',
         summary: 'Native startup failure',

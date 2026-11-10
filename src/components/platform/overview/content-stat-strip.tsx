@@ -22,22 +22,22 @@ export interface ContentStat {
  */
 export function ContentStatStrip({ stats, loading }: { stats: ContentStat[]; loading: boolean }) {
     return (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
             {stats.map((stat) => {
                 const Icon = stat.icon;
                 return (
-                    <Link key={stat.label} href={stat.href}>
-                        <Card className="transition-colors hover:border-primary/30">
-                            <CardContent className="flex items-center gap-4 p-5">
-                                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${stat.bg}`}>
-                                    <Icon className={`h-5 w-5 ${stat.color}`} />
+                    <Link key={stat.label} href={stat.href} className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <Card className="h-full transition-colors hover:border-primary/30">
+                            <CardContent className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
+                                <div className={`flex size-7 shrink-0 items-center justify-center rounded-md sm:size-9 ${stat.bg}`}>
+                                    <Icon className={`size-4 sm:size-5 ${stat.color}`} />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-sm text-muted-foreground">{stat.label}</p>
                                     {loading ? (
-                                        <Skeleton className="mt-1 h-7 w-16" />
+                                        <Skeleton className="mt-1 h-6 w-14 max-w-full" />
                                     ) : (
-                                        <p className="text-2xl font-semibold tabular-nums">
+                                        <p className="break-words text-lg font-semibold tabular-nums sm:text-2xl">
                                             {stat.value?.toLocaleString() ?? '—'}
                                         </p>
                                     )}

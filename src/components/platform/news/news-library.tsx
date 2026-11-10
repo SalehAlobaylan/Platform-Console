@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from '@/lib/navigation';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useRouter, useSearchParams } from '@/lib/navigation';
+import { queueViewFilters, queueViewHref } from '@/lib/saved-console-views';
+import { SaveQueueView } from '@/components/shared/save-queue-view';
 import Link from '@/lib/console-link';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -73,7 +75,7 @@ import {
     triggerBatchEnrichment,
     ENRICHMENT_BATCH_LIMIT,
 } from '@/lib/api/cms/enrichment';
-import { bulkSetStatus, bulkDeleteNews } from '@/lib/api/cms/news';
+import { bulkSetStatus, previewNewsDelete, previewNewsDeleteIds } from '@/lib/api/cms/news';
 import { cn } from '@/lib/utils';
 import type { ContentItem, ContentStatus } from '@/types/platform/content';
 import type { BulkSelection } from '@/types/platform/news';
@@ -135,35 +137,42 @@ const SORT_OPTIONS = [
     { value: 'title', label: 'Title A–Z', sort: 'title', order: 'asc' as const },
 ];
 
-interface NewsLibraryProps {
-    initialType?: NewsLibraryType;
-    initialStatus?: StatusFilter;
-}
-
 /**
  * News Library — the operational browse/filter/manage surface for NEWS and
  * ARTICLE content, presented as an editorial list in the product's newsprint
  * language: serif headlines, square-rounded chrome, red "Live" accent.
  */
-export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: NewsLibraryProps) {
-    const [type, setType] = useState<NewsLibraryType>(initialType);
-    const [status, setStatus] = useState<StatusFilter>(initialStatus);
-    const [topicId, setTopicId] = useState<string>('all');
-    const [sourceName, setSourceName] = useState<string>('');
-    const [search, setSearch] = useState('');
-    const [debounced, setDebounced] = useState('');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [sortValue, setSortValue] = useState('newest');
-    const [page, setPage] = useState(1);
-
-    const isEditorial = isEditorialType(type);
-
-    const switchType = (t: NewsLibraryType) => {
-        setType(t);
-        // Topic filters don't apply to social items — drop a stale topic scope.
-        if (!isEditorialType(t)) setTopicId('all');
+export function NewsLibrary() {
+    const params = useSearchParams();
+    const router = useRouter();
+    const applied = queueViewFilters('news', params);
+    const type = (applied.type ?? 'NEWS') as NewsLibraryType;
+    const status = (applied.status ?? 'all') as StatusFilter;
+    const topicId = applied.topic ?? 'all';
+    const sourceName = applied.source ?? '';
+    const dateFrom = applied.from ?? '';
+    const dateTo = applied.to ?? '';
+    const sortValue = applied.sort ?? 'newest';
+    const debounced = applied.q ?? '';
+    const [search, setSearch] = useState(debounced);
+    const requestedPage = Number(params.get('news_page') ?? '1');
+    const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 && requestedPage <= 100000 ? requestedPage : 1;
+    const pageHref = (next: number) => queueViewHref('news', applied) + (next > 1 ? '&news_page=' + next : '');
+    const openPage = (event: MouseEvent<HTMLAnchorElement>) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const href = event.currentTarget.getAttribute('href');
+        if (!href) return;
+        event.preventDefault();
+        router.push(href, { scroll: false });
     };
+    const isEditorial = isEditorialType(type);
+    const setFilters = useCallback((patch: Record<string, string>, replace = false) => {
+        const next = queueViewHref('news', { ...queueViewFilters('news', params), ...patch });
+        if (replace) router.replace(next, { scroll: false, fromPath: '/platform/news' });
+        else router.push(next, { scroll: false });
+    }, [params, router]);
+
+    const switchType = (value: NewsLibraryType) => setFilters({ type: value });
 
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [scope, setScope] = useState<BulkScope>('page');
@@ -176,19 +185,20 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
     const deleteByIds = useDeleteNewsByIds();
     const busy = bulkStatus.isPending || bulkDelete.isPending || deleteByIds.isPending;
 
+    useEffect(() => setSearch(debounced), [debounced, params]);
     useEffect(() => {
-        const t = setTimeout(() => setDebounced(search), 250);
-        return () => clearTimeout(t);
-    }, [search]);
+        if (search.trim() === debounced) return;
+        const timer = setTimeout(() => setFilters({ q: search.trim() }, true), 250);
+        return () => clearTimeout(timer);
+    }, [search, debounced, setFilters]);
 
-    // Reset paging + selection whenever the filter set changes.
-    useEffect(() => {
-        setPage(1);
-    }, [type, status, topicId, sourceName, debounced, dateFrom, dateTo, sortValue]);
+    // Each filter URL starts on page one and invalidates the prior selection.
     useEffect(() => {
         setSelected(new Set());
         setScope('page');
-    }, [type, status, topicId, sourceName, debounced, dateFrom, dateTo, sortValue, page]);
+        setConfirm(null);
+        setMove(null);
+    }, [type, status, topicId, sourceName, search, debounced, dateFrom, dateTo, sortValue, page]);
 
     useEffect(() => {
         listSourceNames().then(setSourceNames).catch(() => setSourceNames([]));
@@ -232,6 +242,7 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
         source_name: sourceName || undefined,
     };
 
+    const canSelectAll = !search && !debounced && !dateFrom && !dateTo && !error && !isLoading;
     const effectiveCount = scope === 'all' ? total : selected.size;
     const primary = status !== 'all' ? PRIMARY_BY_STATUS[status] : undefined;
 
@@ -293,27 +304,27 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                   commit: () => bulkStatus.mutateAsync({ ids: [...selected], to_status: to }),
               };
 
-    const deleteConfig = (): BulkConfirmConfig =>
-        scope === 'all'
-            ? {
-                  title: 'Delete all matching items',
-                  actionLabel: 'Delete',
-                  noun: 'item',
-                  destructive: true,
-                  preview: () =>
-                      bulkDeleteNews({ ...filterSelection, dry_run: true }).then(
-                          (r) => r.deleted_count
-                      ),
-                  commit: () => bulkDelete.mutateAsync(filterSelection),
-              }
-            : {
-                  title: `Delete ${selected.size} selected`,
-                  actionLabel: 'Delete',
-                  noun: 'item',
-                  destructive: true,
-                  preview: async () => selected.size,
-                  commit: () => deleteByIds.mutateAsync([...selected]),
-              };
+    const deleteConfig = (): BulkConfirmConfig => {
+        const ids = [...selected];
+        const all = scope === 'all';
+        return {
+            title: all ? 'Delete all matching items' : `Delete ${ids.length} selected`,
+            actionLabel: 'Delete',
+            destructive: true,
+            scopeLabel: all ? [type, status, sourceName, topicId !== 'all' ? `Story ${topicId}` : ''].filter(Boolean).join(' · ') : undefined,
+            preview: async () => {
+                if (!all) return previewNewsDeleteIds(ids);
+                const review = await previewNewsDelete(filterSelection);
+                const id = review.id;
+                if (!id) {
+                    if (review.count === 0) return 0;
+                    throw new Error('The owner did not return a review.');
+                }
+                return { count: review.count, expiresAt: review.expires_at, apply: () => bulkDelete.mutateAsync({ review_id: id }) };
+            },
+            commit: all ? undefined : () => deleteByIds.mutateAsync(ids),
+        };
+    };
 
     /** Re-enrich selected ids in backend-capped batches (ids-scope only). */
     const reEnrichConfig = (): BulkConfirmConfig => ({
@@ -339,7 +350,7 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
         actionLabel: 'Delete',
         noun: 'item',
         destructive: true,
-        preview: async () => 1,
+        preview: () => previewNewsDeleteIds([id]),
         commit: () => deleteByIds.mutateAsync([id]),
     });
 
@@ -354,7 +365,7 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                         variant={type === tab.value ? 'default' : 'outline'}
                         className={cn(
                             'rounded-sm',
-                            type === tab.value && 'bg-news text-news-foreground hover:bg-news/90'
+                            type === tab.value && 'bg-news text-news-foreground hover:bg-news hover:ring-1 hover:ring-news'
                         )}
                         onClick={() => switchType(tab.value)}
                     >
@@ -362,7 +373,7 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                     </Button>
                 ))}
                 <span className="ml-1 text-xs text-muted-foreground">
-                    {isLoading ? 'Loading…' : `${total.toLocaleString()} item${total === 1 ? '' : 's'}`}
+                    {isLoading ? 'Loading…' : `${error ? 'Unavailable' : data ? total.toLocaleString() : 'Loading…'} item${total === 1 ? '' : 's'}`}
                 </span>
             </div>
 
@@ -373,11 +384,12 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                     <Input
                         placeholder="Search headlines…"
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => { setConfirm(null); setMove(null); setScope('page'); setSearch(e.target.value); }}
+                        maxLength={200}
                         className="rounded-sm pl-9"
                     />
                 </div>
-                <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+                <Select value={status} onValueChange={(v) => setFilters({ status: v })}>
                     <SelectTrigger className="w-[130px] rounded-sm">
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -391,13 +403,15 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                     </SelectContent>
                 </Select>
                 {isEditorial && (
-                    <Select value={topicId} onValueChange={setTopicId}>
+                    <Select value={topicId} onValueChange={value => setFilters({ topic: value })}>
                         <SelectTrigger className="w-[170px] rounded-sm">
                             <SelectValue placeholder="Story" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All stories</SelectItem>
                             <SelectItem value="none">Uncategorized</SelectItem>
+                            {topicId !== 'all' && topicId !== 'none' && !topics.data?.data.some(topic => topic.id === topicId) &&
+                                <SelectItem value={topicId}>Saved story filter</SelectItem>}
                             {(topics.data?.data ?? []).map((t) => (
                                 <SelectItem key={t.id} value={t.id}>
                                     {t.label}
@@ -408,13 +422,14 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                 )}
                 <Select
                     value={sourceName || 'all'}
-                    onValueChange={(v) => setSourceName(v === 'all' ? '' : v)}
+                    onValueChange={(v) => setFilters({ source: v === 'all' ? '' : v })}
                 >
                     <SelectTrigger className="w-[170px] rounded-sm">
                         <SelectValue placeholder="Source" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All sources</SelectItem>
+                        {sourceName && !sourceNames.includes(sourceName) && <SelectItem value={sourceName}>{sourceName}</SelectItem>}
                         {sourceNames.map((n) => (
                             <SelectItem key={n} value={n}>
                                 {n}
@@ -422,7 +437,7 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                         ))}
                     </SelectContent>
                 </Select>
-                <Select value={sortValue} onValueChange={setSortValue}>
+                <Select value={sortValue} onValueChange={value => setFilters({ sort: value })}>
                     <SelectTrigger className="w-[170px] rounded-sm">
                         <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
                         <SelectValue />
@@ -440,7 +455,7 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                     <Input
                         type="date"
                         value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
+                        onChange={(e) => setFilters({ from: e.target.value })}
                         className="min-w-0 rounded-sm sm:w-[150px]"
                         aria-label="Published from"
                         title="Published from"
@@ -449,12 +464,17 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                     <Input
                         type="date"
                         value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
+                        onChange={(e) => setFilters({ to: e.target.value })}
                         className="min-w-0 rounded-sm sm:w-[150px]"
                         aria-label="Published to"
                         title="Published to"
                     />
                 </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+                <SaveQueueView surface="news" filters={applied} disabled={search.trim() !== debounced} />
+                {Object.keys(applied).length > 0 && <Button size="sm" variant="ghost" onClick={() => { setSearch(''); router.push(queueViewHref('news', {}), { scroll: false }); }}>Reset filters</Button>}
             </div>
 
             {/* Bulk bar */}
@@ -464,23 +484,25 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                 matchingTotal={total}
                 /* Bulk filter APIs can't express search or a published range —
                    "select all matching" would act on more than what's shown. */
-                canSelectAll={!debounced && !dateFrom && !dateTo}
+                canSelectAll={canSelectAll}
                 busy={busy}
-                onScope={setScope}
+                onScope={next => { if (next === 'page' || canSelectAll) setScope(next); }}
                 onClear={clearSelection}
                 primaryLabel={primary?.label ?? null}
-                onPrimary={primary ? () => setConfirm(statusConfig(primary.to, primary.label)) : undefined}
+                onPrimary={primary ? () => { if (scope === 'page' || canSelectAll) setConfirm(statusConfig(primary.to, primary.label)); } : undefined}
                 onReEnrich={() => setConfirm(reEnrichConfig())}
                 onMove={
                     isEditorial
-                        ? () =>
+                        ? () => {
+                              if (scope === 'all' && !canSelectAll) return;
                               setMove({
                                   selection: scope === 'all' ? filterSelection : { ids: [...selected] },
                                   count: effectiveCount,
-                              })
+                              });
+                          }
                         : undefined
                 }
-                onDelete={() => setConfirm(deleteConfig())}
+                onDelete={() => { if (scope === 'page' || canSelectAll) setConfirm(deleteConfig()); }}
             />
 
             {/* Editorial list — newspaper rule line on top, square-rounded chrome */}
@@ -516,7 +538,10 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                 ) : items.length === 0 ? (
                     <div className="px-4 py-12 text-center text-sm text-muted-foreground">
                         <Newspaper className="mx-auto mb-2 h-5 w-5 opacity-40" />
-                        No stories match your filters.
+                        {data && page > Math.max(1, totalPages) ? <>
+                            <p>This page is no longer available.</p>
+                            <Link href={pageHref(1)} className="mt-2 inline-block text-primary underline">Back to first page</Link>
+                        </> : 'No stories match your filters.'}
                     </div>
                 ) : (
                     <div className="divide-y">
@@ -542,7 +567,9 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                     <PaginationContent>
                         <PaginationItem>
                             <PaginationPrevious
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                href={page > 1 ? pageHref(page - 1) : undefined}
+                                onClick={openPage}
+                                aria-disabled={page <= 1}
                                 className={page <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                             />
                         </PaginationItem>
@@ -554,7 +581,8 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                             ) : (
                                 <PaginationItem key={p}>
                                     <PaginationLink
-                                        onClick={() => setPage(p)}
+                                        href={pageHref(p)}
+                                        onClick={openPage}
                                         isActive={p === page}
                                         className="cursor-pointer"
                                     >
@@ -565,7 +593,9 @@ export function NewsLibrary({ initialType = 'NEWS', initialStatus = 'all' }: New
                         )}
                         <PaginationItem>
                             <PaginationNext
-                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                href={page < totalPages ? pageHref(page + 1) : undefined}
+                                onClick={openPage}
+                                aria-disabled={page >= totalPages}
                                 className={
                                     page >= totalPages
                                         ? 'pointer-events-none opacity-50'

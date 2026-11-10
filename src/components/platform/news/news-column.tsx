@@ -16,7 +16,7 @@ import {
     useSetFeatured,
 } from '@/hooks/use-news';
 import { useBulkSetFlags } from '@/hooks/use-intelligence';
-import { bulkSetStatus, bulkDeleteNews } from '@/lib/api/cms/news';
+import { bulkSetStatus, previewNewsDelete, previewNewsDeleteIds } from '@/lib/api/cms/news';
 import { NewsCard } from '@/components/platform/news/news-card';
 import { NewsBulkBar, type BulkScope } from '@/components/platform/news/news-bulk-bar';
 import {
@@ -91,6 +91,7 @@ export function NewsColumn({
     useEffect(() => {
         setSelected(new Set());
         setScope('page');
+        setConfirm(null);
         setLimit(STEP);
     }, [topicId, search]);
 
@@ -125,13 +126,13 @@ export function NewsColumn({
             actionLabel: 'Delete',
             noun: 'article',
             destructive: true,
-            preview: () => Promise.resolve(1),
+            preview: () => previewNewsDeleteIds([id]),
             commit: () => deleteByIds.mutateAsync([id]),
         });
 
     // ── Bulk actions ──
     const onPrimary = () => {
-        if (!transition) return;
+        if (!transition || (scope === 'all' && !canSelectAll)) return;
         if (scope === 'all') {
             setConfirm({
                 title: `${transition.label} all in "${title}"`,
@@ -162,16 +163,21 @@ export function NewsColumn({
 
     const onBulkDelete = () => {
         if (scope === 'all') {
-            setConfirm({
+            if (!canSelectAll) return;
+                setConfirm({
                 title: `Delete all in "${title}"`,
                 actionLabel: 'Delete',
-                noun: 'article',
                 destructive: true,
-                preview: () =>
-                    bulkDeleteNews({ story_id: topicParam, status, dry_run: true }).then(
-                        (r) => r.deleted_count
-                    ),
-                commit: () => bulkDelete.mutateAsync({ story_id: topicParam, status }).then(clear),
+                scopeLabel: status,
+                preview: async () => {
+                    const result = await previewNewsDelete({ story_id: topicParam, status, type: 'NEWS' });
+                    const id = result.id;
+                    if (!id) {
+                        if (result.count === 0) return 0;
+                        throw new Error('The owner did not return a review.');
+                    }
+                    return { count: result.count, expiresAt: result.expires_at, apply: () => bulkDelete.mutateAsync({ review_id: id }).then(clear) };
+                },
             });
         } else {
             const ids = [...selected];
@@ -180,7 +186,7 @@ export function NewsColumn({
                 actionLabel: 'Delete',
                 noun: 'article',
                 destructive: true,
-                preview: () => Promise.resolve(ids.length),
+                preview: () => previewNewsDeleteIds(ids),
                 commit: () => deleteByIds.mutateAsync(ids).then(clear),
             });
         }

@@ -249,6 +249,7 @@ export function MediaStudioWorkbench({ id, selectedChapterId, compact = false }:
             return ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable;
         };
         const onKeyDown = (event: KeyboardEvent) => {
+            if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
             if (generateOpen || compareOpen || approveOpen || sttOpen) return;
             if (isTyping(event.target)) return;
             if (event.key === ' ') {

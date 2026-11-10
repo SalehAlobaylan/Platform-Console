@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useTopics, useBulkStatus, useBulkDeleteNews } from '@/hooks/use-news';
 import { useFeeds } from '@/hooks/use-feeds';
-import { bulkSetStatus, bulkDeleteNews } from '@/lib/api/cms/news';
+import { bulkSetStatus, previewNewsDelete } from '@/lib/api/cms/news';
 import { TopicStageCard } from '@/components/platform/news/topic-stage-card';
 import { TopicEditDialog } from '@/components/platform/news/topic-edit-dialog';
 import {
@@ -93,15 +93,22 @@ export function TopicBoard({ onOpenTopic }: { onOpenTopic: (sel: TopicSelection)
         };
     };
 
-    const deleteAllConfig = (topicId: string, label: string): BulkConfirmConfig => ({
-        title: `Delete all content in "${label}"`,
-        actionLabel: 'Delete',
-        noun: 'article',
-        destructive: true,
-        preview: () =>
-            bulkDeleteNews({ story_id: topicId, dry_run: true }).then((r) => r.deleted_count),
-        commit: () => bulkDelete.mutateAsync({ story_id: topicId }),
-    });
+    const deleteAllConfig = (topicId: string, label: string): BulkConfirmConfig => {
+        return {
+            title: `Delete all content in "${label}"`,
+            actionLabel: 'Delete',
+            destructive: true,
+            preview: async () => {
+                const result = await previewNewsDelete({ story_id: topicId, type: 'NEWS' });
+                const id = result.id;
+                if (!id) {
+                    if (result.count === 0) return 0;
+                    throw new Error('The owner did not return a review.');
+                }
+                return { count: result.count, expiresAt: result.expires_at, apply: () => bulkDelete.mutateAsync({ review_id: id }) };
+            },
+        };
+    };
 
     const renderCard = (
         t: TopicSummary,
@@ -130,7 +137,7 @@ export function TopicBoard({ onOpenTopic }: { onOpenTopic: (sel: TopicSelection)
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => { setConfirm(null); setSearch(e.target.value); }}
                     placeholder="Search stories…"
                     className="pl-9"
                 />

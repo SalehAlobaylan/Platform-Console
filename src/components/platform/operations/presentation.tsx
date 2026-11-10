@@ -19,10 +19,8 @@ export function OpsBadge({ value }: { value: string }) {
             'all_clear',
             'completed',
             'succeeded',
-            'running',
             'cleared',
             'restored',
-            'paused_by_command',
           ].includes(value)
         ? 'success'
         : 'secondary';

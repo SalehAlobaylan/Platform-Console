@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { cmsClient } from '@/lib/api/client';
 import Link from '@/lib/console-link';
 import { ArrowLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -53,6 +55,8 @@ export default function AnalyticsPage() {
                     </p>
                 </div>
             </div>
+            <PodsOutcomeEvidence />
+
 
             {/* Source Performance */}
             <Card>
@@ -215,4 +219,32 @@ export default function AnalyticsPage() {
             </Card>
         </div>
     );
+}
+
+function PodsOutcomeEvidence() {
+    const [open, setOpen] = useState(false);
+    const query = useQuery({
+        queryKey: ['intelligence', 'pods-outcome-evidence'],
+        enabled: open,
+        retry: false,
+        queryFn: ({ signal }) => cmsClient.get<{ data: {
+            from: string; until: string; observed_attempts: number; observed_completions: number; coverage: 'unqualified';
+            sessions: { started: number; closed: number; both_feeds: number; observed_ms: number } | null;
+        } }>('/admin/intelligence/analytics/pods-outcomes', undefined, signal).then(result => result.data),
+    });
+    return <Card>
+        <CardHeader>
+            <CardTitle>Product outcomes</CardTitle>
+            <CardDescription>Inspect the evidence for native Pods completion.</CardDescription>
+            <Button variant="outline" className="w-fit" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide evidence' : 'Show evidence'}</Button>
+        </CardHeader>
+        {open && <CardContent className="space-y-2 text-sm">
+            {query.isPending ? <p>Loading playback evidence…</p> : query.isError || !query.data ? <p role="alert">Playback evidence unavailable. <button type="button" className="underline" onClick={() => void query.refetch()}>Retry</button></p> : <>
+                <p>{query.data.from.slice(0, 10)} to {query.data.until.slice(0, 10)} UTC (end date excluded)</p>
+                <p>{query.data.observed_attempts.toLocaleString()} observed attempts · {query.data.observed_completions.toLocaleString()} observed completions</p>
+                {query.data.sessions ? <p>{query.data.sessions.started.toLocaleString()} observed feed sessions · {query.data.sessions.closed.toLocaleString()} closed · {query.data.sessions.both_feeds.toLocaleString()} used both feeds · {Math.round(query.data.sessions.observed_ms / 60_000).toLocaleString()} foreground minutes from closed sessions</p> : <p>Session evidence is unavailable.</p>}
+                <p role="status">Completion, session duration, and feed switching are awaiting native coverage qualification.</p>
+            </>}
+        </CardContent>}
+    </Card>;
 }

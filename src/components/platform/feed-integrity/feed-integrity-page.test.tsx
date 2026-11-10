@@ -9,6 +9,7 @@ jest.mock('@/lib/navigation', () => ({
 }));
 jest.mock('@/hooks/use-feed-integrity');
 jest.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ isPending: false, isError: false }),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 jest.mock('./feed-integrity-autopilot-panel', () => ({
@@ -325,7 +326,7 @@ it('shows an explicit message when a bookmarked episode leaves the open list', (
   mockParams = 'tab=issues&selected=old-episode';
   render(<FeedIntegrityPage />);
   expect(
-    screen.getByText(/This issue is no longer in the open issue list/)
+    screen.getByText(/This issue is unavailable/)
   ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Record closure' })).toBeNull();
 });

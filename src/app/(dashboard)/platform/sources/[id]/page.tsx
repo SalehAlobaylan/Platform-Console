@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SourceWizard } from '@/components/platform/sources/wizard/source-wizard';
+import { useRecentConsoleRecord } from '@/hooks/use-recent-console-record';
 import { useSource, useUpdateSource, useRunSource } from '@/hooks/use-sources';
 import { SOURCE_TYPE_LABELS } from '@/types/platform/source';
 import type { CreateSourceRequest, SourceType } from '@/types/platform/source';
@@ -27,6 +28,7 @@ export default function SourceDetailPage({ id }: SourceDetailPageProps) {
     const from = searchParams.get('from') || '/platform/sources';
 
     const { data: source, isLoading, error } = useSource(id);
+    useRecentConsoleRecord('source', source?.id === id && !error ? source.id : undefined, source?.name, source?.type);
     const updateMutation = useUpdateSource();
     const runMutation = useRunSource();
 

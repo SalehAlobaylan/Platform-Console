@@ -15,6 +15,7 @@ import type {
     AutopilotRunsResponse,
     BoostAutopilotRequest,
     BulkTopicBody,
+    BulkSelection,
     CreateNewsRequest,
     ExtractUrlResult,
     ImportFeedResult,
@@ -190,9 +191,21 @@ export async function bulkDeleteNews(body: {
     source_name?: string;
     created_before?: string;
     dry_run?: boolean;
+    review_id?: string;
 }): Promise<BulkDeleteResponse> {
+    if (body.review_id) return cmsClient.post<BulkDeleteResponse>(`/admin/content/bulk-delete/reviews/${encodeURIComponent(body.review_id)}/apply`, {});
     return bulkDeleteContent({ type: 'ARTICLE', ...body });
 }
+export function previewNewsDelete(body: BulkSelection) {
+    return cmsClient.post<{ id?: string; count: number; expires_at?: string }>('/admin/content/bulk-delete/reviews', body);
+}
+
+export async function previewNewsDeleteIds(ids: string[]): Promise<number> {
+    const { deleted_count } = await bulkDeleteContent({ ids, dry_run: true });
+    if (deleted_count !== ids.length) throw new Error('The selection changed. Refresh and select the rows again.');
+    return deleted_count;
+}
+
 
 // ─── First-class topic management ───────────────────────────
 

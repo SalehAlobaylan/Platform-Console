@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from '@/lib/console-link';
+import { useRouter } from '@/lib/navigation';
+import { deliveryHref, isRecordId } from '@/lib/operator-destinations';
 import { Activity, FileSearch, Pause, Play, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -86,18 +88,45 @@ function TraceResult({ trace }: { trace: ContentStageTrace }) {
 }
 
 export function ContentStageLanes() {
+    const router = useRouter();
     const health = useContentStageHealth();
     const trace = useContentStageTrace();
     const [contentId, setContentId] = useState('');
     const [sessionId, setSessionId] = useState('');
     const [playbackDigest, setPlaybackDigest] = useState('');
-    if (health.isLoading) return <div className="flex items-center gap-2 py-12 text-muted-foreground"><RefreshCw className="h-4 w-4 animate-spin" />Loading durable lanes</div>;
-    if (!health.data) return <div className="rounded-sm border border-destructive/40 p-6 text-sm text-destructive">Lane health is unavailable. Apply the CMS stage migration before enabling durable execution.</div>;
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between border-b-2 border-foreground pb-3"><div><h2 className="font-serif text-2xl">Delivery evidence</h2><p className="text-sm text-muted-foreground">CMS-owned stage truth. Queue completion alone is not success.</p></div><Badge variant={health.data.worker_healthy ? 'success' : 'destructive'} className="rounded-sm"><Activity className="me-1 h-3 w-3" />Verifier</Badge></div>
-            <div className="grid gap-4 xl:grid-cols-2">{health.data.lanes.map((lane) => <LaneCard key={lane.lane} lane={lane} />)}</div>
-            <Card className="rounded-sm border-foreground/30 shadow-none"><CardHeader><CardTitle className="font-serif text-xl">Trace one item</CardTitle><CardDescription>Read the exact production, stage, artifact, generation, ranking, and serving boundary without opening Redis.</CardDescription></CardHeader><CardContent className="space-y-3"><div className="grid gap-2 lg:grid-cols-[1fr_1fr_1fr_auto]"><Input value={contentId} onChange={(event) => setContentId(event.target.value)} placeholder="Content UUID" className="rounded-sm font-mono" /><Input value={sessionId} onChange={(event) => setSessionId(event.target.value)} placeholder="Frozen session UUID (optional)" className="rounded-sm font-mono" /><Input value={playbackDigest} onChange={(event) => setPlaybackDigest(event.target.value)} placeholder="Client rendition digest (optional)" className="rounded-sm font-mono" /><Button variant="outline" disabled={!contentId.trim() || trace.isPending} onClick={() => trace.mutate({ contentId: contentId.trim(), sessionId, playbackDigest })}><FileSearch className="me-2 h-4 w-4" />Trace</Button></div>{trace.data && <TraceResult trace={trace.data} />}{trace.isError && <p className="text-sm text-destructive">No tenant-scoped stage trace was found for this item.</p>}</CardContent></Card>
+            <Card className="p-4">
+                <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
+                    event.preventDefault();
+                    if (isRecordId(contentId.trim())) router.push(deliveryHref(contentId.trim()));
+                }}>
+                    <label className="min-w-0 flex-1 space-y-1 text-sm font-medium">
+                        <span>Content ID</span>
+                        <Input value={contentId} onChange={event => { setContentId(event.target.value); trace.reset(); }} placeholder="Paste a content UUID" />
+                    </label>
+                    <Button type="submit" variant="outline" disabled={!isRecordId(contentId.trim())}>Open by content ID</Button>
+                </form>
+            </Card>
+            {health.isLoading ? <p role="status" className="text-sm text-muted-foreground">Loading durable lanes…</p> : health.data ? <>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3"><div><h2 className="text-xl font-semibold">Delivery evidence</h2><p className="text-sm text-muted-foreground">CMS verification and current lane state.</p></div><Badge variant={health.data.worker_healthy ? 'success' : 'secondary'}><Activity className="me-1 size-4" />Verifier</Badge></div>
+                <div className="grid gap-4 xl:grid-cols-2">{health.data.lanes.map((lane) => <LaneCard key={lane.lane} lane={lane} />)}</div>
+            </> : <p role="status" className="text-sm text-muted-foreground">Lane health is unavailable.</p>}
+            <details className="space-y-3">
+                <summary className="cursor-pointer text-sm font-medium">Advanced trace comparisons</summary>
+                <Card className="space-y-3 p-4">
+                    <p className="text-sm text-muted-foreground">Enter the content ID above. These checks compare a frozen Pods session or client rendition.</p>
+                    <div className="grid gap-2 lg:grid-cols-[1fr_1fr_auto]">
+                        <Input aria-label="Frozen session UUID" value={sessionId} onChange={event => { setSessionId(event.target.value); trace.reset(); }} placeholder="Frozen session UUID (optional)" />
+                        <Input aria-label="Client rendition digest" value={playbackDigest} onChange={event => { setPlaybackDigest(event.target.value); trace.reset(); }} placeholder="Client rendition digest (optional)" />
+                        <Button variant="outline" disabled={!isRecordId(contentId.trim()) || trace.isPending} onClick={() => trace.mutate({ contentId: contentId.trim(), sessionId, playbackDigest })}>
+                            <FileSearch className="me-2 size-4" />Run comparison
+                        </Button>
+                    </div>
+                    {trace.data && <TraceResult trace={trace.data} />}
+                    {trace.isError && <p role="alert" className="text-sm text-destructive">The CMS comparison could not be loaded.</p>}
+                </Card>
+            </details>
         </div>
     );
 }

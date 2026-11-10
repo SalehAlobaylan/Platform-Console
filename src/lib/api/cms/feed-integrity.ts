@@ -196,6 +196,8 @@ export const listFeedIntegrityEpisodes = () =>
       `${BASE}/episodes`
     )
   );
+export const getFeedIntegrityEpisode = (id: string, signal: AbortSignal) =>
+  unwrap(cmsClient.get<Envelope<FeedIntegrityEpisode>>(`${BASE}/episodes/${encodeURIComponent(id)}`, undefined, signal));
 export const closeFeedIntegrityEpisode = (
   id: string,
   reason_class: string,

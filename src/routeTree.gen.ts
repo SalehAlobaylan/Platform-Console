@@ -79,6 +79,7 @@ import { Route as DashboardPlatformNewsSourcesRouteImport } from './routes/_dash
 import { Route as DashboardPlatformSourcesIdRouteImport } from './routes/_dashboard.platform_.sources_.$id'
 import { Route as DashboardPlatformSourcesNewRouteImport } from './routes/_dashboard.platform_.sources_.new'
 import { Route as ApiAuthPasskeysRemoveRouteImport } from './routes/api.auth.passkeys.remove'
+import { Route as DashboardPlatformContentIdDeliveryRouteImport } from './routes/_dashboard.platform_.content_.$id_.delivery'
 import { Route as DashboardPlatformMediaSourcesNewRouteImport } from './routes/_dashboard.platform_.media_.sources_.new'
 import { Route as ApiAuthPasskeysAuthenticationBeginRouteImport } from './routes/api.auth.passkeys.authentication.begin'
 import { Route as ApiAuthPasskeysAuthenticationFinishRouteImport } from './routes/api.auth.passkeys.authentication.finish'
@@ -479,6 +480,12 @@ const ApiAuthPasskeysRemoveRoute = ApiAuthPasskeysRemoveRouteImport.update({
   path: '/remove',
   getParentRoute: () => ApiAuthPasskeysRoute,
 } as any)
+const DashboardPlatformContentIdDeliveryRoute =
+  DashboardPlatformContentIdDeliveryRouteImport.update({
+    id: '/platform_/content_/$id_/delivery',
+    path: '/platform/content/$id/delivery',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardPlatformMediaSourcesNewRoute =
   DashboardPlatformMediaSourcesNewRouteImport.update({
     id: '/platform_/media_/sources_/new',
@@ -586,6 +593,7 @@ export interface FileRoutesByFullPath {
   '/platform/sources/$id': typeof DashboardPlatformSourcesIdRoute
   '/platform/sources/new': typeof DashboardPlatformSourcesNewRoute
   '/api/auth/passkeys/remove': typeof ApiAuthPasskeysRemoveRoute
+  '/platform/content/$id/delivery': typeof DashboardPlatformContentIdDeliveryRoute
   '/platform/media/sources/new': typeof DashboardPlatformMediaSourcesNewRoute
   '/api/auth/passkeys/authentication/begin': typeof ApiAuthPasskeysAuthenticationBeginRoute
   '/api/auth/passkeys/authentication/finish': typeof ApiAuthPasskeysAuthenticationFinishRoute
@@ -663,6 +671,7 @@ export interface FileRoutesByTo {
   '/platform/sources/$id': typeof DashboardPlatformSourcesIdRoute
   '/platform/sources/new': typeof DashboardPlatformSourcesNewRoute
   '/api/auth/passkeys/remove': typeof ApiAuthPasskeysRemoveRoute
+  '/platform/content/$id/delivery': typeof DashboardPlatformContentIdDeliveryRoute
   '/platform/media/sources/new': typeof DashboardPlatformMediaSourcesNewRoute
   '/api/auth/passkeys/authentication/begin': typeof ApiAuthPasskeysAuthenticationBeginRoute
   '/api/auth/passkeys/authentication/finish': typeof ApiAuthPasskeysAuthenticationFinishRoute
@@ -742,6 +751,7 @@ export interface FileRoutesById {
   '/_dashboard/platform_/sources_/$id': typeof DashboardPlatformSourcesIdRoute
   '/_dashboard/platform_/sources_/new': typeof DashboardPlatformSourcesNewRoute
   '/api/auth/passkeys/remove': typeof ApiAuthPasskeysRemoveRoute
+  '/_dashboard/platform_/content_/$id_/delivery': typeof DashboardPlatformContentIdDeliveryRoute
   '/_dashboard/platform_/media_/sources_/new': typeof DashboardPlatformMediaSourcesNewRoute
   '/api/auth/passkeys/authentication/begin': typeof ApiAuthPasskeysAuthenticationBeginRoute
   '/api/auth/passkeys/authentication/finish': typeof ApiAuthPasskeysAuthenticationFinishRoute
@@ -821,6 +831,7 @@ export interface FileRouteTypes {
     | '/platform/sources/$id'
     | '/platform/sources/new'
     | '/api/auth/passkeys/remove'
+    | '/platform/content/$id/delivery'
     | '/platform/media/sources/new'
     | '/api/auth/passkeys/authentication/begin'
     | '/api/auth/passkeys/authentication/finish'
@@ -898,6 +909,7 @@ export interface FileRouteTypes {
     | '/platform/sources/$id'
     | '/platform/sources/new'
     | '/api/auth/passkeys/remove'
+    | '/platform/content/$id/delivery'
     | '/platform/media/sources/new'
     | '/api/auth/passkeys/authentication/begin'
     | '/api/auth/passkeys/authentication/finish'
@@ -976,6 +988,7 @@ export interface FileRouteTypes {
     | '/_dashboard/platform_/sources_/$id'
     | '/_dashboard/platform_/sources_/new'
     | '/api/auth/passkeys/remove'
+    | '/_dashboard/platform_/content_/$id_/delivery'
     | '/_dashboard/platform_/media_/sources_/new'
     | '/api/auth/passkeys/authentication/begin'
     | '/api/auth/passkeys/authentication/finish'
@@ -1501,6 +1514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthPasskeysRemoveRouteImport
       parentRoute: typeof ApiAuthPasskeysRoute
     }
+    '/_dashboard/platform_/content_/$id_/delivery': {
+      id: '/_dashboard/platform_/content_/$id_/delivery'
+      path: '/platform/content/$id/delivery'
+      fullPath: '/platform/content/$id/delivery'
+      preLoaderRoute: typeof DashboardPlatformContentIdDeliveryRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/platform_/media_/sources_/new': {
       id: '/_dashboard/platform_/media_/sources_/new'
       path: '/platform/media/sources/new'
@@ -1593,6 +1613,7 @@ interface DashboardRouteChildren {
   DashboardPlatformNewsSourcesRoute: typeof DashboardPlatformNewsSourcesRoute
   DashboardPlatformSourcesIdRoute: typeof DashboardPlatformSourcesIdRoute
   DashboardPlatformSourcesNewRoute: typeof DashboardPlatformSourcesNewRoute
+  DashboardPlatformContentIdDeliveryRoute: typeof DashboardPlatformContentIdDeliveryRoute
   DashboardPlatformMediaSourcesNewRoute: typeof DashboardPlatformMediaSourcesNewRoute
 }
 
@@ -1652,6 +1673,8 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPlatformNewsSourcesRoute: DashboardPlatformNewsSourcesRoute,
   DashboardPlatformSourcesIdRoute: DashboardPlatformSourcesIdRoute,
   DashboardPlatformSourcesNewRoute: DashboardPlatformSourcesNewRoute,
+  DashboardPlatformContentIdDeliveryRoute:
+    DashboardPlatformContentIdDeliveryRoute,
   DashboardPlatformMediaSourcesNewRoute: DashboardPlatformMediaSourcesNewRoute,
 }
 

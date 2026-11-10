@@ -1,7 +1,15 @@
 'use client';
 import Link from '@/lib/console-link';
+import { useRouter, useSearchParams } from '@/lib/navigation';
+import { queueViewFilters, queueViewHref } from '@/lib/saved-console-views';
+import { SaveQueueView } from '@/components/shared/save-queue-view';
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Input } from '@/components/ui/input';
+import { useAuthStore } from '@/lib/stores/auth';
+import { updateOpsHandoff, type OpsAttentionItem, type OpsHandoff } from '@/lib/api/cms/operations';
 import {
+  opsKeys,
   useAckOpsAttention,
   useClearOpsAttention,
   useOpsAttention,
@@ -31,13 +39,18 @@ export function AttentionInbox({
   locale: OpsLocale;
   t: OpsCopy;
 }) {
-  const [filters, setFilters] = useState<OpsFilters>({
-    state: '',
-    limit: 10,
-    offset: 0,
+  const params = useSearchParams();
+  const router = useRouter();
+  const applied = queueViewFilters('operations', params);
+  const offset = Number(params.get('ops_offset') ?? '0');
+  const filters: OpsFilters = {
+    state: '', limit: 10, offset: Number.isSafeInteger(offset) && offset >= 0 && offset <= 100000 ? offset : 0,
     include_acked: true,
-  });
+    ...applied,
+    ...(applied.state ? { include_snoozed: ['all', 'snoozed'].includes(applied.state) } : {}),
+  };
   const query = useOpsAttention(filters);
+  const tenant = useAuthStore(state => state.user?.tenant_id);
   const now = useOpsClock();
   const fresh =
     !!query.data && !query.isError && opsSnapshotFresh(query.data.as_of, now);
@@ -46,15 +59,12 @@ export function AttentionInbox({
   const clear = useClearOpsAttention();
   const pending = ack.isPending || snooze.isPending || clear.isPending;
   const setFilter = (field: keyof OpsFilters, value: string) =>
-    setFilters((old) => ({
-      ...old,
-      [field]: value,
-      offset: 0,
-      include_snoozed:
-        field === 'state'
-          ? ['all', 'snoozed'].includes(value)
-          : old.include_snoozed,
-    }));
+    router.push(queueViewHref('operations', { ...applied, [field]: value }, locale), { scroll: false });
+  const setOffset = (next: number) => {
+    const url = new URL(queueViewHref('operations', applied, locale), window.location.origin);
+    if (next > 0) url.searchParams.set('ops_offset', String(next));
+    router.push(url.pathname + url.search + url.hash, { scroll: false });
+  };
   const systems = Array.from(
     new Map(fleet.map((row) => [row.member_key, row.member_label])).entries()
   );
@@ -140,6 +150,10 @@ export function AttentionInbox({
             </label>
           ))}
         </div>
+        <div className="flex flex-wrap gap-2">
+          <SaveQueueView surface="operations" filters={applied} locale={locale} />
+          {Object.keys(applied).length > 0 && <Button size="sm" variant="ghost" onClick={() => router.push(queueViewHref('operations', {}, locale), { scroll: false })}>{t('Reset filters', 'مسح عوامل التصفية')}</Button>}
+        </div>
         {query.isLoading && (
           <p role="status">
             {t('Loading attention…', 'جارٍ تحميل التنبيهات…')}
@@ -199,7 +213,7 @@ export function AttentionInbox({
                 )}
               </div>
               <Link
-                href={item.href}
+                href={item.issue_href ?? item.href}
                 className="block font-medium underline-offset-4 hover:underline"
                 dir="auto"
               >
@@ -250,8 +264,13 @@ export function AttentionInbox({
                     {t('Restore to active', 'إعادة إلى النشط')}
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" render={<Link href={item.href}>{t('Open owner', 'افتح النظام')}</Link>} />
+                <Button size="sm" variant="ghost" render={<Link href={item.issue_href ?? item.href}>{item.issue_href ? t('Open issue', 'افتح المشكلة') : t('Open system', 'افتح النظام')}</Link>} />
               </div>
+              {query.data?.handoffs_available && tenant === item.tenant_id && item.system === 'feed_integrity' && item.kind === 'episode' && (() => {
+                const id = item.key.split(':').at(-1) ?? '';
+                return <HandoffControl item={item} id={id} fresh={fresh} row={query.data.handoffs?.find(value => value.episode_id === id)} onRefresh={() => void query.refetch()} />;
+              })()}
+
             </article>
           );
         })}
@@ -269,11 +288,46 @@ export function AttentionInbox({
             limit={10}
             total={query.data.total}
             more={query.data.has_more}
-            onChange={(offset) => setFilters((old) => ({ ...old, offset }))}
+            onChange={setOffset}
             t={t}
           />
         )}
       </CardContent>
     </Card>
   );
+}
+
+function HandoffControl({ item, id, fresh, row, onRefresh }: {
+  item: OpsAttentionItem; id: string; fresh: boolean; row?: OpsHandoff; onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [step, setStep] = useState('');
+  const [check, setCheck] = useState('');
+  const client = useQueryClient();
+  const update = useMutation({
+    mutationFn: updateOpsHandoff,
+    onSuccess: () => { setEditing(false); void client.invalidateQueries({ queryKey: opsKeys.all }); onRefresh(); },
+    onError: onRefresh,
+  });
+  const save = (action: 'claim' | 'update' | 'release') => {
+    if (!fresh || update.isPending) return;
+    const date = new Date(check);
+    if (action !== 'release' && (!step.trim() || !Number.isFinite(date.getTime()))) return;
+    update.mutate({
+      episode_id: id, fingerprint: item.fingerprint, severity: item.severity,
+      revision: row?.revision ?? 0, action,
+      ...(action === 'release' ? {} : { next_step: step.trim(), next_check: date.toISOString() }),
+    });
+  };
+  return <section className="space-y-2 border-t pt-2 text-sm" aria-label="Issue handoff">
+    {row?.owner ? <p><strong>{row.owner}</strong> · {row.next_step} · {row.next_check ? new Date(row.next_check).toLocaleString() : 'No check time'}</p> : <p>Unclaimed</p>}
+    {(!row?.owner || row.mine) && <Button size="sm" variant="outline" disabled={!fresh || update.isPending} onClick={() => { setStep(row?.next_step ?? ''); setCheck(''); setEditing(value => !value); }}>{row?.owner ? 'Edit handoff' : 'Claim issue'}</Button>}
+    {row?.mine && <Button size="sm" variant="ghost" disabled={!fresh || update.isPending} onClick={() => save('release')}>Release issue</Button>}
+    {editing && (!row?.owner || row.mine) && <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); save(row?.mine ? 'update' : 'claim'); }}>
+      <label className="space-y-1">Next step<Input value={step} required maxLength={500} onChange={event => setStep(event.target.value)} /></label>
+      <label className="space-y-1">Next check<Input type="datetime-local" required value={check} onChange={event => setCheck(event.target.value)} /></label>
+      <Button type="submit" size="sm" disabled={!fresh || update.isPending}>Save handoff</Button>
+    </form>}
+    {update.isError && <p role="alert">{update.error.message}</p>}
+  </section>;
 }

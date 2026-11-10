@@ -7,6 +7,7 @@ import Page from '@/app/(dashboard)/platform/news/page';
 const queryValue = z.union([z.string(), z.array(z.string())]).optional();
 const search = z.object({
     view: queryValue,
+    story: queryValue,
     status: queryValue,
     type: queryValue,
 }).passthrough();

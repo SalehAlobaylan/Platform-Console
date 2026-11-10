@@ -48,6 +48,58 @@ test.describe('Media episode journey', () => {
         expect(writes[0]).not.toContain('/apply');
     });
 
+    test('reviews tenant policy changes and retains the draft after a revision conflict', async ({ page }) => {
+        const policy = {
+            chaptering_enabled: true, auto_publish_high_confidence: false, preserve_video: true,
+            remove_sponsor_segments: false, high_confidence_threshold: 0.8, max_chapters_per_parent: 10,
+            min_feed_unit_seconds: 270, atomization_min_parent_seconds: 2400,
+        };
+        const revisions = ['2026-09-13T12:00:00Z', '2026-09-13T12:01:00Z', '2026-09-13T12:02:00Z'];
+        const writes: unknown[] = [];
+        await page.route('**/media-atomization/policy', async route => {
+            if (route.request().method() === 'GET') {
+                return route.fulfill({ json: { data: { policy, updated_at: revisions[writes.length] } } });
+            }
+            expect(route.request().method()).toBe('PATCH');
+            writes.push(route.request().postDataJSON());
+            if (writes.length === 1) {
+                policy.max_chapters_per_parent = 12;
+                return route.fulfill({ status: 409, json: { message: 'Policy revision changed' } });
+            }
+            policy.max_chapters_per_parent = 15;
+            return route.fulfill({ json: { data: { policy, updated_at: revisions[2] } } });
+        });
+
+        await page.goto('/platform/media/atomization?tab=policy');
+        const maxChapters = page.getByRole('spinbutton', { name: 'Max chapters' });
+        const save = page.getByRole('button', { name: 'Save changes' });
+        await expect(maxChapters).toHaveValue('10');
+        await maxChapters.fill('');
+        await maxChapters.press('Tab');
+        await expect(save).toBeDisabled();
+        await maxChapters.fill('14');
+        await maxChapters.press('Tab');
+        await expect(page.getByText('Max chapters: 10 → 14')).toBeVisible();
+        await page.getByRole('button', { name: 'Discard changes' }).click();
+        await expect(maxChapters).toHaveValue('10');
+        expect(writes).toHaveLength(0);
+
+        await maxChapters.fill('15');
+        await save.click();
+        await expect(page.getByText(/The saved policy changed/)).toBeVisible();
+        await expect(maxChapters).toHaveValue('15');
+        await expect(save).toBeDisabled();
+        await expect(page.getByText('Max chapters: 12 → 15')).toBeVisible();
+        await page.getByRole('button', { name: 'Use latest baseline' }).click();
+        await save.click();
+        await expect(page.getByText('Atomization policy updated')).toBeVisible();
+        await expect(save).toBeDisabled();
+        expect(writes).toEqual([
+            { max_chapters_per_parent: 15, expected_updated_at: revisions[0] },
+            { max_chapters_per_parent: 15, expected_updated_at: revisions[1] },
+        ]);
+    });
+
     test('application confirms the exact draft and reports queued rather than started', async ({ page }) => {
         const plan = [{ title: 'First', start_ms: 0, end_ms: 1500000, source: 'manual' }, { title: 'Second', start_ms: 1500000, end_ms: 3000000, source: 'manual' }];
         const requestID = 'fixture-apply-request';

@@ -99,6 +99,14 @@ const draftSchema = z
     locale: z.enum(['en', 'ar']).optional(),
   })
   .strict();
+const recentSchema = z.object({
+  kind: z.enum(['source', 'story', 'episode']),
+  id: z.string().uuid(),
+  title: z.string().min(1).max(240),
+  context: z.string().max(120).optional(),
+}).strict();
+export type RecentConsoleRecord = z.infer<typeof recentSchema>;
+
 const snapshotSchema = z
   .object({
     owner: z.string(),
@@ -109,6 +117,7 @@ const snapshotSchema = z
     locale: z.enum(['en', 'ar']),
     operatorTabs: z.array(tabSchema).max(limit).default([]),
     closedOperatorTabs: z.array(tabSchema).max(10).default([]),
+    recent: z.array(recentSchema).max(5).default([]),
   })
   .strict();
 function bounded<T>(values: Record<string, T>, size = limit) {
@@ -116,6 +125,7 @@ function bounded<T>(values: Record<string, T>, size = limit) {
 }
 const defaults = () => ({
   consoleHref: '/',
+  recent: [] as RecentConsoleRecord[],
   operatorHref: OPERATOR_PATH,
   consoleScroll: {} as Record<string, number>,
   drafts: {} as Record<string, OperatorDraftSnapshot>,
@@ -130,6 +140,7 @@ type WorkspaceSession = ReturnType<typeof defaults> & {
   focusAfterSwitch?: 'console' | 'operator';
   setOwner: (owner?: string) => void;
   visit: (href: string) => void;
+  recordRecent: (record: RecentConsoleRecord) => void;
   saveConsoleScroll: (href: string, scroll: number) => void;
   saveDrafts: (drafts: Record<string, OperatorDraftSnapshot>) => void;
   setLocale: (locale: 'en' | 'ar') => void;
@@ -163,6 +174,7 @@ export const useWorkspaceSession = create<WorkspaceSession>((set, get) => {
       locale,
       operatorTabs,
       closedOperatorTabs,
+      recent,
     } = get();
     if (!owner || typeof window === 'undefined') return;
     try {
@@ -177,6 +189,7 @@ export const useWorkspaceSession = create<WorkspaceSession>((set, get) => {
           locale,
           operatorTabs,
           closedOperatorTabs,
+          recent,
         })
       );
     } catch {}
@@ -216,6 +229,15 @@ export const useWorkspaceSession = create<WorkspaceSession>((set, get) => {
       const key = operator ? 'operatorHref' : 'consoleHref';
       if (get()[key] === href) return;
       set({ [key]: href });
+      save();
+    },
+    recordRecent: (record) => {
+      const { owner, recent } = get();
+      if (!owner || !recentSchema.safeParse(record).success) return;
+      const previous = recent[0];
+      if (previous?.kind === record.kind && previous.id === record.id &&
+          previous.title === record.title && previous.context === record.context) return;
+      set({ recent: [record, ...recent.filter(item => item.kind !== record.kind || item.id !== record.id)].slice(0, 5) });
       save();
     },
     saveConsoleScroll: (href, scroll) => {

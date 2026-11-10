@@ -38,3 +38,29 @@ it('sends one reviewed request and keeps a failed commit visible', async () => {
     expect(confirm).toBeEnabled();
     expect(onClose).not.toHaveBeenCalled();
 });
+
+it('blocks a failed preview and uses only the review that supplied the displayed count', async () => {
+    const user = userEvent.setup();
+    const onClose = jest.fn();
+    const oldApply = jest.fn().mockResolvedValue(undefined);
+    const currentApply = jest.fn().mockResolvedValue(undefined);
+    let resolveOld!: (result: { count: number; apply: () => Promise<unknown> }) => void;
+    const oldPreview = () => new Promise<{ count: number; apply: () => Promise<unknown> }>(resolve => { resolveOld = resolve; });
+    const { rerender } = render(<BulkConfirmDialog onClose={onClose} config={{
+        title: 'Delete matching items', actionLabel: 'Delete', destructive: true, preview: oldPreview,
+    }} />);
+    const currentPreview = jest.fn()
+        .mockRejectedValueOnce(new Error('Unavailable'))
+        .mockResolvedValueOnce({ count: 4, apply: currentApply });
+    rerender(<BulkConfirmDialog onClose={onClose} config={{
+        title: 'Delete matching items', actionLabel: 'Delete', destructive: true, preview: currentPreview,
+    }} />);
+    const retry = await screen.findByRole('button', { name: 'Retry preview' });
+    expect(screen.getByRole('button', { name: /^Delete$/ })).toBeDisabled();
+    await user.click(retry);
+    const reviewed = await screen.findByRole('button', { name: 'Delete 4' });
+    await act(async () => resolveOld({ count: 6, apply: oldApply }));
+    await user.click(reviewed);
+    expect(oldApply).not.toHaveBeenCalled();
+    expect(currentApply).toHaveBeenCalledTimes(1);
+});

@@ -1,6 +1,8 @@
 'use client';
 import { Suspense, useState } from 'react';
-import { usePathname, useSearchParams } from '@/lib/navigation';
+import { CopyConsoleLink } from '@/components/shared/copy-console-link';
+import { isRecordId } from '@/lib/operator-destinations';
+import { usePathname, useRouter, useSearchParams } from '@/lib/navigation';
 import Link from '@/lib/console-link';
 import {
   ArrowRight,
@@ -118,10 +120,13 @@ function RealExperienceWorkspace() {
   const client: ExperienceClient =
     clients.find((item) => item.value === search.get('client'))?.value || 'web';
   const view = views.find((item) => item === search.get('tab')) || 'overview';
+  const router = useRouter();
   const navigate = (key: string, value: string) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set(key, value);
-    window.history.replaceState(window.history.state, '', `${pathname}?${params.toString()}`);
+    const params = new URLSearchParams(search.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    if (key === 'client') params.delete('incident');
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
   const status = hooks.useExperienceStatus();
   const metrics = hooks.useExperienceMetrics(client);
@@ -166,10 +171,14 @@ function RealExperienceWorkspace() {
     resolution,
     ...(cursor ? { before_id: cursor } : {}),
   });
-  const [selected, setSelected] = useState<{
-    kind: 'incident' | 'run';
-    id: string;
-  } | null>(null);
+  const [selectedRun, setSelectedRun] = useState<string | undefined>();
+  const incident = search.get('incident');
+  const selected = isRecordId(incident) ? { kind: 'incident' as const, id: incident }
+    : selectedRun ? { kind: 'run' as const, id: selectedRun } : null;
+  const setSelected = (target: { kind: 'incident' | 'run'; id: string } | null) => {
+    setSelectedRun(target?.kind === 'run' ? target.id : undefined);
+    if (target?.kind === 'incident' || incident) navigate('incident', target?.kind === 'incident' ? target.id : '');
+  };
   const detail = hooks.useExperienceEvidence<{
     incident?: ExperienceIncident;
     run?: ExperienceRun;
@@ -233,7 +242,7 @@ function RealExperienceWorkspace() {
   );
   const selectedIncident =
     selected?.kind === 'incident'
-      ? detail.data?.incident || sorted.find((item) => item.id === selected.id)
+      ? detail.data?.incident?.id === selected.id ? detail.data.incident : undefined
       : undefined;
   const beginException = (
     kind: 'close' | 'suppress',
@@ -991,6 +1000,7 @@ function RealExperienceWorkspace() {
             />
             {selectedIncident && (
               <>
+                <CopyConsoleLink key={client + ':' + selectedIncident.id} href={'/platform/real-experience?client=' + client + '&incident=' + selectedIncident.id} />
                 <div className="flex flex-wrap gap-4">
                   <StatusLabel value={selectedIncident.severity} />
                   <StatusLabel value={selectedIncident.status} />

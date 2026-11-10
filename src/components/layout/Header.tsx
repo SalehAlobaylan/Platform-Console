@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { FindAndJump } from './find-and-jump';
 import { Breadcrumb } from './Breadcrumb';
 import { WorkspaceHeader } from './workspace-header';
 import { useWorkspaceSession } from '@/lib/stores/workspace-session';
@@ -16,7 +17,7 @@ export function Header({ className }: HeaderProps) {
   const openNavigation = useUIStore((state) => state.setMobileSidebarOpen);
 
   return (
-    <WorkspaceHeader workspace="console" locale={locale} className={className}>
+    <WorkspaceHeader workspace="console" locale={locale} className={className} actions={<FindAndJump />}>
       <Button
         id="console-navigation-trigger"
         variant="ghost"

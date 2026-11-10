@@ -16,6 +16,7 @@ const readPublicRuntime = createServerFn().handler(() => {
     }
     return {
         runtimeId,
+        environmentId: process.env.WAHB_ENVIRONMENT_ID ?? '',
         grafanaUrl: process.env.GRAFANA_URL ?? process.env.NEXT_PUBLIC_GRAFANA_URL ?? '',
         localQuickSignIn: Boolean(localQuickSignInCredentials(getRequest())),
     };
@@ -31,6 +32,7 @@ export const Route = createRootRoute({
             { title: 'Platform Console' },
             { name: 'description', content: 'Wahb Platform Admin Console' },
             { name: 'wahb-runtime-id', content: loaderData?.runtimeId ?? '' },
+            { name: 'wahb-environment-id', content: loaderData?.environmentId ?? '' },
             { name: 'wahb-grafana-url', content: loaderData?.grafanaUrl ?? '' },
         ],
         links: [

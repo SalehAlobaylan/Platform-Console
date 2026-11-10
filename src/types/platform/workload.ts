@@ -204,6 +204,7 @@ export interface WorkloadPolicyUpdate {
   confirmation?: string;
 }
 export interface WorkloadFilters {
+  policy_revision?: number;
   class?: string;
   system?: string;
   tenant?: string;

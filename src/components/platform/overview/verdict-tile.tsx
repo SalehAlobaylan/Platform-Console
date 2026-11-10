@@ -23,10 +23,10 @@ export function VerdictTile({ href, title, verdict, detail, loading, isError, tr
     const unavailable = isError || (!loading && verdict == null && detail == null);
     const showTrend = !loading && !unavailable && (trend?.length ?? 0) >= 2;
     return (
-        <Link href={href} data-testid={`verdict-tile-${title}`}>
+        <Link href={href} data-testid={`verdict-tile-${title}`} className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Card className="h-full transition-colors hover:border-primary/30">
-                <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-2">
+                <CardContent className="px-3 py-2.5 sm:p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                         <p className="text-sm font-medium">{title}</p>
                         {loading ? (
                             <Skeleton className="h-5 w-16" />
@@ -36,8 +36,8 @@ export function VerdictTile({ href, title, verdict, detail, loading, isError, tr
                             </Badge>
                         )}
                     </div>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                        <div className="line-clamp-2 text-xs text-muted-foreground">
+                    <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-2 gap-y-1 sm:mt-2">
+                        <div className="line-clamp-2 min-w-0 flex-1 basis-24 break-words text-xs text-muted-foreground">
                             {loading ? null : unavailable ? 'Could not load status.' : detail}
                         </div>
                         {showTrend ? (

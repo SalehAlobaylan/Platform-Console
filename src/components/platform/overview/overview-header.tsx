@@ -17,15 +17,15 @@ export function OverviewHeader({ status, isLoading, isError }: OverviewHeaderPro
     return (
         <div>
             <p className="brand-overline text-muted-foreground">Wahb Platform</p>
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-                <h1 className="font-editorial text-3xl font-bold tracking-tight">Platform Overview</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:gap-x-3">
+                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Platform Overview</h1>
                 {status ? <Badge variant={tone(fresh ? status.headline : 'unknown')}>{label(fresh ? status.headline : 'unknown')}</Badge> : null}
             </div>
             {isLoading ? (
                 <Skeleton className="mt-2 h-4 w-96 max-w-full" />
             ) : (
-                <p className="mt-1 text-muted-foreground">
-                    {status && !fresh ? 'Live fleet evidence is unavailable or stale. Showing the last successful snapshot.' : status?.summary ?? 'Health, attention, and content flow across the platform.'}
+                <p className="mt-1 text-sm text-muted-foreground">
+                    {status && !fresh ? 'Live fleet evidence is unavailable or stale. Showing the last successful snapshot.' : status?.summary ?? 'Fleet evidence is unavailable.'}
                 </p>
             )}
             {status ? (
